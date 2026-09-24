@@ -1,37 +1,36 @@
 import {
   Plugin,
-} from "siyuan";
+} from "siyuan"
 import { createApp } from 'vue'
 import App from './App.vue'
 
-let plugin = null
+let plugin: Plugin | null = null
 export function usePlugin(pluginProps?: Plugin): Plugin {
-  console.log('usePlugin', pluginProps, plugin)
   if (pluginProps) {
     plugin = pluginProps
   }
   if (!plugin && !pluginProps) {
     console.error('need bind plugin')
   }
-  return plugin;
+  return plugin!
 }
 
 
-let app = null
-export function init(plugin: Plugin) {
+let app: any = null
+export function init(currentPlugin: Plugin) {
   // bind plugin hook
-  usePlugin(plugin);
+  usePlugin(currentPlugin)
 
   const div = document.createElement('div')
-  div.classList.toggle('plugin-sample-vite-vue-app')
-  div.id = this.name
+  div.classList.add('icon8-sync-app')
+  div.id = currentPlugin.name
   app = createApp(App)
   app.mount(div)
   document.body.appendChild(div)
 }
 
 export function destroy() {
-  app.unmount()
-  const div = document.getElementById(this.name)
-  document.body.removeChild(div)
+  app?.unmount()
+  const div = document.getElementById(plugin?.name ?? 'icon8-sync')
+  div?.remove()
 }

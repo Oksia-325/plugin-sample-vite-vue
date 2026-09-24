@@ -1,0 +1,218 @@
+{% extends "layout.html" %}
+
+{% block title %}同步中 - Icon Crawler{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-4">
+    <div class="max-w-4xl mx-auto animate-slide-up">
+        <!-- 头部 -->
+        <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg shadow-primary/30">
+                    <svg class="w-6 h-6 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">正在同步</h1>
+                    <p id="sync-status-text" class="text-sm text-gray-500">准备中...</p>
+                </div>
+            </div>
+
+            <!-- 整体进度 -->
+            <div class="text-right">
+                <div id="overall-progress-text" class="text-3xl font-bold text-primary">0%</div>
+                <div class="text-sm text-gray-500">总体进度</div>
+            </div>
+        </div>
+
+        <!-- 总体进度条 -->
+        <div class="mb-8">
+            <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div id="overall-progress-bar" class="h-full bg-gradient-to-r from-primary to-primary-light rounded-full transition-all duration-500 progress-glow" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- 统计概览 -->
+        <div class="grid grid-cols-4 gap-4 mb-8">
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-4 shadow-sm border border-gray-100">
+                <div id="stat-collections" class="text-2xl font-bold text-gray-800">0</div>
+                <div class="text-sm text-gray-500">收藏夹</div>
+            </div>
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-4 shadow-sm border border-gray-100">
+                <div id="stat-total" class="text-2xl font-bold text-blue-600">0</div>
+                <div class="text-sm text-gray-500">云端图标</div>
+            </div>
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-4 shadow-sm border border-gray-100">
+                <div id="stat-downloaded" class="text-2xl font-bold text-green-600">0</div>
+                <div class="text-sm text-gray-500">已下载</div>
+            </div>
+            <div class="bg-white/80 backdrop-blur rounded-2xl p-4 shadow-sm border border-gray-100">
+                <div id="stat-failed" class="text-2xl font-bold text-red-600">0</div>
+                <div class="text-sm text-gray-500">失败</div>
+            </div>
+        </div>
+
+        <!-- 收藏夹进度列表 -->
+        <div class="bg-white/80 backdrop-blur rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h3 class="font-semibold text-gray-800">收藏夹进度</h3>
+            </div>
+            <div id="collections-list" class="p-4 grid grid-cols-2 gap-3 max-h-[600px] overflow-y-auto">
+                <div class="text-center py-8 text-gray-500">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                    </svg>
+                    正在加载收藏夹列表...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 连接 SSE 流
+const evtSource = new EventSource('/api/sync/stream');
+
+// 状态跟踪
+let lastData = null;
+
+// 创建收藏夹卡片
+function createCollectionCard(collection) {
+    const statusColors = {
+        pending: 'bg-gray-100 text-gray-600',
+        syncing: 'bg-amber-100 text-amber-700',
+        completed: 'bg-green-100 text-green-700',
+        error: 'bg-red-100 text-red-700'
+    };
+
+    const statusLabels = {
+        pending: '等待中',
+        syncing: '同步中',
+        completed: '已完成',
+        error: '出错'
+    };
+
+    const progressPercent = collection.cloud_count > 0
+        ? Math.round(((collection.downloaded + collection.local_count) / collection.cloud_count) * 100)
+        : 0;
+
+    return `
+        <div class="bg-gradient-to-r from-white to-gray-50/80 rounded-2xl p-4 border border-gray-100 shadow-sm" id="coll-${collection.collection_id}">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                    </svg>
+                    <span class="font-semibold text-gray-800">${collection.collection_name}</span>
+                </div>
+                <span class="px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[collection.status] || statusColors.pending}">
+                    ${statusLabels[collection.status] || statusLabels.pending}
+                </span>
+            </div>
+            <div class="flex items-center gap-4 mb-3 text-sm">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span class="text-gray-500">云端:</span>
+                    <span class="font-medium text-gray-700">${collection.cloud_count || 0}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+                    <span class="text-gray-500">本地:</span>
+                    <span class="font-medium text-gray-700">${collection.local_count || 0}</span>
+                </div>
+                ${(collection.new_count > 0) ? `
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                    <span class="text-gray-500">新增:</span>
+                    <span class="font-medium text-green-600">${collection.new_count}</span>
+                </div>
+                ` : ''}
+            </div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-primary to-primary-light rounded-full transition-all duration-500 progress-glow"
+                     style="width: ${progressPercent}%"></div>
+            </div>
+        </div>
+    `;
+}
+
+// 更新收藏夹列表
+function updateCollectionsList(collections) {
+    const container = document.getElementById('collections-list');
+    
+    if (!collections || collections.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-500 col-span-2">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                </svg>
+                等待同步开始...
+            </div>
+        `;
+        return;
+    }
+
+    // 对收藏夹进行排序：未完成的排在前面，已完成的排在后面
+     const sortedCollections = [...collections].sort((a, b) => {
+         const aCompleted = a.status === 'completed';
+         const bCompleted = b.status === 'completed';
+         if (aCompleted === bCompleted) return 0;
+         return aCompleted ? 1 : -1;  // 已完成的排在后面
+     });
+
+    // 渲染所有收藏夹
+    container.innerHTML = sortedCollections.map(coll => createCollectionCard(coll)).join('');
+}
+
+// 更新统计信息
+function updateStats(progress) {
+    document.getElementById('stat-collections').textContent = progress.completed_collections || 0;
+    document.getElementById('stat-total').textContent = progress.total_icons || 0;
+    document.getElementById('stat-downloaded').textContent = progress.downloaded_icons || 0;
+    document.getElementById('stat-failed').textContent = progress.failed_icons || 0;
+
+    // 计算总体进度
+    const totalProgress = progress.total_icons > 0
+        ? Math.round((progress.downloaded_icons / progress.total_icons) * 100)
+        : 0;
+    
+    document.getElementById('overall-progress-text').textContent = totalProgress + '%';
+    document.getElementById('overall-progress-bar').style.width = totalProgress + '%';
+    document.getElementById('sync-status-text').textContent = progress.current_message || '同步中...';
+}
+
+// 处理 SSE 消息
+evtSource.onmessage = (event) => {
+    try {
+        const data = JSON.parse(event.data);
+        
+        // 检查是否完成
+        if (data.done) {
+            evtSource.close();
+            window.location.href = '/result';
+            return;
+        }
+        
+        // 更新状态
+        if (data.progress) {
+            updateStats(data.progress);
+        }
+        
+        if (data.progress && data.progress.collections) {
+            updateCollectionsList(data.progress.collections);
+        }
+        
+        lastData = data;
+    } catch (e) {
+        console.error('解析 SSE 数据出错:', e);
+    }
+};
+
+evtSource.onerror = (error) => {
+    console.error('SSE 连接错误:', error);
+    evtSource.close();
+};
+</script>
+{% endblock %}

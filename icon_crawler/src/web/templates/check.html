@@ -1,0 +1,251 @@
+{% extends "layout.html" %}
+
+{% block title %}配置检查 - Icon Crawler{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg animate-slide-up">
+        <!-- 标题 -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark mb-4 shadow-lg shadow-primary/30">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">Icon Crawler</h1>
+            <p class="text-gray-500 mt-1">Icons8 图标同步工具</p>
+        </div>
+
+        <!-- 检查卡片 -->
+        <div class="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 overflow-hidden">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">启动检查</h2>
+
+                <!-- 检查项列表 -->
+                <div id="check-list" class="space-y-3">
+                    <!-- 网络连接 -->
+                    <div id="check-network" class="check-item flex items-center p-3 rounded-xl bg-gray-50/80 border border-gray-100">
+                        <div class="status-icon w-10 h-10 rounded-lg flex items-center justify-center mr-3 bg-gray-200 text-gray-400 transition-all duration-300 overflow-hidden flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-gray-800">网络连接</div>
+                            <div class="status-text text-sm text-gray-500 break-all" style="word-break: break-word;">等待检查...</div>
+                        </div>
+                    </div>
+
+                    <!-- 授权状态 -->
+                    <div id="check-auth" class="check-item flex items-center p-3 rounded-xl bg-gray-50/80 border border-gray-100">
+                        <div class="status-icon w-10 h-10 rounded-lg flex items-center justify-center mr-3 bg-gray-200 text-gray-400 transition-all duration-300 overflow-hidden flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-gray-800">授权状态</div>
+                            <div class="status-text text-sm text-gray-500 break-all" style="word-break: break-word;">等待检查...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 错误提示区域 -->
+                <div id="error-panel" class="hidden mt-4 p-4 rounded-xl bg-red-50 border border-red-200">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-medium text-red-800">检查失败</div>
+                            <div id="error-message" class="text-sm text-red-600 mt-1 break-all whitespace-pre-wrap overflow-hidden" style="word-break: break-word;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 配置编辑区域 -->
+                <div id="config-panel" class="hidden mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-amber-500 mt-0.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        <div class="flex-1">
+                            <div class="font-medium text-amber-800">需要配置</div>
+                            <div class="text-sm text-amber-600 mt-1">请编辑 src/config.json 文件，添加 authorization 配置</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部操作区 -->
+            <div class="px-6 py-4 bg-gray-50/80 border-t border-gray-100">
+                <div class="flex gap-3">
+                    <button
+                        id="btn-check"
+                        hx-get="/api/check"
+                        hx-target="#check-results"
+                        hx-swap="innerHTML"
+                        class="flex-1 py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-medium rounded-xl transition-all duration-200 shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group"
+                    >
+                        <svg class="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        开始检查
+                    </button>
+                    <button
+                        type="button"
+                        id="btn-start"
+                        onclick="startSync()"
+                        class="hidden flex-1 py-2.5 px-4 bg-gray-800 hover:bg-gray-900 text-white font-medium rounded-xl transition-all duration-200 shadow-lg flex items-center justify-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        开始同步
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="text-center mt-8 text-gray-400 text-sm">
+            <p>Icon Crawler v0.1.0</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// 检查流程控制
+let checkResults = { network: false, authorization: false };
+
+function updateCheckItem(id, status, message) {
+    const item = document.getElementById('check-' + id);
+    const icon = item.querySelector('.status-icon');
+    const text = item.querySelector('.status-text');
+
+    // 移除所有状态类
+    icon.classList.remove('bg-gray-200', 'text-gray-400', 'bg-amber-100', 'text-amber-600', 'bg-green-100', 'text-green-600', 'bg-red-100', 'text-red-600');
+    item.classList.remove('bg-gray-50/80', 'bg-amber-50/80', 'bg-green-50/80', 'bg-red-50/80');
+
+    if (status === 'checking') {
+        icon.classList.add('bg-amber-100', 'text-amber-600');
+        icon.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+        item.classList.add('bg-amber-50/80');
+    } else if (status === 'success') {
+        icon.classList.add('bg-green-100', 'text-green-600');
+        icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+        item.classList.add('bg-green-50/80');
+    } else if (status === 'error') {
+        icon.classList.add('bg-red-100', 'text-red-600');
+        icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+        item.classList.add('bg-red-50/80');
+    }
+
+    text.textContent = message;
+}
+
+// 执行检查
+async function runCheck() {
+    const btn = document.getElementById('btn-check');
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+    // 重置状态
+    checkResults = { network: false, authorization: false };
+    document.getElementById('error-panel').classList.add('hidden');
+    document.getElementById('btn-start').classList.add('hidden');
+
+    // 开始网络检查
+    updateCheckItem('network', 'checking', '正在检查网络连接...');
+
+    try {
+        const response = await fetch('/api/check');
+        const data = await response.json();
+
+        if (data.network) {
+            updateCheckItem('network', 'success', '网络连接正常');
+            checkResults.network = true;
+        } else {
+            updateCheckItem('network', 'error', data.error || '网络连接失败');
+        }
+
+        if (data.authorization) {
+            updateCheckItem('auth', 'success', '授权验证通过');
+            checkResults.authorization = true;
+        } else {
+            updateCheckItem('auth', 'error', data.error || '授权验证失败');
+        }
+
+        // 显示错误面板
+        if (!checkResults.network || !checkResults.authorization) {
+            document.getElementById('error-panel').classList.remove('hidden');
+            document.getElementById('error-message').textContent = data.error || '请检查配置后重试';
+        } else {
+            // 显示开始按钮
+            document.getElementById('btn-start').classList.remove('hidden');
+        }
+
+    } catch (error) {
+        updateCheckItem('network', 'error', '请求失败: ' + error.message);
+        document.getElementById('error-panel').classList.remove('hidden');
+        document.getElementById('error-message').textContent = error.message;
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+// 开始同步
+async function startSync() {
+    const btn = document.getElementById('btn-start');
+    btn.disabled = true;
+    btn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        正在启动...
+    `;
+
+    try {
+        const response = await fetch('/api/sync/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // 跳转到同步页面
+            window.location.href = '/sync';
+        } else {
+            alert('启动同步失败: ' + (data.error || '未知错误'));
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                开始同步
+            `;
+        }
+    } catch (error) {
+        alert('启动同步出错: ' + error.message);
+        btn.disabled = false;
+        btn.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            开始同步
+        `;
+    }
+}
+
+// 绑定事件
+document.getElementById('btn-check').addEventListener('click', runCheck);
+</script>
+{% endblock %}

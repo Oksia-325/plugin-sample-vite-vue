@@ -1,10 +1,10 @@
 {
-  "name": "plugin-sample-vite-vue",
-  "author": "wetoria",
-  "url": "https://github.com/siyuan-note/plugin-sample-vite-vue",
+  "name": "icon8-sync",
+  "author": "Oksia-325",
+  "url": "https://github.com/Oksia-325?tab=repositories",
   "version": "0.0.1",
-  "minAppVersion": "2.10.14",
-  "disabledInPublish": true,
+  "minAppVersion": "3.8.1",
+  "disabledInPublish": false,
   "backends": [
     "all"
   ],
@@ -12,24 +12,29 @@
     "all"
   ],
   "displayName": {
-    "default": "plugin-sample-vite-vue",
-    "en": "plugin-sample-vite-vue",
-    "zh-CN": "plugin-sample-vite-vue"
+    "default": "Icon8Sync",
+    "en_US": "Icon8Sync",
+    "zh_CN": "Icon8Sync"
   },
   "description": {
-    "default": "plugin-sample-vite-vue",
-    "en": "plugin-sample-vite-vue",
-    "zh-CN": "plugin-sample-vite-vue"
+    "default": "Incrementally sync Icons8 personal collection icons into SiYuan emoji library",
+    "en_US": "Incrementally sync Icons8 personal collection icons into SiYuan emoji library",
+    "zh_CN": "将 Icons8 个人收藏夹图标增量同步到思源笔记表情库"
   },
   "readme": {
     "default": "README.md",
-    "en": "README.md",
-    "zh-CN": "README.zh-CN.md"
+    "en_US": "README.md",
+    "zh_CN": "README_zh_CN.md"
   },
   "icon": "icon.png",
   "preview": "preview.png",
   "funding": {
     "custom": []
   },
-  "keywords": []
+  "keywords": [
+    "icon",
+    "icons8",
+    "emoji",
+    "sync"
+  ]
 }
