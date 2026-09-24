@@ -1,3 +1,8 @@
 {
-  "addTopBarIcon": "PluginSampleViteVue"
+  "addTopBarIcon": "翻译",
+  "translate": "翻译",
+  "translateCurrent": "翻译当前页面",
+  "translateSpecified": "翻译指定页面",
+  "settings": "设置",
+  "noCurrentDoc": "未找到当前文档,请先打开一篇文档"
 }

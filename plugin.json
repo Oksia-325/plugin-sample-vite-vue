@@ -1,9 +1,9 @@
 {
-  "name": "plugin-sample-vite-vue",
-  "author": "wetoria",
-  "url": "https://github.com/siyuan-note/plugin-sample-vite-vue",
-  "version": "0.0.1",
-  "minAppVersion": "2.10.14",
+  "name": "siyuan-trans",
+  "author": "Oksia-325",
+  "url": "https://github.com/Oksia-325/siyuan-trans",
+  "version": "0.1.2",
+  "minAppVersion": "3.7.1",
   "disabledInPublish": true,
   "backends": [
     "all"
@@ -12,24 +12,27 @@
     "all"
   ],
   "displayName": {
-    "default": "plugin-sample-vite-vue",
-    "en": "plugin-sample-vite-vue",
-    "zh-CN": "plugin-sample-vite-vue"
+    "default": "SiYuan Trans",
+    "en_US": "SiYuan Trans",
+    "zh_CN": "思源翻译"
   },
   "description": {
-    "default": "plugin-sample-vite-vue",
-    "en": "plugin-sample-vite-vue",
-    "zh-CN": "plugin-sample-vite-vue"
+    "default": "Translate SiYuan documents via DashScope qwen-mt model, writing bilingual/translated results back into the notebook.",
+    "en_US": "Translate SiYuan documents via DashScope qwen-mt model, writing bilingual/translated results back into the notebook.",
+    "zh_CN": "通过 DashScope qwen-mt 模型翻译思源文档,支持双语追加、替换原文、新建译文文档三种写入模式,并提供当前页面/指定页面翻译入口与配置检查。"
   },
   "readme": {
-    "default": "README.md",
-    "en": "README.md",
-    "zh-CN": "README.zh-CN.md"
+    "default": "README_trans.md",
+    "en_US": "README_trans.md",
+    "zh_CN": "README_trans.md"
   },
-  "icon": "icon.png",
-  "preview": "preview.png",
   "funding": {
     "custom": []
   },
-  "keywords": []
+  "keywords": [
+    "translate",
+    "翻译",
+    "qwen-mt",
+    "dashscope"
+  ]
 }

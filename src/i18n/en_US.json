@@ -1,3 +1,8 @@
 {
-  "addTopBarIcon": "PluginSampleViteVue"
+  "addTopBarIcon": "Translate",
+  "translate": "Translate",
+  "translateCurrent": "Translate Current Page",
+  "translateSpecified": "Translate Specified Page",
+  "settings": "Settings",
+  "noCurrentDoc": "No current document found, please open a document first"
 }

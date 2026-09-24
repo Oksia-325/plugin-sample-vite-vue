@@ -1,6 +1,6 @@
-# SiYuan Plugin Template - Vite & Vue3
+# Siyuan Plugin Template - Vite & Vue3
 
-[简体中文](./README.zh-CN.md)
+[简体中文](./README_zh_CN.md)
 
 > Consistent with [siyuan/plugin-sample](https://github.com/siyuan-note/plugin-sample).
 
@@ -17,11 +17,11 @@
 >
 > For your first attempt, please do not modify anything. Load the plugin template in Siyuan as described below before making any changes.
 >
-> For example, when renaming README.zh-CN.md, update the `readme` field in `plugin.json` and the documentation links to match.
+> For example, deleting README_zh_CN.md will also cause the plugin to fail to load.
 
 ## Get started
 
-1. Use the `Use this template` button to make a copy of this repo as a template
+1. Use the `Use the template` button to make a copy of this repo as template.  
 > [!WARNING]
 >
 > That the repository name should match the plugin name, and the default branch must be `main`.
@@ -87,11 +87,6 @@
 >
 > More plugin code examples, please check [siyuan/plugin-sample/src/index.ts](https://github.com/siyuan-note/plugin-sample/blob/main/src/index.ts)
 
-## Marketplace package resources
-
-The optional `icon` and `preview` fields in `plugin.json` declare image filenames at the package root. PNG, JPEG, WebP, and AVIF are supported; SVG is unsupported. Icons are limited to 64 KiB and previews to 512 KiB. To omit an image, remove its field and the legacy `icon.png` or `preview.png`; an empty field value is invalid.
-
-Relative README images are loaded from `package.zip` when present; otherwise the online marketplace falls back to the matching GitHub Release. This template packages `asset/*` so its README images remain available offline. Labeled sponsorship links can be declared with `funding.links` entries containing `label` and `url`; `funding.custom` remains compatible.
 
 
 ## List on the Marketplace
@@ -116,17 +111,17 @@ The github action is included in this sample, you can use it to publish your new
 ![img](./asset/action.png)
 
 2. Push a tag in the format `v*` and github will automatically create a new release with new bulit package.zip
-3. The workflow publishes a regular Release because the marketplace reads GitHub's Latest Release and ignores pre-releases.
+3. By default, it will only publish a pre-release, if you don't think this is necessary, change the settings in release.yml
 
 ```yaml
 - name: Release
     uses: ncipollo/release-action@v1
-    with:
+    with.
         allowUpdates: true
         artifactErrorsFailBuild: true
         artifacts: 'package.zip'
         token: ${{ secrets.GITHUB_TOKEN }}
-        prerelease: false
+        prerelease: true # change this to false
 ```
 
 ### Manual
@@ -136,10 +131,16 @@ The github action is included in this sample, you can use it to publish your new
 3. Upload the file package.zip as binary attachments
 4. Publish the release
 
-For the first release, fork the [community bazaar repository](https://github.com/siyuan-note/bazaar), add one `owner/repo` line to `plugins.txt` in its root, and open a PR against `main`. Use one repository per line without commas or empty lines, and add only one new package per PR. See [Submitting a bazaar package](https://github.com/siyuan-note/bazaar#submitting-a-bazaar-package) for the full process and review rules.
+> [!NOTE]
+> If it is the first release, please create a pull request to the [Community Bazaar](https://github.com/siyuan-note/bazaar) repository and modify the plugins.json file in it. This file is the index of all community plugin repositories, the format is:
 
-After the PR is merged, the bazaar updates its index automatically. For subsequent updates, increase `version` in the package manifest and publish a regular GitHub Release containing `package.zip`; no additional listing PR is needed. See [Updating a bazaar package](https://github.com/siyuan-note/bazaar#updating-a-bazaar-package) for update timing and troubleshooting, and check deployment status in the [Stage workflow](https://github.com/siyuan-note/bazaar/actions/workflows/stage.yml).
-
+```json
+{
+  "repos": [
+    "username/reponame"
+  ]
+}
+```
 
 ---
 

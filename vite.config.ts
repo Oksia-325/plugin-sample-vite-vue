@@ -1,5 +1,4 @@
 /* eslint-disable node/prefer-global/process */
-import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import vue from "@vitejs/plugin-vue"
 import fg from "fast-glob"
@@ -13,13 +12,6 @@ import { viteStaticCopy } from "vite-plugin-static-copy"
 import zipPack from "vite-plugin-zip-pack"
 
 const pluginInfo = require("./plugin.json")
-const packageImageTargets = [
-  ["icon", "icon.png"],
-  ["preview", "preview.png"],
-].flatMap(([field, legacyName]) => {
-  const fileName = pluginInfo[field] || (existsSync(legacyName) ? legacyName : "")
-  return fileName ? [{ src: `./${fileName}`, dest: "./" }] : []
-})
 
 export default defineConfig(({
   mode,
@@ -62,14 +54,17 @@ export default defineConfig(({
       vue(),
       viteStaticCopy({
         targets: [
-          ...packageImageTargets,
           {
             src: "./README*.md",
             dest: "./",
           },
           {
-            src: "./asset/*",
-            dest: "./asset",
+            src: "./icon.png",
+            dest: "./",
+          },
+          {
+            src: "./preview.png",
+            dest: "./",
           },
           {
             src: "./plugin.json",
