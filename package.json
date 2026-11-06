@@ -15,8 +15,8 @@
     "release:minor": "node ./release.js --mode=minor",
     "release:major": "node ./release.js --mode=major",
     "build": "vite build",
-    "test": "node --test tests/*.test.mjs",
-    "test:watch": "node --test --watch tests/*.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:watch": "node --experimental-strip-types --test --watch tests/*.test.mjs"
   },
   "dependencies": {
     "vue": "^3.3.8"

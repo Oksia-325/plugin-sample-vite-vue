@@ -3,60 +3,41 @@ import type { App as VueApp } from 'vue'
 import { createApp } from 'vue'
 import App from './App.vue'
 
-let plugin: Plugin | null = null
-let app: VueApp | null = null
-let container: HTMLElement | null = null
-
-export function usePlugin(pluginProps?: Plugin): Plugin {
-  if (pluginProps) {
-    plugin = pluginProps
-  }
-  if (!plugin) {
-    console.error('need bind plugin')
-  }
-  return plugin as Plugin
+interface PanelInstance {
+  app: VueApp
+  host: HTMLElement
 }
 
-export function init(pluginInstance: Plugin) {
-  usePlugin(pluginInstance)
+const panels = new Map<Element, PanelInstance>()
 
-  if (container) {
+export function mountPanel(element: HTMLElement, plugin: Plugin): void {
+  if (panels.has(element)) {
     return
   }
 
-  container = document.createElement('div')
-  container.id = `${pluginInstance.name}-app`
-  container.className = 'siyuan-plugin-pigo-app'
-  container.style.display = 'none'
+  const host = document.createElement('div')
+  host.className = 'pigo-tab-host'
+  element.appendChild(host)
 
-  app = createApp(App, {
-    onClose: () => {
-      togglePanel(false)
-    },
-  })
-  app.mount(container)
-  document.body.appendChild(container)
+  const app = createApp(App, { plugin })
+  app.mount(host)
+
+  panels.set(element, { app, host })
 }
 
-export function togglePanel(force?: boolean): boolean {
-  if (!container) {
-    return false
+export function unmountPanel(element: Element): void {
+  const panel = panels.get(element)
+  if (!panel) {
+    return
   }
 
-  const visible = typeof force === 'boolean'
-    ? force
-    : container.style.display === 'none'
-
-  container.style.display = visible ? 'block' : 'none'
-  return visible
+  panel.app.unmount()
+  panel.host.remove()
+  panels.delete(element)
 }
 
-export function destroy() {
-  app?.unmount()
-  app = null
-
-  container?.remove()
-  container = null
-
-  plugin = null
+export function unmountAllPanels(): void {
+  for (const element of [...panels.keys()]) {
+    unmountPanel(element)
+  }
 }

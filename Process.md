@@ -70,3 +70,45 @@
   - 点击顶栏 Pigo 图标，确认占位面板出现。
   - 禁用插件，确认面板/图标无残留、控制台无报错。
 - 下一步：Phase 1 — 原生自定义页签、配置模型与设置页。
+
+---
+
+## 2026-11-06 Phase 1 — 原生自定义页签、配置模型与设置页
+
+- 阶段：Phase 1
+- 分支：`pigo`
+- 变更：
+  - `src/index.ts`：改为 `addTab` + `openTab`，顶栏/命令打开思源原生自定义页签；移除全局浮动面板。
+  - `src/main.ts`：按页签元素挂载/卸载 Vue 实例，支持多页签实例与统一卸载。
+  - `src/App.vue`：渲染 `PigoPanel`。
+  - `src/components/PigoPanel.vue`：上传/统计/同步/设置四个子页；设置页可用，其余占位。
+  - `src/components/settings/SettingsTab.vue`：S3 配置 + 行为配置 + 保存/恢复默认/导入旧配置；“测试连接”暂为 Phase 3 占位。
+  - `src/core/config.ts`：配置类型、默认值、合并、规范化、校验、旧路径模板转换。
+  - `src/core/configStore.ts`：`plugin.loadData/saveData`、单例配置状态、旧 PicGo `tcyun`/`awss3` 配置导入。
+  - `src/i18n/*`：增加 `pigoTabTitle`。
+  - `src/index.scss`：页签宿主高度。
+  - `tests/config.test.mjs`：配置合并/规范化/校验/旧路径模板测试。
+  - `开发步骤.md`：补充 pnpm 不可用时的测试运行器过渡说明。
+- 关键实现：
+  - 自定义页签 id：`${plugin.name}pigo`，符合思源 `plugin.name + tab.type` 约定。
+  - 配置存储：`plugin.saveData("config", ...)` -> `data/storage/petal/siyuan-plugin-pigo/`，随工作空间同步。
+  - 旧配置导入：读取 `data/storage/syp/picgo/picgo.cfg.json`，优先当前 uploader 的 `tcyun`/`awss3`，映射到新 S3 配置；tcyun 的 `path` 前缀转换为 `{year}/{month}/{md5}.{ext}` 模板。
+  - 校验：必填、URL、bucket 字符、上传路径模板变量、ACL、并发 1-10、超时 5000-300000。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 11 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 92.59 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间：`node_modules/.bin/vite build --watch`，或把 `dist/` 复制到 `data/plugins/siyuan-plugin-pigo`。
+  2. 在思源中禁用再启用 `Pigo 图床`（或重启思源）。
+  3. 点击顶栏 Pigo 图标：应打开思源原生页签（不是浮动 iframe）。
+  4. 设置页填写 S3 配置 -> 点“保存配置” -> 关闭页签再打开，确认字段仍在。
+  5. 检查 `data/storage/petal/siyuan-plugin-pigo/` 下配置文件。
+  6. 点“导入旧 PicGo 配置”，确认能读取旧 `tcyun`/`awss3` 字段；检查后保存。
+  7. 故意清空 bucket 或并发数填 99，确认保存被阻止并显示错误。
+  8. 切换上传/统计/同步页签，确认占位页显示正常；控制台无报错。
+- 已知问题：
+  - “测试连接”按钮暂为 Phase 3 占位。
+  - 旧配置读取依赖 `getFile`（`fetchSyncPost`）；如运行时权限异常，Phase 3 改用内核文件读取封装。
+  - `plugin.json` 的 `url` 仍为空，发布前补。
+- 下一步：Phase 2 — 内核 API、当前文档识别、图片扫描与解析器。
