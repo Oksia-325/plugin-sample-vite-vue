@@ -1,0 +1,202 @@
+import type { PigoConfig } from '../config'
+import type { ImageRef } from '../scan/types'
+import { matchS3Key } from '../scan/s3Key.ts'
+import { createS3Client } from '../s3/client.ts'
+import type { S3ClientCore } from '../s3/client-core.ts'
+import { buildFileMapEntry, findFileMapEntry, loadFileMap, type FileMapEntry } from './fileMap.ts'
+import { buildObjectKey } from './keyTemplate.ts'
+import { runWithConcurrency } from './concurrency.ts'
+import { readImageSource } from './source.ts'
+import type { UploadBatchResult, UploadOptions, UploadProgress, UploadResult } from './types.ts'
+
+export async function uploadRefs(
+  refs: ImageRef[],
+  config: PigoConfig,
+  options: UploadOptions = {}
+): Promise<UploadBatchResult> {
+  const client = createS3Client(config.s3)
+  const concurrency = clamp(options.concurrency ?? config.behavior.concurrency, 1, 10)
+  const fileMapCache = new Map<string, Promise<Record<string, FileMapEntry>>>()
+  const results: UploadResult[] = []
+  const includeTitle = options.includeTitleImage ?? config.behavior.includeTitleImage
+  const includeRemote = options.includeRemoteImages ?? config.behavior.includeRemoteImages
+  let done = 0
+  let uploaded = 0
+  let reused = 0
+  let skipped = 0
+  let failed = 0
+  let cancelled = false
+
+  const report = (phase: UploadProgress['phase'], current?: string) => {
+    options.onProgress?.({
+      phase,
+      done,
+      total: refs.length,
+      uploaded,
+      reused,
+      skipped,
+      failed,
+      current,
+    })
+  }
+
+  report('preparing')
+
+  const getFileMap = (docId: string) => {
+    let promise = fileMapCache.get(docId)
+    if (!promise) {
+      promise = loadFileMap(docId)
+      fileMapCache.set(docId, promise)
+    }
+    return promise
+  }
+
+  const tasks = refs.map((ref) => async () => {
+    const result = await uploadOne(ref, {
+      config,
+      client,
+      getFileMap,
+      options,
+      includeTitle,
+      includeRemote,
+    })
+    results.push(result)
+
+    if (result.skipped) {
+      skipped++
+    }
+    else if (result.reused) {
+      reused++
+    }
+    else if (result.ok) {
+      uploaded++
+    }
+    else {
+      failed++
+    }
+
+    done++
+    report('uploading', ref.url)
+  })
+
+  await runWithConcurrency(tasks, concurrency, () => {
+    if (options.isCancelled?.()) {
+      cancelled = true
+      return true
+    }
+    return false
+  })
+
+  report('done')
+
+  return {
+    results,
+    uploaded,
+    reused,
+    skipped,
+    failed,
+    cancelled,
+  }
+}
+
+interface UploadOneContext {
+  config: PigoConfig
+  client: S3ClientCore
+  getFileMap: (docId: string) => Promise<Record<string, FileMapEntry>>
+  options: UploadOptions
+  includeTitle: boolean
+  includeRemote: boolean
+}
+
+async function uploadOne(ref: ImageRef, context: UploadOneContext): Promise<UploadResult> {
+  const { config, client, getFileMap, options, includeTitle, includeRemote } = context
+
+  if (ref.kind === 'title' && !includeTitle) {
+    return { ref, ok: true, skipped: true, error: '已跳过题头图' }
+  }
+
+  if (ref.sourceType === 'remote' && !includeRemote && !options.force) {
+    return { ref, ok: true, skipped: true, error: '已跳过网络图片' }
+  }
+
+  if (ref.sourceType === 's3' && !options.force) {
+    return { ref, ok: true, skipped: true, error: '已经是 S3 图片' }
+  }
+
+  const fileMap = await getFileMap(ref.docId)
+  const existing = options.repairOnly || !options.force
+    ? findFileMapEntry(fileMap, ref.url)
+    : undefined
+
+  if (existing?.isLocal === false && existing.url) {
+    const key = ref.sourceType === 's3' ? ref.s3Key : matchS3Key(existing.url, config.s3)
+    return {
+      ref,
+      ok: true,
+      reused: true,
+      key,
+      url: existing.url,
+      fileMapEntry: existing,
+    }
+  }
+
+  if (options.repairOnly) {
+    return { ref, ok: true, skipped: true, error: 'fileMap 中没有可复用的上传记录' }
+  }
+
+  try {
+    const source = await readImageSource(ref, {
+      readS3Object: (key) => client.getObject(key),
+    })
+
+    const objectKey = await buildObjectKey(
+      {
+        fileName: source.fileName,
+        ext: source.ext,
+        buffer: source.buffer,
+      },
+      config.s3.uploadPath
+    )
+
+    const putResult = await client.putObject(
+      objectKey,
+      source.buffer,
+      source.contentType
+    )
+
+    const entry = buildFileMapEntry({
+      originUrl: ref.url,
+      url: putResult.url,
+      alt: ref.alt,
+      title: ref.title,
+      blockId: ref.blockId,
+      isTitle: ref.kind === 'title',
+      name: source.fileMapName,
+    })
+
+    return {
+      ref,
+      ok: true,
+      key: objectKey,
+      url: putResult.url,
+      contentType: source.contentType,
+      size: source.size,
+      fileMapEntry: entry,
+    }
+  }
+  catch (error) {
+    return {
+      ref,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue)) {
+    return min
+  }
+  return Math.min(max, Math.max(min, Math.round(numberValue)))
+}

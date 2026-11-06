@@ -6,6 +6,8 @@ export interface ParsedMarkdownImage {
   url: string
   alt: string
   title: string
+  urlStart?: number
+  urlEnd?: number
 }
 
 /**
@@ -50,13 +52,15 @@ export function parseMarkdownImages(markdown: string): ParsedMarkdownImage[] {
       continue
     }
 
-    const destination = markdown.slice(destinationStart, destinationEnd).trim()
+    const destination = markdown.slice(destinationStart, destinationEnd)
     const parsed = parseDestination(destination)
     if (parsed.url) {
       results.push({
         url: parsed.url,
         alt: markdown.slice(altStart, altEnd),
         title: parsed.title,
+        urlStart: destinationStart + parsed.urlStart,
+        urlEnd: destinationStart + parsed.urlEnd,
       })
     }
 
@@ -259,12 +263,11 @@ export function extractFileName(url: string): string {
   for (let index = parts.length - 1; index >= 0; index--) {
     const part = parts[index]
     if (part && part.includes('.')) {
-      return safeDecode(part)
+      return safeDecode(part.split('?')[0])
     }
   }
 
-  const last = parts[parts.length - 1] || clean
-  return safeDecode(last) || 'image'
+  return safeDecode(clean) || 'image'
 }
 
 export function hashString(input: string): string {
@@ -309,38 +312,122 @@ export function decodeHtmlEntities(value: string): string {
   })
 }
 
-function parseDestination(destination: string): { url: string, title: string } {
-  if (!destination) {
-    return { url: '', title: '' }
+function parseDestination(destination: string): { url: string, title: string, urlStart: number, urlEnd: number } {
+  const leading = destination.length - destination.trimStart().length
+  const trimmed = destination.trim()
+
+  if (!trimmed) {
+    return { url: '', title: '', urlStart: leading, urlEnd: leading }
   }
 
-  if (destination.startsWith('<')) {
-    const end = destination.indexOf('>')
+  if (trimmed.startsWith('<')) {
+    const end = trimmed.indexOf('>')
     if (end > 0) {
       return {
-        url: destination.slice(1, end),
-        title: parseTitle(destination.slice(end + 1).trim()),
+        url: trimmed.slice(1, end),
+        title: parseTitle(trimmed.slice(end + 1).trim()),
+        urlStart: leading + 1,
+        urlEnd: leading + end,
       }
     }
   }
 
-  const quotedTitle = destination.match(/^(\S+)\s+(?:"([^"]*)"|'([^']*)')$/)
+  const quotedTitle = trimmed.match(/^(\S+)\s+(?:"([^"]*)"|'([^']*)')$/)
   if (quotedTitle) {
     return {
       url: quotedTitle[1],
       title: quotedTitle[2] ?? quotedTitle[3] ?? '',
+      urlStart: leading,
+      urlEnd: leading + quotedTitle[1].length,
     }
   }
 
-  const spaceIndex = destination.search(/\s/)
+  const spaceIndex = trimmed.search(/\s/)
   if (spaceIndex > 0) {
     return {
-      url: destination.slice(0, spaceIndex),
-      title: parseTitle(destination.slice(spaceIndex).trim()),
+      url: trimmed.slice(0, spaceIndex),
+      title: parseTitle(trimmed.slice(spaceIndex).trim()),
+      urlStart: leading,
+      urlEnd: leading + spaceIndex,
     }
   }
 
-  return { url: destination, title: '' }
+  return {
+    url: trimmed,
+    title: '',
+    urlStart: leading,
+    urlEnd: leading + trimmed.length,
+  }
+}
+
+/**
+ * 替换 Markdown 图片 URL，只替换图片目标地址，不误伤正文。
+ */
+export function replaceMarkdownImageUrls(markdown: string, replacements: Map<string, string>): string {
+  if (!markdown || replacements.size === 0) {
+    return markdown
+  }
+
+  const images = parseMarkdownImages(markdown)
+    .filter((image) => typeof image.urlStart === 'number' && typeof image.urlEnd === 'number')
+    .sort((left, right) => (right.urlStart || 0) - (left.urlStart || 0))
+
+  let result = markdown
+  images.forEach((image) => {
+    const replacement = replacements.get(image.url)
+    if (replacement === undefined) {
+      return
+    }
+    const start = image.urlStart as number
+    const end = image.urlEnd as number
+    result = `${result.slice(0, start)}${replacement}${result.slice(end)}`
+  })
+  return result
+}
+
+/**
+ * 替换 HTML <img src="..."> 的 src，只替换匹配的 URL。
+ */
+export function replaceHtmlImageUrls(markdown: string, replacements: Map<string, string>): string {
+  if (!markdown || !markdown.includes('<img') || replacements.size === 0) {
+    return markdown
+  }
+
+  return markdown.replace(
+    /(<img\b[^>]*?\bsrc\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi,
+    (match, prefix: string, doubleQuoted?: string, singleQuoted?: string, unquoted?: string) => {
+      const rawValue = doubleQuoted ?? singleQuoted ?? unquoted ?? ''
+      const decoded = decodeHtmlEntities(rawValue)
+      const replacement = replacements.get(rawValue) ?? replacements.get(decoded)
+      if (replacement === undefined) {
+        return match
+      }
+      if (doubleQuoted !== undefined) {
+        return `${prefix}"${replacement}"`
+      }
+      if (singleQuoted !== undefined) {
+        return `${prefix}'${replacement}'`
+      }
+      return `${prefix}${replacement}`
+    }
+  )
+}
+
+/**
+ * 同时替换 Markdown 和 HTML 图片 URL。
+ */
+export function replaceImageUrlsInMarkdown(markdown: string, replacements: Map<string, string>): string {
+  return replaceHtmlImageUrls(replaceMarkdownImageUrls(markdown, replacements), replacements)
+}
+
+/**
+ * 替换题头图 title-img 中的 URL。
+ */
+export function replaceTitleImageUrl(titleImg: string, oldUrl: string, newUrl: string): string {
+  if (!titleImg || !oldUrl) {
+    return titleImg
+  }
+  return titleImg.split(oldUrl).join(newUrl)
 }
 
 function parseTitle(value: string): string {

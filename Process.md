@@ -230,3 +230,57 @@
   - HEAD 经思源代理时可能拿不到 `content-length`，因此步骤中大小可能显示“未知”。
   - `aws4fetch`/`js-md5` 当前为 vendor 形式；pnpm 恢复后可切回依赖。
 - 下一步：Phase 4 — 单图/批量上传、并发、链接替换、题头图。
+
+---
+
+## 2026-11-06 Phase 4 — 单图/批量上传、并发、链接替换、题头图
+
+- 阶段：Phase 4
+- 分支：`pigo`
+- 变更：
+  - 新增 `src/core/upload/mime.ts`：扩展名/Magic Bytes 识别 PNG/JPEG/GIF/WebP/SVG/BMP/TIFF/ICO/AVIF/HEIC。
+  - 新增 `src/core/upload/source.ts`：本地 `assets`（内核文件 API + `/assets` 兜底）、远程 URL（直连 + 思源代理兜底）、data URI、S3 对象读取；50MB 限制；非图片拒绝。
+  - 新增 `src/core/upload/fileMap.ts`：兼容旧 `custom-picgo-file-map-key`，MD5 文件名哈希、冲突回退 `md5(originUrl)`、按 originUrl 查找复用。
+  - 新增 `src/core/upload/keyTemplate.ts`：完整 key 模板（md5/sha256/ext/fullName 等）。
+  - 新增 `src/core/upload/concurrency.ts`：可取消并发池。
+  - 新增 `src/core/upload/uploader.ts`：上传/复用/跳过/失败隔离、fileMap 复用、进度统计。
+  - 新增 `src/core/upload/replacer.ts`：先写 fileMap，再按块批量替换 Markdown/HTML 图片 URL，最后替换题头图 `title-img`；同一资源跨文档时给每个文档写 fileMap。
+  - 新增 `src/core/upload/pipeline.ts`：`uploadCurrentDoc`、`uploadAllNotes`、`uploadSingleRef`，统一进度。
+  - `src/core/scan/parser.ts`：新增图片 URL 位置与安全替换函数（只替换图片目标，不误伤正文）。
+  - `UploadTab.vue`：启用单图上传、上传本文档未上传、强制重新上传、修复未替换链接、上传全部笔记、停止、进度条、结果/失败列表。
+  - 新增 `tests/upload.test.mjs`：URL 替换、HTML src、题头图、MIME、并发池/取消。
+- 真实 S3 写入验证（不修改笔记）：
+  - 用 1x1 PNG 上传到 `siyuan/_pigo_test/2026/11/8c8fc3bcf3ab8ebc3bbf8a549a3aac54.png` ✅
+  - `HEAD` 返回 `image/png`，68 bytes ✅
+  - `DELETE` 后 `HEAD` 返回 `exists: false` ✅
+  - 测试对象已清理。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 36 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 157.71 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间并禁用/启用插件（或重启思源）。
+  2. **先复制一份示例文档** `图片测试`，在副本上测试，避免破坏原文档。
+  3. 打开副本，点击“上传未上传图片”：
+     - 预期上传 3 张：本地 google、网络 gstatic、题头图 cover
+     - 已上传的 austin 应跳过
+     - 文档 Markdown 和 `title-img` 应替换为 S3 URL
+     - `custom-picgo-file-map-key` 应增加/更新条目
+  4. 再点一次“上传未上传图片”：
+     - 预期 0 上传，复用/跳过 4 张，不再产生新对象
+  5. 点“强制重新上传”：
+     - 4 张全部重新上传，生成新 key；旧对象成为 S3 孤儿（Phase 7 清理）
+  6. 点“修复未替换链接”：
+     - 对 fileMap 有记录但文档仍是本地链接的图片执行替换
+  7. 单图上传：对一张本地图、一张网络图分别点“上传”/“上传到 S3”
+  8. GIF：上传含 GIF 的图片，确认 S3 Content-Type 为 `image/gif`，笔记中动画正常
+  9. data URI：新建 data URI 图片块并上传
+  10. 上传全部笔记：先在小范围/副本测试，确认进度、停止、失败列表
+  11. 失败隔离：断网或填错 S3 后上传，确认失败项可读、文档不被破坏
+- 已知问题：
+  - 强制重传会产生新的 S3 对象，旧的变成孤儿；Phase 7 提供同步清理。
+  - 上传后不删除本地 `assets` 文件（本次范围不处理）。
+  - 本地图片读取优先 `/api/file/getFile`，失败回退 `/assets/...`；如遇权限问题请反馈。
+  - 全局上传可能耗时较长，建议先在小范围验证。
+  - 实际笔记替换尚未由 Agent 自动执行（避免改动用户数据）；需按上述手动步骤验证。
+- 下一步：Phase 5 — 粘贴自动上传、右键菜单、顶栏/状态栏。
