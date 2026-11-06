@@ -9,17 +9,19 @@
           v-for="tab in tabs"
           :key="tab.id"
           class="pigo-panel__tab"
-          :class="{ 'pigo-panel__tab--active': activeTab === tab.id }"
+          :class="{ 'pigo-panel__tab--active': uiState.activeTab === tab.id }"
           type="button"
-          @click="activeTab = tab.id"
+          @click="uiState.activeTab = tab.id"
         >
           {{ tab.label }}
         </button>
       </div>
+      <div class="pigo-panel__spacer"></div>
+      <slot name="actions"></slot>
     </div>
 
     <div class="pigo-panel__body">
-      <div v-show="activeTab === 'upload'" class="pigo-placeholder">
+      <div v-show="uiState.activeTab === 'upload'" class="pigo-placeholder">
         <div class="pigo-placeholder__title">
           上传
         </div>
@@ -28,7 +30,7 @@
         </div>
       </div>
 
-      <div v-show="activeTab === 'stats'" class="pigo-placeholder">
+      <div v-show="uiState.activeTab === 'stats'" class="pigo-placeholder">
         <div class="pigo-placeholder__title">
           统计
         </div>
@@ -37,7 +39,7 @@
         </div>
       </div>
 
-      <div v-show="activeTab === 'sync'" class="pigo-placeholder">
+      <div v-show="uiState.activeTab === 'sync'" class="pigo-placeholder">
         <div class="pigo-placeholder__title">
           同步
         </div>
@@ -46,23 +48,19 @@
         </div>
       </div>
 
-      <settings-tab v-show="activeTab === 'settings'" :plugin="props.plugin" />
+      <settings-tab v-show="uiState.activeTab === 'settings'" :plugin="props.plugin" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import type { Plugin } from 'siyuan'
 import SettingsTab from '@/components/settings/SettingsTab.vue'
+import { uiState, type PigoTabId } from '@/core/uiStore'
 
 const props = defineProps<{
   plugin: Plugin
 }>()
-
-type PigoTabId = 'upload' | 'stats' | 'sync' | 'settings'
-
-const activeTab = ref<PigoTabId>('settings')
 
 const tabs: Array<{ id: PigoTabId, label: string }> = [
   { id: 'upload', label: '上传' },
@@ -87,8 +85,8 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 14px;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
   border-bottom: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
   background: var(--b3-theme-surface, rgba(0, 0, 0, 0.12));
 }
@@ -97,16 +95,17 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
   flex: 0 0 auto;
   font-size: 14px;
   font-weight: 600;
+  user-select: none;
 }
 
 .pigo-panel__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 2px;
 }
 
 .pigo-panel__tab {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border: 0;
   border-radius: 6px;
   color: var(--b3-theme-on-surface, #c9c9c9);
@@ -123,6 +122,11 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
 .pigo-panel__tab--active {
   color: var(--b3-theme-on-background, #dfe0e1);
   background: var(--b3-theme-primary-lightest, rgba(53, 115, 240, 0.16));
+}
+
+.pigo-panel__spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
 }
 
 .pigo-panel__body {

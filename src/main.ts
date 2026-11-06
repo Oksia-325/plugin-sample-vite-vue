@@ -3,41 +3,27 @@ import type { App as VueApp } from 'vue'
 import { createApp } from 'vue'
 import App from './App.vue'
 
-interface PanelInstance {
-  app: VueApp
-  host: HTMLElement
-}
+let app: VueApp | null = null
+let container: HTMLElement | null = null
 
-const panels = new Map<Element, PanelInstance>()
-
-export function mountPanel(element: HTMLElement, plugin: Plugin): void {
-  if (panels.has(element)) {
+export function initPopup(plugin: Plugin): void {
+  if (container) {
     return
   }
 
-  const host = document.createElement('div')
-  host.className = 'pigo-tab-host'
-  element.appendChild(host)
+  container = document.createElement('div')
+  container.id = `${plugin.name}-app`
+  container.className = 'siyuan-plugin-pigo-app'
 
-  const app = createApp(App, { plugin })
-  app.mount(host)
-
-  panels.set(element, { app, host })
+  app = createApp(App, { plugin })
+  app.mount(container)
+  document.body.appendChild(container)
 }
 
-export function unmountPanel(element: Element): void {
-  const panel = panels.get(element)
-  if (!panel) {
-    return
-  }
+export function destroyPopup(): void {
+  app?.unmount()
+  app = null
 
-  panel.app.unmount()
-  panel.host.remove()
-  panels.delete(element)
-}
-
-export function unmountAllPanels(): void {
-  for (const element of [...panels.keys()]) {
-    unmountPanel(element)
-  }
+  container?.remove()
+  container = null
 }

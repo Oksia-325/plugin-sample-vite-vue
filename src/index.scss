@@ -1,5 +1,6 @@
-.pigo-tab-host {
-  height: 100%;
-  min-height: 100%;
-  box-sizing: border-box;
+.siyuan-plugin-pigo-app {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
 }

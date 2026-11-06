@@ -112,3 +112,30 @@
   - 旧配置读取依赖 `getFile`（`fetchSyncPost`）；如运行时权限异常，Phase 3 改用内核文件读取封装。
   - `plugin.json` 的 `url` 仍为空，发布前补。
 - 下一步：Phase 2 — 内核 API、当前文档识别、图片扫描与解析器。
+
+---
+
+## 2026-11-06 Phase 1 修订 — 原生页签改为非模态浮动弹窗
+
+- 原因：用户主要使用“上传”功能，原生页签需要在笔记和插件页签之间来回切换，影响阅读与操作。
+- 变更：
+  - 移除 `addTab` / `openTab` 自定义页签实现。
+  - 新增 `src/core/uiStore.ts`：弹窗可见性、当前子页状态。
+  - 新增 `src/components/PigoPopup.vue`：非模态浮动弹窗，可拖动、可关闭、Esc 关闭、位置 localStorage 记忆；点击笔记不关闭，不阻塞编辑。
+  - `src/components/PigoPanel.vue`：改为弹窗内容与子页布局，子页状态来自 `uiStore`；新增 header actions 插槽放拖动/关闭按钮。
+  - `src/main.ts`：改为单例 `initPopup` / `destroyPopup`，常驻 Vue 实例，关闭只隐藏不销毁。
+  - `src/index.ts`：顶栏切换弹窗、命令打开弹窗、`openSetting()` 打开设置子页。
+  - `src/index.scss`：改为弹窗容器样式。
+  - `开发步骤.md`：同步更新为“非模态浮动弹窗”方案。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 11 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 95.25 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间并禁用/启用插件（或重启思源）。
+  2. 点击顶栏 Pigo 图标：出现非模态浮动弹窗，不打开新页签。
+  3. 弹窗打开时点击/编辑笔记：弹窗保持显示，笔记可正常操作。
+  4. 拖动弹窗 header 右侧的 `⠿`：弹窗移动；关闭后重新打开，位置恢复。
+  5. 按 Esc 或点 `×`：弹窗关闭；再次打开时设置表单状态保留。
+  6. 从思源插件设置进入 Pigo：弹窗打开并定位到“设置”子页。
+- 下一步：Phase 2 — 内核 API、当前文档识别、图片扫描与解析器。
