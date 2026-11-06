@@ -181,3 +181,52 @@
   - 本地图片缩略图使用 `/assets/...` 直链；私有/特殊资源如加载失败，Phase 4 再补 Blob 读取。
   - `scanAll` 尚未接入 UI（Phase 6）。
 - 下一步：Phase 3 — S3 客户端与配置有效性校验（测试连接）。
+
+---
+
+## 2026-11-06 Phase 3 — S3 客户端与配置有效性校验
+
+- 阶段：Phase 3
+- 分支：`pigo`
+- 变更：
+  - Vendor 第三方库（因本机 pnpm 启动挂起，未走 npm 安装）：
+    - `src/core/s3/vendor/aws4fetch.ts`（MIT，Michael Hart）
+    - `src/core/s3/vendor/LICENSE.aws4fetch`
+    - `src/core/upload/vendor/md5.ts`（MIT，js-md5）
+    - `src/core/upload/vendor/LICENSE.js-md5`
+  - 新增 `src/core/s3/url.ts`：虚拟主机/Path Style 对象 URL、key 编码、公网 URL。
+  - 新增 `src/core/s3/xml.ts`：`ListObjectsV2` 解析、`DeleteObjects` XML、XML 实体解码。
+  - 新增 `src/core/s3/client-core.ts`：SigV4 签名、List/Head/Get/Put/Delete、分页、错误处理；可注入 requester 便于测试。
+  - 新增 `src/core/s3/transport.ts`：直连 / 思源 `forwardProxy`（base64 payload/response）。
+  - 新增 `src/core/s3/client.ts`：`createS3Client()`、`testS3Connection()`（List + Put + Head + 公网 URL + Delete + 清理）。
+  - 新增 `src/core/upload/keyTemplate.ts`：`{year}/{month}/{md5}/{ext}/{fullName}` 等变量、静态前缀、key sanitize。
+  - `SettingsTab.vue`：启用“测试连接”按钮，展示分步结果、耗时、警告和错误。
+  - 新增 `tests/s3.test.mjs`：key 模板、URL、XML、签名请求、404/403 处理。
+- 真实 S3 只读验证（腾讯云 COS S3 兼容端点）：
+  - 直连 `ListObjectsV2(prefix=siyuan/, maxKeys=1)` ✅
+  - 直连 `HeadObject(siyuan/austin-schmid-...jpg)` ✅（image/jpeg，2827153 bytes）
+  - 思源 `forwardProxy` + `ListObjectsV2` ✅
+  - 思源 `forwardProxy` + `HeadObject` ✅
+  - 未写入/删除真实对象，避免污染桶；写/删测试请通过设置页“测试连接”执行。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 28 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 135.51 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间并禁用/启用插件（或重启思源）。
+  2. 打开 Pigo 弹窗 -> 设置，填写/导入 S3 配置。
+  3. 点击“测试连接”：
+     - 读取存储桶 ✅
+     - 写入测试对象 ✅
+     - 读取测试对象 ✅
+     - 公网 URL 访问 ✅（私有桶可能显示警告）
+     - 删除测试对象 ✅
+  4. 到 S3 控制台确认 `siyuan/_pigo_test/` 下无残留测试对象（或只保留历史）。
+  5. 改错 SecretAccessKey 再测试：应显示 403/签名错误。
+  6. 改错 bucket 再测试：应显示 404/NoSuchBucket。
+  7. 关闭“通过思源内核代理访问 S3”再测试：直连成功或给出明确 CORS 提示。
+- 已知问题：
+  - 测试连接会写入一个极小的 `_pigo_test/*.txt` 并尝试删除；如删除失败会提示手动清理。
+  - HEAD 经思源代理时可能拿不到 `content-length`，因此步骤中大小可能显示“未知”。
+  - `aws4fetch`/`js-md5` 当前为 vendor 形式；pnpm 恢复后可切回依赖。
+- 下一步：Phase 4 — 单图/批量上传、并发、链接替换、题头图。

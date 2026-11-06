@@ -291,9 +291,34 @@
         <button class="b3-button b3-button--outline" type="button" :disabled="store.saving" @click="handleImportLegacy">
           导入旧 PicGo 配置
         </button>
-        <button class="b3-button b3-button--outline" type="button" disabled title="Phase 3 接入">
-          测试连接（Phase 3）
+        <button class="b3-button b3-button--outline" type="button" :disabled="store.saving || testing" @click="handleTestConnection">
+          {{ testing ? '测试中…' : '测试连接' }}
         </button>
+      </div>
+
+      <div v-if="testResult" class="pigo-test-result">
+        <div
+          class="pigo-test-result__summary"
+          :class="testResult.ok ? 'pigo-test-result__summary--ok' : 'pigo-test-result__summary--error'"
+        >
+          连接{{ testResult.ok ? '成功' : '失败' }} · 耗时 {{ testResult.latencyMs }}ms
+        </div>
+
+        <ul class="pigo-test-result__steps">
+          <li v-for="step in testResult.steps" :key="step.name" class="pigo-test-result__step">
+            <span class="pigo-test-result__icon">{{ step.ok ? '✅' : '❌' }}</span>
+            <span class="pigo-test-result__name">{{ step.name }}</span>
+            <span class="pigo-test-result__message">{{ step.message }}</span>
+            <span v-if="step.durationMs !== undefined" class="pigo-test-result__duration">{{ step.durationMs }}ms</span>
+          </li>
+        </ul>
+
+        <div v-for="warning in testResult.warnings" :key="warning" class="pigo-test-result__warning">
+          ⚠️ {{ warning }}
+        </div>
+        <div v-for="error in testResult.errors" :key="error" class="pigo-test-result__error">
+          ❌ {{ error }}
+        </div>
       </div>
 
       <div class="pigo-settings__footer">
@@ -314,6 +339,7 @@ import {
   savePigoConfig,
   usePigoConfigStore,
 } from '@/core/configStore'
+import { testS3Connection, type TestConnectionResult } from '@/core/s3/client'
 
 const props = defineProps<{
   plugin: Plugin
@@ -323,6 +349,8 @@ const store = usePigoConfigStore()
 const showSecrets = ref(false)
 const issues = ref<ValidationIssue[]>([])
 const notice = ref<{ type: 'success' | 'error', text: string } | null>(null)
+const testing = ref(false)
+const testResult = ref<TestConnectionResult | null>(null)
 
 const issueMap = computed<Record<string, string>>(() => {
   return Object.fromEntries(issues.value.map((issue) => [issue.field, issue.message]))
@@ -344,6 +372,7 @@ onMounted(async () => {
 
 async function handleSave() {
   notice.value = null
+  testResult.value = null
   const result = await savePigoConfig(props.plugin)
   issues.value = result.issues
   if (result.ok) {
@@ -360,6 +389,7 @@ function handleReset() {
   }
   resetPigoConfig()
   issues.value = []
+  testResult.value = null
   notice.value = { type: 'success', text: '已恢复默认值，请填写 S3 信息后保存。' }
 }
 
@@ -377,12 +407,47 @@ async function handleImportLegacy() {
     migratedAt: Date.now(),
   }
   issues.value = validateConfig(store.config)
+  testResult.value = null
   notice.value = {
     type: 'success',
     text: [
       `已从旧配置（${imported.source}）导入 S3 设置，请检查后保存。`,
       ...imported.warnings,
     ].join(' '),
+  }
+}
+
+async function handleTestConnection() {
+  notice.value = null
+  testResult.value = null
+
+  const validationIssues = validateConfig(store.config)
+  issues.value = validationIssues
+  if (validationIssues.length > 0) {
+    notice.value = { type: 'error', text: '请先修正表单错误，再进行连接测试。' }
+    return
+  }
+
+  testing.value = true
+  try {
+    testResult.value = await testS3Connection(store.config.s3)
+    notice.value = testResult.value.ok
+      ? { type: 'success', text: 'S3 连接测试通过。' }
+      : { type: 'error', text: 'S3 连接测试失败，请查看下方步骤。' }
+  }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    testResult.value = {
+      ok: false,
+      steps: [],
+      warnings: [],
+      errors: [message],
+      latencyMs: 0,
+    }
+    notice.value = { type: 'error', text: `连接测试失败：${message}` }
+  }
+  finally {
+    testing.value = false
   }
 }
 </script>
@@ -496,6 +561,77 @@ async function handleImportLegacy() {
   color: var(--b3-theme-on-surface-light, #999);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.pigo-test-result {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.08));
+  font-size: 12px;
+}
+
+.pigo-test-result__summary {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pigo-test-result__summary--ok {
+  color: var(--b3-theme-success, #67c23a);
+}
+
+.pigo-test-result__summary--error {
+  color: var(--b3-theme-error, #d23f31);
+}
+
+.pigo-test-result__steps {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.pigo-test-result__step {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.06));
+}
+
+.pigo-test-result__step:last-child {
+  border-bottom: 0;
+}
+
+.pigo-test-result__name {
+  flex: 0 0 100px;
+  color: var(--b3-theme-on-background, #dfe0e1);
+}
+
+.pigo-test-result__message {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--b3-theme-on-surface-light, #999);
+}
+
+.pigo-test-result__duration {
+  flex: 0 0 auto;
+  color: var(--b3-theme-on-surface-light, #999);
+}
+
+.pigo-test-result__warning {
+  margin-top: 4px;
+  color: var(--b3-theme-warning, #e6a23c);
+  line-height: 1.6;
+}
+
+.pigo-test-result__error {
+  margin-top: 4px;
+  color: var(--b3-theme-error, #d23f31);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {
