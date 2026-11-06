@@ -1,241 +1,124 @@
 <template>
-  <div class="plugin-app-main">
-
-    <div class="demo">
-      <!-- Show text in siyuan at center -->
-      <div>Hello Siyuan.</div>
-
-
-      <div>
-        Use Siyuan Style components
-      </div>
-      <div class="row">
-        Checkbox:
-        <SyCheckbox
-          v-model="isChecked"
-        />
-        ({{ isChecked ? 'checked' : 'unchecked' }})
-      </div>
-      <div class="row">
-        <SyIcon
-          name="iconSiYuan"
-        />
-        <SyIcon
-          name="iconSiYuan"
-          size="20px"
-        />
-        <SyIcon
-          name="iconSiYuan"
-          size="30px"
-        />
-      </div>
-      <div class="col">
-        <SyInput
-          v-model="inputValue"
-        />
-        <div>
-          {{ inputValue }}
+  <div class="pigo-overlay">
+    <div class="pigo-card">
+      <div class="pigo-card__header">
+        <div class="pigo-card__title">
+          Pigo 图床
         </div>
-      </div>
-      <div class="col">
-        <SySelect
-          v-model="selectValue"
-          :options="selectOptions"
-        />
-        <div>
-          selected value: {{ selectValue }}
-        </div>
-        <div>
-          selected text: {{ selectOptions.find(option => option.value === selectValue)?.text }}
-        </div>
+        <button
+          class="pigo-card__close"
+          type="button"
+          title="关闭"
+          @click="props.onClose"
+        >
+          ×
+        </button>
       </div>
 
-      <div class="col">
-        <SyTextarea
-          v-model="textareaValue"
-        />
-        <div>
-          {{ textareaValue }}
-        </div>
+      <div class="pigo-card__body">
+        <p class="pigo-card__line">
+          Phase 0 基线已加载。
+        </p>
+        <p class="pigo-card__muted">
+          分支：pigo · 版本：{{ version }}
+        </p>
+        <p class="pigo-card__muted">
+          下一步（Phase 1）会把这里替换为“上传 / 统计 / 同步 / 设置”页签。
+        </p>
       </div>
-      <SyButton
-        @click="showAllValues"
-      >
-        Show All Values
-      </SyButton>
-      <SyButton
-        @click="openSetting"
-      >
-        Open Setting
-      </SyButton>
-
-      <Teleport
-        :to="statusRef"
-        v-if="statusRef"
-      >
-        <SyIcon
-          name="iconHeart"
-          style="
-            color: green;
-          "
-        />
-      </Teleport>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import SyButton from '@/components/SiyuanTheme/SyButton.vue'
-import SyCheckbox from '@/components/SiyuanTheme/SyCheckbox.vue'
-import SyIcon from '@/components/SiyuanTheme/SyIcon.vue'
-import SyInput from '@/components/SiyuanTheme/SyInput.vue'
-import SySelect from '@/components/SiyuanTheme/SySelect.vue'
-import SyTextarea from '@/components/SiyuanTheme/SyTextarea.vue'
-import { usePlugin } from '@/main'
-import { onMounted, ref, watchEffect } from 'vue'
+import PluginInfo from '@/../plugin.json'
 
+const props = defineProps<{
+  onClose: () => void
+}>()
 
-const isChecked = ref(false)
-
-const inputValue = ref('')
-
-const selectValue = ref()
-const selectOptions = ref([
-  { value: '1', text: 'Option 1' },
-  { value: '2', text: 'Option 2' },
-  { value: '3', text: 'Option 3' },
-])
-
-const textareaValue = ref('')
-
-const showAllValues = () => {
-  alert(`
-    isChecked: ${isChecked.value}
-    inputValue: ${inputValue.value}
-    selectValue: ${selectValue.value}
-    textareaValue: ${textareaValue.value}
-  `)
-}
-
-const openSetting = () => {
-  alert('Need open plugin setting.')
-}
-
-const plugin = usePlugin()
-console.log('plugin is ', plugin)
-
-
-// add top bar button
-plugin.addTopBar({
-  icon: 'iconHeart',
-  title: 'Plugin Sample',
-  callback: () => {
-    alert('Hello Siyuan.')
-  },
-})
-
-const statusRef = ref<HTMLDivElement>()
-watchEffect(() => {
-  console.log('statusRef is ', statusRef.value)
-})
-// two ways to add status bar
-onMounted(() => {
-  // 1. use Teleport in Vue way
-  // show as a green heart icon
-  const status = document.getElementById('status') as HTMLDivElement
-  if (status) {
-    // delay 5 seconds to bind statusRef
-    // avoid status is not ready
-    setTimeout(() => {
-      statusRef.value = status
-    }, 5000)
-  }
-
-
-  // 2. use addStatusBar in siyuan plugin way
-  // show as a red heart icon
-  const tempStatus = document.createElement('div')
-  tempStatus.classList.add('temp-status')
-  tempStatus.innerHTML = `
-    <svg style="width: 12px; height: 12px; color: red;">
-      <use xlink:href="#iconHeart"></use>
-    </svg>
-  `
-
-  plugin.addStatusBar({
-    element: tempStatus,
-    position: 'right',
-  })
-})
-
-
-onMounted(() => {
-  window._sy_plugin_sample = {}
-  window._sy_plugin_sample.openSetting = openSetting
-})
+const version = PluginInfo.version
 </script>
 
-
-<!-- 局部样式 -->
-<style lang="scss" scoped>
-.plugin-app-main {
-  width: 100%;
-  height: 100%;
-  max-height: 100vh;
-  box-sizing: border-box;
+<style scoped>
+.pigo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
   pointer-events: none;
+}
 
+.pigo-card {
   position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 4;
+  top: 48px;
+  right: 16px;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: auto;
+  color: var(--b3-theme-on-background, #dfe0e1);
+  background: var(--b3-theme-background, #1f1f1f);
+  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.36);
+  overflow: hidden;
+}
+
+.pigo-card__header {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
+  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.12));
+}
+
+.pigo-card__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pigo-card__close {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  align-items: center;
-  flex-wrap: nowrap;
-
-  .demo {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    pointer-events: auto;
-
-    z-index: 10;
-
-    background-color: var(--b3-theme-surface);
-    border-radius: var(--b3-border-radius);
-    border: 1px solid var(--b3-border-color);
-    padding: 16px;
-  }
-}
-</style>
-
-<!-- 全局样式 -->
-<style lang="scss">
-.plugin-sample-vite-vue-app {
-  width: 100vw;
-  height: 100dvh;
-  max-height: 100vh;
-  position: absolute;
-  top: 0px;
-  left: 0px;
-  pointer-events: none;
-  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
 }
 
-.row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
+.pigo-card__close:hover,
+.pigo-card__close:focus {
+  background: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.1));
+  outline: none;
 }
 
-.col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
+.pigo-card__body {
+  padding: 14px 16px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.pigo-card__line {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.pigo-card__muted {
+  margin: 4px 0 0;
+  color: var(--b3-theme-on-surface-light, #999);
 }
 </style>

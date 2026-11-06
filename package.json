@@ -1,9 +1,9 @@
 {
-  "name": "plugin-sample-vite-vue",
-  "version": "0.0.1",
+  "name": "siyuan-plugin-pigo",
+  "version": "0.1.0",
   "type": "module",
-  "description": "This is a sample plugin based on vite and vue for Siyuan (https://b3log.org/siyuan)",
-  "author": "",
+  "description": "Personal S3-compatible picture bed plugin for SiYuan",
+  "author": "goserank",
   "license": "MIT",
   "homepage": "",
   "repository": "",
@@ -14,7 +14,9 @@
     "release:patch": "node ./release.js --mode=patch",
     "release:minor": "node ./release.js --mode=minor",
     "release:major": "node ./release.js --mode=major",
-    "build": "vite build"
+    "build": "vite build",
+    "test": "node --test tests/*.test.mjs",
+    "test:watch": "node --test --watch tests/*.test.mjs"
   },
   "dependencies": {
     "vue": "^3.3.8"

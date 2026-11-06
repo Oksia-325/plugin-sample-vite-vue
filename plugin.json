@@ -1,10 +1,9 @@
 {
-  "name": "plugin-sample-vite-vue",
-  "author": "wetoria",
-  "url": "https://github.com/siyuan-note/plugin-sample-vite-vue",
-  "version": "0.0.1",
-  "minAppVersion": "2.10.14",
-  "disabledInPublish": true,
+  "name": "siyuan-plugin-pigo",
+  "author": "goserank",
+  "url": "",
+  "version": "0.1.0",
+  "minAppVersion": "3.0.0",
   "backends": [
     "all"
   ],
@@ -12,14 +11,14 @@
     "all"
   ],
   "displayName": {
-    "default": "plugin-sample-vite-vue",
-    "en": "plugin-sample-vite-vue",
-    "zh-CN": "plugin-sample-vite-vue"
+    "default": "Pigo Picbed",
+    "en": "Pigo Picbed",
+    "zh-CN": "Pigo 图床"
   },
   "description": {
-    "default": "plugin-sample-vite-vue",
-    "en": "plugin-sample-vite-vue",
-    "zh-CN": "plugin-sample-vite-vue"
+    "default": "Personal S3-compatible picture bed for SiYuan",
+    "en": "Personal S3-compatible picture bed for SiYuan",
+    "zh-CN": "个人使用的 S3 兼容图床，支持图片扫描、上传、统计与同步"
   },
   "readme": {
     "default": "README.md",
@@ -31,5 +30,10 @@
   "funding": {
     "custom": []
   },
-  "keywords": []
+  "keywords": [
+    "picgo",
+    "s3",
+    "image",
+    "picbed"
+  ]
 }
