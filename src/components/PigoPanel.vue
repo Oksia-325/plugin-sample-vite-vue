@@ -21,14 +21,7 @@
     </div>
 
     <div class="pigo-panel__body">
-      <div v-show="uiState.activeTab === 'upload'" class="pigo-placeholder">
-        <div class="pigo-placeholder__title">
-          上传
-        </div>
-        <div class="pigo-placeholder__desc">
-          Phase 4 接入：当前文档图片列表、单图/批量上传、并发、题头图与链接替换。
-        </div>
-      </div>
+      <upload-tab v-show="uiState.activeTab === 'upload'" :plugin="props.plugin" />
 
       <div v-show="uiState.activeTab === 'stats'" class="pigo-placeholder">
         <div class="pigo-placeholder__title">
@@ -56,6 +49,7 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import SettingsTab from '@/components/settings/SettingsTab.vue'
+import UploadTab from '@/components/upload/UploadTab.vue'
 import { uiState, type PigoTabId } from '@/core/uiStore'
 
 const props = defineProps<{

@@ -139,3 +139,45 @@
   5. 按 Esc 或点 `×`：弹窗关闭；再次打开时设置表单状态保留。
   6. 从思源插件设置进入 Pigo：弹窗打开并定位到“设置”子页。
 - 下一步：Phase 2 — 内核 API、当前文档识别、图片扫描与解析器。
+
+---
+
+## 2026-11-06 Phase 2 — 内核访问、当前文档与图片扫描
+
+- 阶段：Phase 2
+- 分支：`pigo`
+- 变更：
+  - 新增 `src/core/activeDoc.ts`：`getActiveDocId()` 使用 `getAllEditor()` + DOM 兜底；`subscribeActiveDoc()` 监听 `switch-protyle` / `loaded-protyle-static`。
+  - 新增 `src/core/scan/types.ts`：图片引用、文档元数据、扫描结果、统计类型。
+  - 新增 `src/core/scan/s3Key.ts`：把 customUrl / extraUrlPrefixes / 虚拟主机 / Path Style / COS / AWS URL 反推为 S3 key。
+  - 新增 `src/core/scan/parser.ts`：Markdown 图片、HTML `<img>`、data URI、题头图、查询串 URL、括号 URL 解析；`blocks.ial` 属性解析。
+  - 新增 `src/core/scan/scanner.ts`：`scanDoc()` / `scanAll()`；用 SQL 一次取回文档、题头图和图片块；去重、分类、统计。
+  - 新增 `src/components/upload/UploadTab.vue`：当前文档图片列表、缩略图、来源徽标、统计条、刷新、复制链接；上传按钮留待 Phase 4。
+  - `src/components/PigoPanel.vue`：上传 tab 接入真实列表。
+  - 新增 `tests/parser.test.mjs`：Markdown/HTML/题头图/IAL/S3 key/分类测试。
+  - 关键优化：题头图直接从 `blocks.ial` 的 `title-img` 解析，避免逐文档 `getBlockAttrs`。
+- 真实思源内核验证（示例文档 `20261106145728-e3r9zm3`）：
+  - 唯一引用 4：本地 2（含题头图 1）、S3 1、网络 1。
+  - 列表：`cover_062...webp`（本地/题头图）、`siyuan/austin...jpg`（S3）、`google-deepmind...jpg`（本地）、gstatic 查询串 URL（网络）。
+- 全库真实数据验证（Node + 思源 HTTP SQL）：
+  - 文档 970；含 `title-img` 的文档 289；含图片的 block 4730。
+  - 总引用 5388；唯一引用 4433；本地 1681；S3 2071；网络 681；题头图 280。
+  - SQL + 解析耗时约 269ms（不含 UI 渲染）。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 19 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 108.61 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间并禁用/启用插件（或重启思源）。
+  2. 打开示例文档 `图片测试`，点击顶栏 Pigo 图标 -> “上传”子页。
+  3. 应看到 4 个唯一图片：本地 2（含题头图）、S3 1、网络 1。
+  4. 检查 gstatic 查询串 URL 被识别为“网络”，不是漏掉。
+  5. 切换另一篇有图片的文档，列表应自动刷新；不要出现上一篇的图片。
+  6. 打开无图片文档，应显示“本文档没有识别到图片”。
+  7. 打开弹窗时点击笔记、编辑笔记，弹窗保持且列表不闪烁。
+  8. 点击“刷新”按钮，列表重新扫描。
+- 已知问题：
+  - 上传按钮仍是 Phase 4 占位。
+  - 本地图片缩略图使用 `/assets/...` 直链；私有/特殊资源如加载失败，Phase 4 再补 Blob 读取。
+  - `scanAll` 尚未接入 UI（Phase 6）。
+- 下一步：Phase 3 — S3 客户端与配置有效性校验（测试连接）。
