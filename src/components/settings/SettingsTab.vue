@@ -228,6 +228,9 @@
               <input v-model="store.config.behavior.allowPicAndText" type="checkbox">
               允许图片和文字混合粘贴时接管
             </label>
+            <div class="pigo-form-row__hint">
+              开启后，混合粘贴会由 Pigo 接管；当前实现只保留图片，混合的文字可能丢失。不确定时请保持关闭。
+            </div>
           </div>
         </div>
 
@@ -525,6 +528,10 @@ async function handleTestConnection() {
   flex-wrap: wrap;
   gap: 8px 18px;
   padding-top: 5px;
+}
+
+.pigo-form-row__control--checks .pigo-form-row__hint {
+  flex-basis: 100%;
 }
 
 .pigo-form-row__hint {

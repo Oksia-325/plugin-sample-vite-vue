@@ -4,3 +4,26 @@
   z-index: 9999;
   pointer-events: none;
 }
+
+.pigo-status-bar {
+  display: inline-flex;
+  align-items: center;
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--b3-theme-on-surface-light, #999);
+  cursor: default;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pigo-menu-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pigo-menu-icon svg {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}

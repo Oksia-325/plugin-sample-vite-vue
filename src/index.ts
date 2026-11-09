@@ -1,6 +1,14 @@
-import { getFrontend, Plugin } from 'siyuan'
+import { confirm, getFrontend, Plugin } from 'siyuan'
 import PluginInfoString from '@/../plugin.json'
 import { destroyPopup, initPopup } from '@/main'
+import { pushErrMsg, pushMsg } from '@/api'
+import { ensureConfigLoaded, usePigoConfigStore } from '@/core/configStore'
+import { createParsedImage } from '@/core/scan/parser'
+import { PasteEventAdapter } from '@/core/paste/PasteEventAdapter'
+import { executePasteUpload } from '@/core/paste/PasteUploadTransaction'
+import { uploadSingleRef } from '@/core/upload/pipeline'
+import { disposeStatusBar, initStatusBar, updateStatusBar } from '@/core/statusBar'
+import type { ImageRef } from '@/core/scan/types'
 import { showPigoPopup, togglePigoPopup } from '@/core/uiStore'
 import '@/index.scss'
 
@@ -31,6 +39,9 @@ export default class PigoPlugin extends Plugin {
   public platform: SyFrontendTypes
   public readonly version = version
 
+  private readonly pasteEventAdapter = new PasteEventAdapter()
+  private eventsBound = false
+
   async onload() {
     const frontEnd = getFrontend()
     this.platform = frontEnd as SyFrontendTypes
@@ -48,6 +59,7 @@ export default class PigoPlugin extends Plugin {
     }
 
     initPopup(this)
+    initStatusBar(this)
 
     this.addTopBar({
       icon: PIGO_ICON,
@@ -70,11 +82,173 @@ export default class PigoPlugin extends Plugin {
     console.log('Pigo plugin loaded, the plugin is ', this)
   }
 
+  onLayoutReady() {
+    void this.setupEvents()
+  }
+
   onunload() {
+    this.offEvents()
+    disposeStatusBar()
     destroyPopup()
   }
 
   openSetting() {
     showPigoPopup('settings')
   }
+
+  private async setupEvents() {
+    if (this.eventsBound) {
+      return
+    }
+
+    await ensureConfigLoaded(this)
+
+    this.eventBus.on('paste', this.picturePasteEventListener)
+    this.eventBus.on('open-menu-image', this.pictureBlockEventListener)
+    this.eventsBound = true
+    updateStatusBar('就绪')
+    console.log('Pigo paste and image menu events registered')
+  }
+
+  private offEvents() {
+    if (!this.eventsBound) {
+      return
+    }
+
+    this.eventBus.off('paste', this.picturePasteEventListener)
+    this.eventBus.off('open-menu-image', this.pictureBlockEventListener)
+    this.eventsBound = false
+  }
+
+  private readonly picturePasteEventListener = async (event: CustomEvent<any>) => {
+    const store = usePigoConfigStore()
+    const takeover = this.pasteEventAdapter.tryTakeover(event, {
+      autoUploadOnPaste: store.config.behavior.autoUploadOnPaste,
+      allowPicAndText: store.config.behavior.allowPicAndText,
+    })
+
+    if (!takeover.taken || !takeover.snapshot) {
+      if (takeover.reason === 'default-prevention-unavailable') {
+        await pushErrMsg('当前思源粘贴事件不支持默认行为阻断，已取消 Pigo 自动接管，避免双上传。', 7000)
+      }
+      return
+    }
+
+    const snapshot = takeover.snapshot
+    updateStatusBar(`正在上传 ${snapshot.files.length} 张粘贴图片…`)
+
+    await executePasteUpload(snapshot, store.config, {
+      notifyInfo: (message) => {
+        void pushMsg(message, 3000).catch(() => undefined)
+        updateStatusBar(message)
+      },
+      notifySuccess: (message) => {
+        void pushMsg(message, 3000).catch(() => undefined)
+        updateStatusBar(message)
+      },
+      notifyError: (message) => {
+        void pushErrMsg(message, 7000).catch(() => undefined)
+        updateStatusBar(message)
+      },
+      onStatus: (message) => {
+        updateStatusBar(message)
+      },
+    })
+  }
+
+  private readonly pictureBlockEventListener = (event: CustomEvent<any>) => {
+    const detail = event.detail
+    const menus = detail?.menu?.menus
+    if (!menus) {
+      return
+    }
+
+    const img = findImageElement(detail.element)
+    const src = img?.getAttribute('src') || ''
+    if (!img || !src) {
+      return
+    }
+
+    const pageId = detail?.protyle?.block?.rootID || detail?.protyle?.block?.id || ''
+    if (!pageId) {
+      return
+    }
+
+    const blockId = (img.closest('[data-node-id]') as HTMLElement | null)?.dataset.nodeId || pageId
+    const alt = img.getAttribute('alt') || ''
+    const title = img.getAttribute('title') || ''
+    const store = usePigoConfigStore()
+    const parsed = createParsedImage(src, alt, title, 'markdown', store.config.s3)
+    const ref: ImageRef = {
+      ...parsed,
+      id: `menu:${blockId}:${Date.now()}`,
+      blockId,
+      docId: pageId,
+      docTitle: '',
+      docPath: '',
+      occurrence: 0,
+    }
+    const isRemote = /^https?:\/\//i.test(src) || parsed.sourceType === 's3'
+    const label = parsed.sourceType === 's3'
+      ? '重新上传至 Pigo 图床'
+      : isRemote
+        ? '上传至 Pigo 图床（网络图片）'
+        : '上传至 Pigo 图床'
+
+    menus.push({
+      iconHTML: `<span class="pigo-menu-icon">${PIGO_ICON}</span>`,
+      label,
+      click: async () => {
+        if (isRemote) {
+          const confirmed = await confirmDialog(
+            '温馨提示',
+            parsed.sourceType === 's3'
+              ? '这张图片已经上传到 S3，是否重新上传？'
+              : '这张图片已经是网络图片，是否下载并上传到 Pigo 图床？'
+          )
+          if (!confirmed) {
+            return
+          }
+        }
+
+        updateStatusBar('正在上传所选图片…')
+        try {
+          const result = await uploadSingleRef(ref, store.config, { force: isRemote })
+          if (result.replace.notReplaced > 0) {
+            await pushErrMsg('图片已上传，但文档链接未替换，请到 Pigo 上传页使用“修复未替换链接”。', 7000)
+            updateStatusBar('图片已上传，链接未替换')
+          }
+          else if (result.upload.failed > 0) {
+            await pushErrMsg('图片上传失败，请查看控制台或 Pigo 上传页。', 7000)
+            updateStatusBar('图片上传失败')
+          }
+          else {
+            await pushMsg('🎉图片上传成功', 3000)
+            updateStatusBar('图片上传成功')
+          }
+        }
+        catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          await pushErrMsg(`图片上传失败：${message}`, 7000)
+          updateStatusBar('图片上传失败')
+        }
+      },
+    })
+  }
+}
+
+function findImageElement(element: Element | null | undefined): HTMLImageElement | null {
+  if (!element) {
+    return null
+  }
+  if (element.tagName === 'IMG') {
+    return element as HTMLImageElement
+  }
+  return element.querySelector('img')
+}
+
+function confirmDialog(title: string, text: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    confirm(title, text, () => resolve(true), () => resolve(false))
+  })
 }

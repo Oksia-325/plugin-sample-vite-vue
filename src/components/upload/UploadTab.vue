@@ -169,6 +169,7 @@ import {
   type PipelineProgress,
   type PipelineResult,
 } from '@/core/upload/pipeline'
+import { updateStatusBar } from '@/core/statusBar'
 import { uiState } from '@/core/uiStore'
 
 const props = defineProps<{
@@ -448,6 +449,7 @@ async function runPipeline(task: () => Promise<PipelineResult>): Promise<void> {
   progress.value = null
   lastPipeline.value = null
   error.value = ''
+  updateStatusBar('正在处理图片…')
 
   try {
     await ensureConfigLoaded(props.plugin)
@@ -455,10 +457,12 @@ async function runPipeline(task: () => Promise<PipelineResult>): Promise<void> {
     lastPipeline.value = result
     const failed = result.upload.failed + result.replace.errors.length
     showNotice(failed > 0 ? '上传完成，但有失败项，请查看结果。' : '上传完成。')
+    updateStatusBar(failed > 0 ? '上传完成，有失败项' : '上传完成')
   }
   catch (pipelineError) {
     error.value = pipelineError instanceof Error ? pipelineError.message : String(pipelineError)
     showNotice('上传失败。')
+    updateStatusBar('上传失败')
   }
   finally {
     running.value = false
@@ -469,6 +473,7 @@ async function runPipeline(task: () => Promise<PipelineResult>): Promise<void> {
 function cancelUpload(): void {
   cancelRequested = true
   showNotice('正在停止…')
+  updateStatusBar('正在停止上传…')
 }
 
 function previewUrl(ref: ImageRef): string {

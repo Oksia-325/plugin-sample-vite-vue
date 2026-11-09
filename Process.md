@@ -284,3 +284,66 @@
   - 全局上传可能耗时较长，建议先在小范围验证。
   - 实际笔记替换尚未由 Agent 自动执行（避免改动用户数据）；需按上述手动步骤验证。
 - 下一步：Phase 5 — 粘贴自动上传、右键菜单、顶栏/状态栏。
+
+---
+
+## 2026-11-09 Phase 5 — 粘贴自动上传、右键菜单、状态栏
+
+- 阶段：Phase 5
+- 分支：`pigo`
+- 变更：
+  - 新增 `src/core/paste/PasteEventAdapter.ts`：同步决策、preventDefault、resolve 空载荷；支持多文件；保留 `preventedBy` 排错信息。
+  - 新增 `src/core/paste/PasteUploadTransaction.ts`：并发上传粘贴文件、生成 Markdown、插入光标位置、写 fileMap、部分失败提示。
+  - 新增 `src/core/statusBar.ts`：状态栏初始化/更新/销毁。
+  - `src/index.ts`：
+    - `onLayoutReady` 注册 `paste` / `open-menu-image` 事件。
+    - 粘贴图片自动上传，支持多图。
+    - 右键图片菜单“上传至 Pigo 图床 / 上传网络图片 / 重新上传”。
+    - 状态栏与思源通知更新。
+  - `src/components/upload/UploadTab.vue`：上传过程同步更新状态栏。
+  - `SettingsTab.vue`：图文混合接管增加“文字可能丢失”的警告提示。
+  - `src/index.scss`：状态栏、菜单图标样式。
+  - `src/i18n/*`：增加 `uploadToBed` 文案。
+  - 新增 `tests/paste.test.mjs`：单图/多图接管、关闭自动上传、图文混合、无文件、无文档、无法阻断默认行为。
+- 功能说明：
+  - 粘贴单图/多图：Pigo 接管默认粘贴，并发上传 S3，插入 `![](url)`，写 fileMap。
+  - 右键本地图片：上传并替换链接。
+  - 右键网络图片：先确认，再下载上传并替换。
+  - 右键已 S3 图片：先确认，再重新上传。
+  - GIF：按原始字节上传，保持 `image/gif`。
+  - 状态栏显示“正在上传/上传完成/上传失败”等短状态。
+  - 思源通知提示成功/失败。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 44 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 166.71 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间并禁用/启用插件（或重启思源）。
+  2. **建议先禁用旧 PicGo 插件**，避免 paste/右键菜单双重处理。
+  3. 复制一张图片 -> 在文档中 Ctrl+V：
+     - 状态栏显示上传中
+     - 图片上传 S3
+     - 插入 `![](s3url)`
+     - 通知“已上传 1 张图片并插入文档”
+  4. 复制 3 张图片 -> 粘贴：
+     - 3 张并发上传
+     - 插入多行 Markdown
+  5. 复制“文字+图片” -> 粘贴：
+     - 设置中“允许图片和文字混合粘贴时接管”关闭时：走思源默认行为
+     - 开启时：Pigo 接管；注意当前只保留图片，文字可能丢失
+  6. 右键本地图片 -> 插件 -> 上传至 Pigo 图床：
+     - 上传并替换链接
+  7. 右键网络图片：
+     - 弹确认框；确认后下载上传并替换
+  8. 右键已 S3 图片：
+     - 弹确认框；确认后重新上传
+  9. GIF 粘贴/右键上传：
+     - S3 Content-Type 为 `image/gif`
+     - 笔记中动画正常
+  10. 重启思源后重复上述操作，确认事件仍注册。
+- 已知问题：
+  - 图文混合接管当前只插入图片，文字可能丢失；设置页已提示，默认关闭。
+  - 右键菜单只覆盖正文图片；题头图请用上传页。
+  - 若 SiYuan 将某些图片渲染为 blob URL，右键菜单可能无法与 Markdown 中的原 URL 对应；常见本地资产/网络图片不受影响。
+  - 旧 PicGo 插件同时启用时会重复接管/重复菜单，建议禁用旧插件。
+- 下一步：Phase 6 — 全库统计与全库上传 UI。
