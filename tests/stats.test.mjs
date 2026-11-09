@@ -108,6 +108,11 @@ test('isUploadedButNotReplaced ignores S3 refs and identical URLs', () => {
   )
 })
 
+test('isUploadedButNotReplaced tolerates missing fileMaps', () => {
+  assert.equal(isUploadedButNotReplaced(makeRef(), undefined), false)
+  assert.equal(isUploadedButNotReplaced(makeRef(), new Map()), false)
+})
+
 test('buildStatsCsv escapes commas, quotes and newlines', () => {
   const refs = [
     makeRef({

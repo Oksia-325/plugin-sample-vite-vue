@@ -20,6 +20,13 @@
       <slot name="actions"></slot>
     </div>
 
+    <div v-if="renderError" class="pigo-panel__error">
+      <span>页面渲染出错：{{ renderError }}</span>
+      <button class="b3-button b3-button--text" type="button" @click="renderError = ''">
+        关闭
+      </button>
+    </div>
+
     <div class="pigo-panel__body">
       <upload-tab v-show="uiState.activeTab === 'upload'" :plugin="props.plugin" />
 
@@ -40,6 +47,7 @@
 </template>
 
 <script setup lang="ts">
+import { onErrorCaptured, ref } from 'vue'
 import type { Plugin } from 'siyuan'
 import SettingsTab from '@/components/settings/SettingsTab.vue'
 import StatsTab from '@/components/stats/StatsTab.vue'
@@ -49,6 +57,14 @@ import { uiState, type PigoTabId } from '@/core/uiStore'
 const props = defineProps<{
   plugin: Plugin
 }>()
+
+const renderError = ref('')
+
+onErrorCaptured((error) => {
+  renderError.value = error instanceof Error ? error.message : String(error)
+  console.error('[Pigo] 页面渲染出错', error)
+  return false
+})
 
 const tabs: Array<{ id: PigoTabId, label: string }> = [
   { id: 'upload', label: '上传' },
@@ -115,6 +131,19 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
 .pigo-panel__spacer {
   flex: 1 1 auto;
   min-width: 8px;
+}
+
+.pigo-panel__error {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 6px 12px;
+  color: var(--b3-theme-error, #d23f31);
+  background: rgba(210, 63, 49, 0.12);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .pigo-panel__body {

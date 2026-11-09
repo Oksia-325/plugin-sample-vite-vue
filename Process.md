@@ -424,3 +424,23 @@
   - “已上传未替换”依赖 `custom-picgo-file-map-key`，没有 fileMap 的旧笔记无法判断。
   - 全库上传/修复仍属于长任务，建议先在小范围验证。
 - 下一步：Phase 7 — S3 双向同步与清理。
+
+---
+
+## 2026-11-09 Phase 6 修复 — 统计页全库扫描后空白
+
+- 现象：点击「全库」→「开始统计」后统计页空白，重新打开插件仍空白。
+- 原因：
+  - `StatsTab.vue` 模板中直接调用了从 `aggregate.ts` 导入的 `isUploadedButNotReplaced(ref)`，
+  - 但该函数签名是 `(ref, fileMaps)`，模板只传了 `ref`，`fileMaps.get()` 触发 `TypeError`，
+  - Vue 渲染中断，整个面板变成空白。
+- 修复：
+  - 模板改为调用组件内的 `isPending(ref)`，由它传入 `snapshot.fileMaps`。
+  - 导入别名改为 `hasUploadRecord`，避免模板/脚本同名误用。
+  - `isUploadedButNotReplaced` 增加 `!fileMaps` 防御，缺少 fileMaps 时返回 `false`。
+  - `PigoPanel.vue` 增加 `onErrorCaptured` 错误条：子页渲染异常时显示错误信息，不再整页空白。
+  - 新增回归测试：缺少 fileMaps 时不抛错。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 51 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功

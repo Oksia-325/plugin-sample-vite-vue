@@ -58,7 +58,7 @@ export function computeRefStats(refs: ImageRef[], uniqueRefs: ImageRef[]): ScanS
  * 这类图片通常出现在“上传成功但文档链接未替换”或“手动还原了链接”的场景。
  */
 export function isUploadedButNotReplaced(ref: ImageRef, fileMaps: DocFileMaps): boolean {
-  if (ref.sourceType === 's3') {
+  if (ref.sourceType === 's3' || !fileMaps) {
     return false
   }
 

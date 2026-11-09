@@ -141,7 +141,7 @@
               <span class="pigo-stats__badge" :class="sourceClass(ref)">{{ sourceLabel(ref) }}</span>
               <span v-if="ref.kind === 'title'" class="pigo-stats__badge pigo-stats__badge--title">题头图</span>
               <span
-                v-if="isUploadedButNotReplaced(ref)"
+                v-if="isPending(ref)"
                 class="pigo-stats__badge pigo-stats__badge--pending"
               >
                 已上传未替换
@@ -180,7 +180,7 @@ import type { Plugin } from 'siyuan'
 import { getActiveDocId, subscribeActiveDoc } from '@/core/activeDoc'
 import { ensureConfigLoaded, usePigoConfigStore } from '@/core/configStore'
 import type { ImageRef, ScanAllResult, ScanDocResult } from '@/core/scan/types'
-import { isUploadedButNotReplaced } from '@/core/stats/aggregate'
+import { isUploadedButNotReplaced as hasUploadRecord } from '@/core/stats/aggregate'
 import {
   buildStatsCsv,
   buildStatsJson,
@@ -655,7 +655,7 @@ function isPending(ref: ImageRef): boolean {
   if (!snapshot.value) {
     return false
   }
-  return isUploadedButNotReplaced(ref, snapshot.value.fileMaps)
+  return hasUploadRecord(ref, snapshot.value.fileMaps)
 }
 
 function sourceLabel(ref: ImageRef): string {
