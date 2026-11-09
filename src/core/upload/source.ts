@@ -97,6 +97,7 @@ async function readRemoteImage(url: string): Promise<SourceResult> {
       method: 'GET',
       redirect: 'follow',
       cache: 'no-store',
+      signal: createTimeoutSignal(60000),
     })
     if (response.ok) {
       const buffer = new Uint8Array(await response.arrayBuffer())
@@ -254,6 +255,16 @@ function base64ToBytes(base64: string): Uint8Array {
     bytes[index] = binary.charCodeAt(index)
   }
   return bytes
+}
+
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs)
+  }
+
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), timeoutMs)
+  return controller.signal
 }
 
 function safeParseJson(text: string): any {

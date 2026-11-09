@@ -1,5 +1,6 @@
 import { sql } from '@/api'
 import type { PigoConfig } from '../config'
+import { logInfo } from '../log.ts'
 import { matchS3Key } from '../scan/s3Key'
 import { scanAll } from '../scan/scanner'
 import type { ImageRef, ScanAllProgress, ScanAllResult } from '../scan/types'
@@ -120,6 +121,7 @@ export async function buildSyncSnapshot(
   })
 
   options.onProgress?.({ phase: 'done', done: 1, total: 1, objects: objects.length })
+  logInfo('同步报告完成', JSON.stringify(report.summary))
 
   return {
     report,

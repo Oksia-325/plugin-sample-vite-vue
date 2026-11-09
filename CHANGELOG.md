@@ -1,6 +1,34 @@
 # Changelog
 
-## v0.0.1
+## v0.1.0
 
-* [Support optional marketplace images, offline README assets, and stable releases](https://github.com/siyuan-note/siyuan/issues/19056)
-* Align the manifest URL with the current repository
+个人 S3 图床首个可用版本。
+
+### 新增
+
+- 单 S3 存储桶配置：Endpoint、Region、Bucket、AK/SK、上传路径模板、CustomUrl、额外 URL 前缀、Path Style、ACL、思源代理。
+- S3 连接测试：读取、写入、HEAD、公网 URL、删除。
+- 图片扫描：本地 assets、网络图片、data URI、题头图 `title-img`、Markdown/HTML 图片。
+- 上传管线：并发上传、MIME/magic bytes 识别、GIF 支持、fileMap 复用、失败隔离、取消。
+- 链接替换：只替换图片 URL，支持 Markdown/HTML/题头图。
+- 粘贴自动上传：单图/多图接管，避免与思源默认上传重复。
+- 右键菜单：上传本地图片、网络图片、已 S3 图片。
+- 状态栏与思源通知。
+- 统计页：当前文档/全库、来源分布、已上传未替换、筛选搜索、JSON/CSV 导出、全库上传/修复入口。
+- S3 同步页：双向匹配、仅 S3、仅思源失效、未上传、前缀外、忽略对象。
+- 安全清理：引用证据保护、前缀保护、`_pigo_test/` 保护、两次确认、批量删除、失败停止。
+- 旧 PicGo 配置导入（tcyun / awss3）。
+- 调试日志：最近 200 条、复制/清空、不记录密钥。
+- 统一错误提示：网络、超时、鉴权、404、400、5xx。
+
+### 兼容
+
+- 继续兼容旧 `custom-picgo-file-map-key`。
+- 继续兼容旧腾讯云 COS URL。
+- 支持暗色/亮色主题与窄屏布局。
+
+### 已知限制
+
+- 图文混合粘贴接管只保留图片。
+- 清理不可恢复，使用前请导出报告并抽查。
+- 清理只基于当前工作空间。

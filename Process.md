@@ -525,3 +525,98 @@
   - 前缀为空时清理整个桶，风险极高，不建议。
   - 删除不可恢复，建议先手动备份或开启桶版本控制。
 - 下一步：Phase 8 — 稳定性、兼容、性能与发布。
+
+---
+
+## 2026-11-09 Phase 8 — 稳定性、兼容、性能与发布收尾
+
+- 阶段：Phase 8
+- 分支：`pigo`
+- 变更：
+  - 新增 `src/core/errors.ts`：
+    - `PigoError`（code/message/detail）；
+    - `toPigoError` / `toUserMessage`：统一映射网络、超时、S3 鉴权、404、400、5xx、配置文件等错误；
+    - `toErrorDetail` 用于日志。
+  - 新增 `src/core/log.ts`：
+    - 最近 200 条内存日志；
+    - `debug` 开关控制控制台输出；
+    - 自动脱敏 secretAccessKey/accessKeyId/secretId/secretKey/authorization；
+    - `formatLogs` / `clearLogs`。
+  - `src/core/configStore.ts`：
+    - 加载/保存配置时同步 debug 开关；
+    - 新增 `getConfigIssues`、`isConfigReady`、`ensureConfigReady`；
+    - 配置读写失败写入日志。
+  - 配置有效性保护：
+    - 粘贴事件在接管前同步检查配置；配置不完整时不阻断思源默认粘贴，避免图片丢失；
+    - 上传、统计页上传/修复、同步、清理、右键上传均先校验配置；
+    - 配置不完整时提示并跳转设置页。
+  - `src/core/s3/transport.ts`：S3 直连增加超时 AbortSignal。
+  - 日志接入：
+    - 插件加载/卸载、事件注册、粘贴接管/失败、右键上传；
+    - 上传开始/结束/失败项、替换结果；
+    - 统计失败、同步报告、S3 清理结果与失败项；
+    - S3 连接测试。
+  - 新增 `src/core/legacyConfig.ts`：
+    - 从 configStore 拆出纯函数 `mapLegacyPicgoConfig` / `parseLegacyConfig`；
+    - 保持旧 PicGo `tcyun` / `awss3` 映射逻辑；
+    - 便于 Node 单元测试。
+  - 设置页新增“调试日志”：
+    - 显示最近日志、条数；
+    - 复制/清空；
+    - 说明不会记录密钥。
+  - 文档：
+    - 重写 `README.md`、`README.zh-CN.md`：功能、安装、配置、使用、统计、同步/清理风险、开发、隐私、限制；
+    - 重写 `CHANGELOG.md`：`v0.1.0` 功能与已知限制；
+    - `plugin.json` 增加 cos/tencent/sync 关键词。
+  - 新增测试：
+    - `tests/errors.test.mjs`：错误映射；
+    - `tests/legacy.test.mjs`：旧腾讯云/AWS 配置映射、JSON 字符串、错误对象拒绝、缺凭据警告。
+- 真实配置迁移验证（只读）：
+  - 读取真实旧 PicGo 配置：
+    - source `tcyun`
+    - endpoint `https://cos.ap-guangzhou.myqcloud.com`
+    - region `ap-guangzhou`
+    - bucket `picgo-1312673255`
+    - uploadPath `siyuan/{year}/{month}/{md5}.{ext}`
+    - customUrl `https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com`
+    - pathStyle false、acl `public-read`
+    - 警告 0 条，凭据完整。
+- 性能验证：
+  - 全库同步（971 篇文档、3922 个 S3 对象）：约 4.5 秒（含日志与保护扫描）。
+  - 统计全库仍为亚秒级核心计算，UI 列表默认 300 条。
+- 打包验证：
+  - `package.zip` 包含：README、README.zh-CN、i18n、icon、index.css、index.js、plugin.json、preview、asset/action.png。
+  - `dist/index.js` 210.59 kB。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 65 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 使用最新 `package.zip` 在干净环境或覆盖安装，启用插件：
+     - 顶栏图标、命令、状态栏正常；
+     - 控制台无阻断错误。
+  2. 首次配置：
+     - 填写 S3 -> 测试连接 -> 保存；
+     - 粘贴图片应自动上传；
+     - 未配置时粘贴不应接管，图片仍由思源保存到本地。
+  3. 旧配置导入：
+     - 点击“导入旧 PicGo 配置”；
+     - 核对 Endpoint/Region/Bucket/路径/CustomUrl；
+     - 保存并测试连接。
+  4. 日志：
+     - 打开设置 -> 调试日志；
+     - 执行一次上传/同步；
+     - 复制日志，确认不含密钥。
+  5. 主题与窄屏：
+     - 切换暗色/亮色；
+     - 缩小窗口，确认按钮和列表可读。
+  6. 重启思源：
+     - 配置、弹窗位置、粘贴、右键菜单、统计/同步结果缓存行为正常。
+  7. 打包：
+     - 卸载旧插件 -> 安装 `package.zip` -> 启用 -> 基本功能可用。
+- 已知限制：
+  - 图文混合粘贴只保留图片；
+  - 清理只基于当前工作空间，删除不可恢复；
+  - 非常旧笔记若本地文件名与 S3 key 不一致，无法通过文件名启发式保护；
+  - 同步/清理仍建议先导出报告抽查。
+- 下一步：等待整体验收；如需发布，只差在真实 SiYuan 环境完成安装/卸载/主题/重启手工验证。

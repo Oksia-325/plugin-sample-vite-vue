@@ -172,7 +172,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
-import { ensureConfigLoaded, usePigoConfigStore } from '@/core/configStore'
+import { ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
+import { toUserMessage } from '@/core/errors'
+import { logError, logInfo } from '@/core/log'
 import { buildPublicUrl } from '@/core/s3/url'
 import type { S3DeleteError } from '@/core/s3/xml'
 import { downloadTextFile, exportFileName } from '@/core/stats/export'
@@ -392,6 +394,10 @@ async function scan(): Promise<void> {
   }
 
   await ensureConfigLoaded(props.plugin)
+  if (!(await ensureSyncReady())) {
+    return
+  }
+
   running.value = true
   cancelRequested = false
   progress.value = { phase: 'scanning', done: 0, total: 0 }
@@ -431,7 +437,8 @@ async function scan(): Promise<void> {
       updateStatusBar('同步已取消')
     }
     else {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = toUserMessage(error)
+      logError('同步失败', error)
       showNotice(`同步失败：${message}`)
       updateStatusBar('同步失败')
     }
@@ -482,6 +489,10 @@ async function handleCleanup(): Promise<void> {
   }
 
   await ensureConfigLoaded(props.plugin)
+  if (!(await ensureSyncReady())) {
+    return
+  }
+
   running.value = true
   cancelRequested = false
   progress.value = { phase: 'deleting', done: 0, total: candidates.length }
@@ -506,6 +517,9 @@ async function handleCleanup(): Promise<void> {
       cancelled: result.cancelled,
     }
 
+    logInfo(`S3 清理完成：删除 ${result.deleted} 个，失败 ${result.failed.length} 个${result.cancelled ? '，已取消' : ''}`)
+    result.failed.slice(0, 10).forEach((item) => logError(`删除失败：${item.key || '(未知 key)'}`, item.message || item.code || ''))
+
     showNotice(result.cancelled
       ? `已停止删除，已删除 ${result.deleted} 个。`
       : `清理完成：删除 ${result.deleted} 个，失败 ${result.failed.length} 个。`)
@@ -518,7 +532,8 @@ async function handleCleanup(): Promise<void> {
     }
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = toUserMessage(error)
+    logError('S3 清理失败', error)
     showNotice(`清理失败：${message}。已删除的部分无法恢复，请重新扫描确认。`)
     updateStatusBar('清理失败')
   }
@@ -526,6 +541,18 @@ async function handleCleanup(): Promise<void> {
     running.value = false
     progress.value = null
   }
+}
+
+async function ensureSyncReady(): Promise<boolean> {
+  const ready = await ensureConfigReady(props.plugin)
+  if (ready.ok) {
+    return true
+  }
+
+  const message = ready.issues.map((issue) => issue.message).join('；')
+  showNotice(`配置不完整：${message}`)
+  uiState.activeTab = 'settings'
+  return false
 }
 
 function exportJson(): void {

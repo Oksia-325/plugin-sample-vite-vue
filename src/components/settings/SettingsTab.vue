@@ -324,6 +324,28 @@
         </div>
       </div>
 
+      <section class="pigo-settings__section">
+        <div class="pigo-settings__section-title">
+          调试日志
+        </div>
+        <div class="pigo-settings__section-desc">
+          保留最近 200 条运行日志，不会记录密钥。开启“输出调试日志”后会同时输出到控制台。
+        </div>
+        <div class="pigo-settings__logs-actions">
+          <button class="b3-button b3-button--outline" type="button" :disabled="logState.entries.length === 0" @click="copyLogs">
+            复制日志
+          </button>
+          <button class="b3-button b3-button--text" type="button" :disabled="logState.entries.length === 0" @click="clearLogs">
+            清空日志
+          </button>
+          <span class="pigo-settings__hint">共 {{ logState.entries.length }} 条</span>
+        </div>
+        <pre v-if="logState.entries.length > 0" class="pigo-settings__logs">{{ logsText }}</pre>
+        <div v-else class="pigo-settings__hint">
+          暂无日志。
+        </div>
+      </section>
+
       <div class="pigo-settings__footer">
         配置保存在思源工作空间的 petal 存储中，会随思源同步到其他设备。请确认你的同步空间是可信的。
       </div>
@@ -335,6 +357,15 @@
 import { computed, onMounted, ref } from 'vue'
 import type { Plugin } from 'siyuan'
 import { ACL_OPTIONS, validateConfig, type ValidationIssue } from '@/core/config'
+import { toUserMessage } from '@/core/errors'
+import {
+  clearLogs,
+  formatLogs,
+  getRecentLogs,
+  logError,
+  logInfo,
+  logState,
+} from '@/core/log'
 import {
   ensureConfigLoaded,
   readLegacyPicgoS3Config,
@@ -354,6 +385,8 @@ const issues = ref<ValidationIssue[]>([])
 const notice = ref<{ type: 'success' | 'error', text: string } | null>(null)
 const testing = ref(false)
 const testResult = ref<TestConnectionResult | null>(null)
+
+const logsText = computed(() => formatLogs([...getRecentLogs()].reverse()))
 
 const issueMap = computed<Record<string, string>>(() => {
   return Object.fromEntries(issues.value.map((issue) => [issue.field, issue.message]))
@@ -409,6 +442,7 @@ async function handleImportLegacy() {
     fromPicgo: true,
     migratedAt: Date.now(),
   }
+  logInfo(`已导入旧 PicGo 配置：${imported.source}`)
   issues.value = validateConfig(store.config)
   testResult.value = null
   notice.value = {
@@ -417,6 +451,16 @@ async function handleImportLegacy() {
       `已从旧配置（${imported.source}）导入 S3 设置，请检查后保存。`,
       ...imported.warnings,
     ].join(' '),
+  }
+}
+
+async function copyLogs() {
+  try {
+    await navigator.clipboard.writeText(logsText.value)
+    notice.value = { type: 'success', text: '日志已复制。' }
+  }
+  catch {
+    notice.value = { type: 'error', text: '复制失败，请手动选择日志内容。' }
   }
 }
 
@@ -434,12 +478,18 @@ async function handleTestConnection() {
   testing.value = true
   try {
     testResult.value = await testS3Connection(store.config.s3)
-    notice.value = testResult.value.ok
-      ? { type: 'success', text: 'S3 连接测试通过。' }
-      : { type: 'error', text: 'S3 连接测试失败，请查看下方步骤。' }
+    if (testResult.value.ok) {
+      logInfo('S3 连接测试通过', `耗时 ${testResult.value.latencyMs}ms`)
+      notice.value = { type: 'success', text: 'S3 连接测试通过。' }
+    }
+    else {
+      logError('S3 连接测试失败', testResult.value.errors.join('；'))
+      notice.value = { type: 'error', text: 'S3 连接测试失败，请查看下方步骤。' }
+    }
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = toUserMessage(error)
+    logError('S3 连接测试失败', error)
     testResult.value = {
       ok: false,
       steps: [],
@@ -561,6 +611,30 @@ async function handleTestConnection() {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 4px;
+}
+
+.pigo-settings__logs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pigo-settings__logs {
+  max-height: 240px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
+  color: var(--b3-theme-on-surface, #c9c9c9);
+  background: var(--b3-theme-background, #1f1f1f);
+  font-family: var(--b3-font-family-code, monospace);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .pigo-settings__footer {

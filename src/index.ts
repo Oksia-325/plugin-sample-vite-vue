@@ -2,7 +2,9 @@ import { confirm, getFrontend, Plugin } from 'siyuan'
 import PluginInfoString from '@/../plugin.json'
 import { destroyPopup, initPopup } from '@/main'
 import { pushErrMsg, pushMsg } from '@/api'
-import { ensureConfigLoaded, usePigoConfigStore } from '@/core/configStore'
+import { ensureConfigLoaded, ensureConfigReady, isConfigReady, usePigoConfigStore } from '@/core/configStore'
+import { toUserMessage } from '@/core/errors'
+import { logDebug, logError, logInfo, logWarn } from '@/core/log'
 import { createParsedImage } from '@/core/scan/parser'
 import { PasteEventAdapter } from '@/core/paste/PasteEventAdapter'
 import { executePasteUpload } from '@/core/paste/PasteUploadTransaction'
@@ -79,7 +81,7 @@ export default class PigoPlugin extends Plugin {
       },
     })
 
-    console.log('Pigo plugin loaded, the plugin is ', this)
+    logInfo(`Pigo 插件已加载：${this.platform}`)
   }
 
   onLayoutReady() {
@@ -90,6 +92,7 @@ export default class PigoPlugin extends Plugin {
     this.offEvents()
     disposeStatusBar()
     destroyPopup()
+    logInfo('Pigo 插件已卸载')
   }
 
   openSetting() {
@@ -107,7 +110,7 @@ export default class PigoPlugin extends Plugin {
     this.eventBus.on('open-menu-image', this.pictureBlockEventListener)
     this.eventsBound = true
     updateStatusBar('就绪')
-    console.log('Pigo paste and image menu events registered')
+    logInfo('粘贴与图片右键菜单事件已注册')
   }
 
   private offEvents() {
@@ -121,6 +124,12 @@ export default class PigoPlugin extends Plugin {
   }
 
   private readonly picturePasteEventListener = async (event: CustomEvent<any>) => {
+    if (!isConfigReady()) {
+      logWarn('粘贴未接管：S3 配置尚未完成')
+      void pushErrMsg('Pigo 尚未完成 S3 配置，已使用思源默认粘贴。请到 Pigo 设置页补全配置。', 5000).catch(() => undefined)
+      return
+    }
+
     const store = usePigoConfigStore()
     const takeover = this.pasteEventAdapter.tryTakeover(event, {
       autoUploadOnPaste: store.config.behavior.autoUploadOnPaste,
@@ -128,6 +137,7 @@ export default class PigoPlugin extends Plugin {
     })
 
     if (!takeover.taken || !takeover.snapshot) {
+      logDebug(`粘贴未接管：${takeover.reason || 'unknown'}`)
       if (takeover.reason === 'default-prevention-unavailable') {
         await pushErrMsg('当前思源粘贴事件不支持默认行为阻断，已取消 Pigo 自动接管，避免双上传。', 7000)
       }
@@ -136,6 +146,7 @@ export default class PigoPlugin extends Plugin {
 
     const snapshot = takeover.snapshot
     updateStatusBar(`正在上传 ${snapshot.files.length} 张粘贴图片…`)
+    logInfo(`粘贴接管：${snapshot.files.length} 张图片，目标文档 ${snapshot.pageId}`)
 
     await executePasteUpload(snapshot, store.config, {
       notifyInfo: (message) => {
@@ -149,6 +160,7 @@ export default class PigoPlugin extends Plugin {
       notifyError: (message) => {
         void pushErrMsg(message, 7000).catch(() => undefined)
         updateStatusBar(message)
+        logError('粘贴上传失败', message)
       },
       onStatus: (message) => {
         updateStatusBar(message)
@@ -199,6 +211,14 @@ export default class PigoPlugin extends Plugin {
       iconHTML: `<span class="pigo-menu-icon">${PIGO_ICON}</span>`,
       label,
       click: async () => {
+        const ready = await ensureConfigReady(this)
+        if (!ready.ok) {
+          const message = ready.issues.map((issue) => issue.message).join('；')
+          await pushErrMsg(`请先完成 Pigo 配置：${message}`, 7000)
+          showPigoPopup('settings')
+          return
+        }
+
         if (isRemote) {
           const confirmed = await confirmDialog(
             '温馨提示',
@@ -212,6 +232,7 @@ export default class PigoPlugin extends Plugin {
         }
 
         updateStatusBar('正在上传所选图片…')
+        logInfo(`右键上传图片：${ref.url}`)
         try {
           const result = await uploadSingleRef(ref, store.config, { force: isRemote })
           if (result.replace.notReplaced > 0) {
@@ -228,7 +249,8 @@ export default class PigoPlugin extends Plugin {
           }
         }
         catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
+          const message = toUserMessage(error)
+          logError('右键上传图片失败', error)
           await pushErrMsg(`图片上传失败：${message}`, 7000)
           updateStatusBar('图片上传失败')
         }

@@ -178,7 +178,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
 import { getActiveDocId, subscribeActiveDoc } from '@/core/activeDoc'
-import { ensureConfigLoaded, usePigoConfigStore } from '@/core/configStore'
+import { ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
+import { toUserMessage } from '@/core/errors'
+import { logError } from '@/core/log'
 import type { ImageRef, ScanAllResult, ScanDocResult } from '@/core/scan/types'
 import { isUploadedButNotReplaced as hasUploadRecord } from '@/core/stats/aggregate'
 import {
@@ -450,6 +452,12 @@ async function scanStats(target: StatsScope, silent = false): Promise<void> {
   }
 
   await ensureConfigLoaded(props.plugin)
+  const ready = await ensureConfigReady(props.plugin)
+  if (!ready.ok) {
+    showNotice('请先在设置页补全 S3 配置后再统计。')
+    return
+  }
+
   const docId = getActiveDocId()
   if (target === 'doc' && !docId) {
     showNotice('请先打开一篇笔记。')
@@ -502,7 +510,8 @@ async function scanStats(target: StatsScope, silent = false): Promise<void> {
       updateStatusBar('统计已取消')
     }
     else {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = toUserMessage(error)
+      logError('统计失败', error)
       showNotice(`统计失败：${message}`)
       updateStatusBar('统计失败')
     }
@@ -524,6 +533,10 @@ async function handleUploadUnuploaded(): Promise<void> {
     ? '将扫描全部笔记并上传未上传的图片，可能耗时较长。上传会修改笔记中的图片链接，是否继续？'
     : '将上传本文档中未上传的图片，并替换文档链接，是否继续？'
   if (!window.confirm(message)) {
+    return
+  }
+
+  if (!(await ensureStatsReady())) {
     return
   }
 
@@ -557,7 +570,8 @@ async function handleUploadUnuploaded(): Promise<void> {
     await scanStats(target, true)
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = toUserMessage(error)
+    logError('统计页上传失败', error)
     showNotice(`上传失败：${message}`)
     updateStatusBar('上传失败')
   }
@@ -575,6 +589,10 @@ async function handleRepair(): Promise<void> {
   await ensureConfigLoaded(props.plugin)
   const target = scope.value
   if (!window.confirm('将根据 fileMap 中已有的上传记录，替换文档中仍未替换的图片链接。不会重新上传对象，是否继续？')) {
+    return
+  }
+
+  if (!(await ensureStatsReady())) {
     return
   }
 
@@ -610,7 +628,8 @@ async function handleRepair(): Promise<void> {
     await scanStats(target, true)
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = toUserMessage(error)
+    logError('统计页修复失败', error)
     showNotice(`修复失败：${message}`)
     updateStatusBar('修复失败')
   }
@@ -618,6 +637,18 @@ async function handleRepair(): Promise<void> {
     running.value = false
     progress.value = null
   }
+}
+
+async function ensureStatsReady(): Promise<boolean> {
+  const ready = await ensureConfigReady(props.plugin)
+  if (ready.ok) {
+    return true
+  }
+
+  const message = ready.issues.map((issue) => issue.message).join('；')
+  showNotice(`配置不完整：${message}`)
+  uiState.activeTab = 'settings'
+  return false
 }
 
 function applyPipelineProgress(value: PipelineProgress): void {

@@ -7,7 +7,7 @@ export async function s3Fetch(request: Request, config: S3Config): Promise<Respo
   }
 
   try {
-    return await fetch(request)
+    return await fetch(request, { signal: createTimeoutSignal(config.timeoutMs) })
   }
   catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
@@ -62,6 +62,17 @@ async function fetchViaSiyuanProxy(request: Request, config: S3Config): Promise<
     statusText: String(data.statusText || ''),
     headers: responseHeaders,
   })
+}
+
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  const timeout = Math.max(5000, Number(timeoutMs) || 60000)
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeout)
+  }
+
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), timeout)
+  return controller.signal
 }
 
 function normalizeProxyHeaders(headers: Record<string, unknown>): Record<string, string> {

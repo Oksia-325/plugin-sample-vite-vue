@@ -1,4 +1,5 @@
 import type { PigoConfig } from '../config'
+import { logInfo, logWarn } from '../log.ts'
 import { scanAll, scanDoc } from '../scan/scanner.ts'
 import type { ImageRef, ScanAllResult, ScanDocResult } from '../scan/types'
 import { applyUploadResults, type ReplaceResult } from './replacer.ts'
@@ -159,6 +160,9 @@ async function execute(
     skipped: upload.skipped,
     failed: upload.failed,
   })
+
+  logInfo(`任务完成：替换块 ${replace.replacedBlocks}，题头图 ${replace.replacedTitleImages}，未替换 ${replace.notReplaced}，耗时 ${Date.now() - startedAt}ms`)
+  replace.errors.slice(0, 10).forEach((item) => logWarn(`替换失败：${item}`))
 
   return {
     scan,

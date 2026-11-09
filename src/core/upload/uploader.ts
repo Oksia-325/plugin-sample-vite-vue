@@ -1,6 +1,7 @@
 import type { PigoConfig } from '../config'
 import type { ImageRef } from '../scan/types'
 import { matchS3Key } from '../scan/s3Key.ts'
+import { logInfo, logWarn } from '../log.ts'
 import { createS3Client } from '../s3/client.ts'
 import type { S3ClientCore } from '../s3/client-core.ts'
 import { buildFileMapEntry, findFileMapEntry, loadFileMap, type FileMapEntry } from './fileMap.ts'
@@ -41,6 +42,7 @@ export async function uploadRefs(
   }
 
   report('preparing')
+  logInfo(`开始上传 ${refs.length} 张图片（并发 ${concurrency}）`)
 
   const getFileMap = (docId: string) => {
     let promise = fileMapCache.get(docId)
@@ -88,6 +90,13 @@ export async function uploadRefs(
   })
 
   report('done')
+  logInfo(`上传结束：上传 ${uploaded}，复用 ${reused}，跳过 ${skipped}，失败 ${failed}${cancelled ? '，已取消' : ''}`)
+  if (failed > 0) {
+    results
+      .filter((result) => !result.ok && result.error)
+      .slice(0, 10)
+      .forEach((result) => logWarn(`上传失败：${result.ref.url}`, result.error))
+  }
 
   return {
     results,

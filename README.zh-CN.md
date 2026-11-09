@@ -2,22 +2,139 @@
 
 [English](./README.md)
 
-个人使用的思源笔记 S3 兼容图床插件。
+个人使用的思源笔记 S3 兼容图床插件，基于 Vite + Vue 开发。
 
-> 当前状态：Phase 0 基线。插件外壳、构建流程和项目元信息已就绪；上传 / 统计 / 同步 / 设置功能正在 `pigo` 分支开发中。
+> 当前状态：`0.1.0` — 单 S3 存储桶、内置上传管线、统计、双向同步与安全清理。
+
+## 功能
+
+- **单 S3 存储桶**：兼容腾讯云 COS、AWS S3、MinIO 等 S3 协议存储。
+- **内置上传**：不依赖外部 PicGo/PicList 进程。
+- **图片来源**：本地 `assets/...`、网络图片、`data:` URI、已上传 S3 图片。
+- **题头图**：识别 `title-img` 并上传/替换。
+- **GIF / SVG / WebP / AVIF / HEIC**：通过文件头识别 MIME。
+- **多图并发**：1–10 可配置并发。
+- **粘贴自动上传**：支持一次粘贴多张图片。
+- **右键菜单**：图片右键 → 插件 → 上传至 Pigo 图床。
+- **安全替换**：只替换图片目标地址，不误伤正文。
+- **旧 fileMap 兼容**：继续使用 `custom-picgo-file-map-key`。
+- **统计**：当前文档或全库的总引用、唯一图片、本地、S3、网络、Data URI、题头图、已上传未替换。
+- **S3 双向同步**：双向匹配、仅 S3、仅思源（失效）、未上传、前缀外。
+- **安全清理**：只删除上传前缀内、无引用证据的对象，需两次确认。
+- **多端配置同步**：配置保存在思源工作空间 `petal` 存储，由思源同步到其它设备。
+
+## 安装
+
+1. 构建插件：
+
+   ```bash
+   pnpm install
+   pnpm build
+   ```
+
+2. 在思源中安装 `package.zip`：`设置 → 集市 → 已下载 → 安装`。
+3. 启用 **Pigo 图床**。
+4. 点击顶栏图标或使用命令面板打开。
+
+## 配置
+
+打开 **Pigo → 设置**，填写：
+
+| 字段 | 示例 |
+|---|---|
+| Endpoint | `https://cos.ap-guangzhou.myqcloud.com` |
+| Region | `ap-guangzhou` |
+| Bucket | `picgo-1312673255` |
+| AccessKeyId | 腾讯云 SecretId |
+| SecretAccessKey | 腾讯云 SecretKey |
+| 上传路径模板 | `siyuan/{year}/{month}/{md5}.{ext}` |
+| CustomUrl | `https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com` |
+
+点击 **测试连接**。测试会在 `_pigo_test/` 下写入并删除一个小对象。
+
+### 路径模板变量
+
+`{year}`、`{month}`、`{day}`、`{timestamp}`、`{timestampMS}`、`{md5}`、`{sha256}`、`{ext}`、`{filename}`、`{fullName}`
+
+### 导入旧 PicGo 配置
+
+点击 **导入旧 PicGo 配置**，读取工作空间中的 `/data/storage/syp/picgo/picgo.cfg.json`，支持 `tcyun` 和 `awss3`。导入后请检查警告并手动保存。
+
+## 使用
+
+### 上传
+
+- **上传**页：扫描当前文档，上传未上传图片、强制重传、修复未替换链接、上传全部笔记。
+- **粘贴**：直接粘贴图片。
+- **右键图片** → 插件 → 上传至 Pigo 图床。
+
+上传结果会写入文档的 `custom-picgo-file-map-key`，用于复用和修复。
+
+### 统计
+
+- 当前文档或全库。
+- 显示总引用、唯一图片、本地、S3、网络、Data URI、题头图、已上传未替换。
+- 支持导出 JSON/CSV。
+- **修复未替换链接**：根据 fileMap 已有记录替换链接，不会重新上传。
+
+### S3 同步与清理
+
+**同步**会比较全部笔记与整个存储桶：
+
+- **双向匹配**：对象存在且被引用。
+- **仅 S3 存在**：没有任何引用证据，进入清理候选。
+- **仅思源存在（失效）**：笔记引用了不存在的 S3 对象。
+- **未上传**：本地/网络/Data URI 图片。
+- **前缀外**：不在 `uploadPath` 静态前缀内，永不删除。
+
+保护证据：
+
+- 笔记正文/IAL 中出现的 S3 URL（包括非图片链接）
+- fileMap 上传记录
+- 本地 `assets/...` 文件名与 S3 对象文件名一致
+
+清理规则：
+
+- 只删除无引用证据的对象
+- 只删除上传前缀内的对象
+- 不删除 `_pigo_test/`
+- 不删除文件夹占位
+- 第一次确认显示数量和前 20 个 key
+- 第二次必须输入 `DELETE`
+- 失败立即停止
+
+> **警告**：删除不可恢复。请先导出报告并抽查，建议给桶开启版本控制。如果还有其它工作空间共用同一个桶，请勿使用清理功能。
 
 ## 开发
 
 ```bash
 pnpm install
-pnpm dev
-pnpm build
+pnpm dev     # 需要在 .env 中设置 VITE_SIYUAN_WORKSPACE_PATH
 pnpm test
+pnpm build
 ```
 
-运行 `pnpm dev` 前，请在 `.env` 中把 `VITE_SIYUAN_WORKSPACE_PATH` 设置为你的思源工作空间路径。
+测试使用 Node 内置测试运行器：
+
+```bash
+node --experimental-strip-types --test tests/*.test.mjs
+```
+
+## 隐私与安全
+
+- Access Key 保存在思源工作空间存储中，不写入插件包。
+- 日志不会记录密钥。
+- 上传 ACL 由设置决定，默认 `public-read`。
+
+## 已知限制
+
+- 图片+文字混合粘贴接管时只保留图片，文字可能丢失；默认关闭。
+- 右键上传只覆盖正文图片；题头图请用上传页。
+- 清理只基于当前工作空间。
+- 非常旧的笔记如果本地文件名与 S3 key 不一致，无法通过文件名启发式保护。
 
 ## 文档
 
 - [开发步骤.md](./开发步骤.md) — 分阶段开发步骤与自测清单
 - [Process.md](./Process.md) — 各阶段开发记录
+- [CHANGELOG.md](./CHANGELOG.md) — 版本记录

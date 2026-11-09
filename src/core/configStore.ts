@@ -1,18 +1,22 @@
 import { reactive } from 'vue'
 import type { Plugin } from 'siyuan'
 import { getFile } from '@/api'
+import { logError, logInfo, setDebugLogging } from './log'
 import {
   cloneConfig,
   CONFIG_STORAGE_NAME,
   DEFAULT_CONFIG,
-  keyTemplateFromLegacyPath,
   mergeConfig,
   normalizeConfig,
   validateConfig,
   type PigoConfig,
-  type S3Config,
   type ValidationIssue,
 } from './config'
+import {
+  mapLegacyPicgoConfig,
+  parseLegacyConfig,
+  type LegacyS3ImportResult,
+} from './legacyConfig'
 
 interface ConfigState {
   config: PigoConfig
@@ -23,11 +27,7 @@ interface ConfigState {
   validation: ValidationIssue[]
 }
 
-export interface LegacyS3ImportResult {
-  s3: S3Config
-  source: string
-  warnings: string[]
-}
+export type { LegacyS3ImportResult } from './legacyConfig'
 
 const LEGACY_CONFIG_PATH = '/data/storage/syp/picgo/picgo.cfg.json'
 
@@ -62,9 +62,11 @@ export async function ensureConfigLoaded(plugin: Plugin): Promise<void> {
       const raw = await plugin.loadData(CONFIG_STORAGE_NAME)
       configState.config = mergeConfig(raw)
       configState.loaded = true
+      setDebugLogging(configState.config.behavior.debug)
     }
     catch (error) {
       configState.error = errorToMessage(error)
+      logError('读取配置失败', error)
     }
     finally {
       configState.loading = false
@@ -92,10 +94,13 @@ export async function savePigoConfig(plugin: Plugin): Promise<{ ok: boolean, iss
     configState.config = normalized
     configState.loaded = true
     configState.validation = []
+    setDebugLogging(normalized.behavior.debug)
+    logInfo('配置已保存')
     return { ok: true, issues: [] }
   }
   catch (error) {
     configState.error = errorToMessage(error)
+    logError('保存配置失败', error)
     return { ok: false, issues: [{ field: 'config', message: configState.error }] }
   }
   finally {
@@ -107,6 +112,25 @@ export function resetPigoConfig(): void {
   configState.config = cloneConfig(DEFAULT_CONFIG)
   configState.validation = []
   configState.error = ''
+  setDebugLogging(false)
+}
+
+/**
+ * 当前配置是否可以执行上传/同步等写操作。
+ */
+export function getConfigIssues(): ValidationIssue[] {
+  return validateConfig(configState.config)
+}
+
+export function isConfigReady(): boolean {
+  return configState.loaded && validateConfig(configState.config).length === 0
+}
+
+export async function ensureConfigReady(plugin: Plugin): Promise<{ ok: boolean, issues: ValidationIssue[] }> {
+  await ensureConfigLoaded(plugin)
+  const issues = validateConfig(configState.config)
+  configState.validation = issues
+  return { ok: issues.length === 0, issues }
 }
 
 export async function readLegacyPicgoS3Config(): Promise<LegacyS3ImportResult | null> {
@@ -119,126 +143,7 @@ export async function readLegacyPicgoS3Config(): Promise<LegacyS3ImportResult | 
   }
 
   const parsed = parseLegacyConfig(raw)
-  if (!parsed) {
-    return null
-  }
-
-  const picBed = isPlainObject(parsed.picBed) ? parsed.picBed as Record<string, any> : {}
-  const uploader = String(picBed.uploader || picBed.current || '')
-  const tcYun = isPlainObject(picBed.tcyun) ? picBed.tcyun as Record<string, any> : null
-  const awsS3 = isPlainObject(picBed.awss3) ? picBed.awss3 as Record<string, any> : null
-
-  if (uploader === 'tcyun' && tcYun) {
-    return mapTcYunConfig(tcYun)
-  }
-  if (uploader === 'awss3' && awsS3) {
-    return mapAwsS3Config(awsS3)
-  }
-  if (awsS3) {
-    return mapAwsS3Config(awsS3)
-  }
-  if (tcYun) {
-    return mapTcYunConfig(tcYun)
-  }
-
-  return null
-}
-
-function mapTcYunConfig(raw: Record<string, any>): LegacyS3ImportResult {
-  const region = String(raw.area || '').trim()
-  const bucket = String(raw.bucket || '').trim()
-  const customUrl = trimTrailingSlash(String(raw.customUrl || '')) || (bucket && region ? `https://${bucket}.cos.${region}.myqcloud.com` : '')
-  const warnings: string[] = []
-
-  if (!raw.secretId || !raw.secretKey) {
-    warnings.push('旧腾讯云配置缺少 secretId/secretKey，请手动补全。')
-  }
-  if (!customUrl) {
-    warnings.push('旧配置没有 customUrl，已按 COS 规则推导；如使用自定义域名请补充。')
-  }
-
-  return {
-    source: 'tcyun',
-    warnings,
-    s3: normalizeS3({
-      endpoint: region ? `https://cos.${region}.myqcloud.com` : '',
-      region,
-      bucket,
-      accessKeyId: String(raw.secretId || ''),
-      secretAccessKey: String(raw.secretKey || ''),
-      uploadPath: keyTemplateFromLegacyPath(String(raw.path || '')),
-      customUrl,
-      extraUrlPrefixes: dedupe([customUrl]),
-      pathStyleAccess: false,
-      acl: 'public-read',
-      useSiyuanProxy: true,
-      timeoutMs: 60000,
-    }),
-  }
-}
-
-function mapAwsS3Config(raw: Record<string, any>): LegacyS3ImportResult {
-  const customUrl = trimTrailingSlash(String(raw.customUrl || ''))
-  const warnings: string[] = []
-
-  if (!raw.accessKeyID || !raw.secretAccessKey) {
-    warnings.push('旧 S3 配置缺少 accessKeyID/secretAccessKey，请手动补全。')
-  }
-
-  return {
-    source: 'awss3',
-    warnings,
-    s3: normalizeS3({
-      endpoint: trimTrailingSlash(String(raw.endpoint || '')),
-      region: String(raw.region || '').trim(),
-      bucket: String(raw.bucketName || '').trim(),
-      accessKeyId: String(raw.accessKeyID || ''),
-      secretAccessKey: String(raw.secretAccessKey || ''),
-      uploadPath: keyTemplateFromLegacyPath(String(raw.uploadPath || '')),
-      customUrl,
-      extraUrlPrefixes: dedupe([customUrl]),
-      pathStyleAccess: Boolean(raw.pathStyleAccess),
-      acl: String(raw.acl || 'public-read'),
-      useSiyuanProxy: true,
-      timeoutMs: 60000,
-    }),
-  }
-}
-
-function normalizeS3(config: S3Config): S3Config {
-  return normalizeConfig({
-    ...cloneConfig(DEFAULT_CONFIG),
-    s3: config,
-  }).s3
-}
-
-function parseLegacyConfig(raw: unknown): Record<string, any> | null {
-  if (isPlainObject(raw)) {
-    if (typeof (raw as any).code === 'number') {
-      return null
-    }
-    return raw as Record<string, any>
-  }
-
-  if (typeof raw === 'string' && raw.trim()) {
-    try {
-      const parsed = JSON.parse(raw) as unknown
-      return isPlainObject(parsed) ? parsed as Record<string, any> : null
-    }
-    catch {
-      return null
-    }
-  }
-
-  return null
-}
-
-function trimTrailingSlash(value: string): string {
-  return value.trim().replace(/\/+$/, '')
-}
-
-function dedupe(values: Array<string | undefined>): string[] {
-  return [...new Set(values.map((value) => trimTrailingSlash(value || '')).filter(Boolean))]
+  return parsed ? mapLegacyPicgoConfig(parsed) : null
 }
 
 function errorToMessage(error: unknown): string {
@@ -246,8 +151,4 @@ function errorToMessage(error: unknown): string {
     return error.message
   }
   return String(error)
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

@@ -159,7 +159,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
 import { getActiveDocId, subscribeActiveDoc } from '@/core/activeDoc'
-import { ensureConfigLoaded, usePigoConfigStore } from '@/core/configStore'
+import { ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
+import { toUserMessage } from '@/core/errors'
+import { logError } from '@/core/log'
 import { scanDoc } from '@/core/scan/scanner'
 import type { ImageRef, ScanDocResult, ScanStats } from '@/core/scan/types'
 import {
@@ -330,7 +332,7 @@ async function refresh(docId: string = getActiveDocId()): Promise<void> {
     if (generation !== scanGeneration) {
       return
     }
-    error.value = scanError instanceof Error ? scanError.message : String(scanError)
+    error.value = toUserMessage(scanError)
   }
   finally {
     if (generation === scanGeneration) {
@@ -354,6 +356,10 @@ async function handleUploadRef(ref: ImageRef, force: boolean): Promise<void> {
   }
 
   if (force && !window.confirm('该图片已经是网络/已上传图片，是否重新上传？')) {
+    return
+  }
+
+  if (!(await ensureReady())) {
     return
   }
 
@@ -387,6 +393,10 @@ async function handleUploadAll(force: boolean): Promise<void> {
     return
   }
 
+  if (!(await ensureReady())) {
+    return
+  }
+
   await runPipeline(() => uploadCurrentDoc(currentScan, store.config, {
     force,
     includeTitleImage: store.config.behavior.includeTitleImage,
@@ -412,6 +422,10 @@ async function handleRepair(): Promise<void> {
     return
   }
 
+  if (!(await ensureReady())) {
+    return
+  }
+
   await runPipeline(() => uploadCurrentDoc(currentScan, store.config, {
     repairOnly: true,
     includeTitleImage: true,
@@ -430,6 +444,10 @@ async function handleUploadAllNotes(): Promise<void> {
 
   await ensureConfigLoaded(props.plugin)
   if (!window.confirm('将扫描全部笔记并上传未上传图片，可能耗时较长，是否继续？')) {
+    return
+  }
+
+  if (!(await ensureReady())) {
     return
   }
 
@@ -460,7 +478,8 @@ async function runPipeline(task: () => Promise<PipelineResult>): Promise<void> {
     updateStatusBar(failed > 0 ? '上传完成，有失败项' : '上传完成')
   }
   catch (pipelineError) {
-    error.value = pipelineError instanceof Error ? pipelineError.message : String(pipelineError)
+    error.value = toUserMessage(pipelineError)
+    logError('上传任务失败', pipelineError)
     showNotice('上传失败。')
     updateStatusBar('上传失败')
   }
@@ -468,6 +487,19 @@ async function runPipeline(task: () => Promise<PipelineResult>): Promise<void> {
     running.value = false
     await refresh()
   }
+}
+
+async function ensureReady(): Promise<boolean> {
+  const ready = await ensureConfigReady(props.plugin)
+  if (ready.ok) {
+    return true
+  }
+
+  const message = ready.issues.map((issue) => issue.message).join('；')
+  error.value = `配置不完整：${message}`
+  showNotice('请先在设置页补全 S3 配置后再上传。')
+  uiState.activeTab = 'settings'
+  return false
 }
 
 function cancelUpload(): void {
