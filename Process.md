@@ -620,3 +620,118 @@
   - 非常旧笔记若本地文件名与 S3 key 不一致，无法通过文件名启发式保护；
   - 同步/清理仍建议先导出报告抽查。
 - 下一步：等待整体验收；如需发布，只差在真实 SiYuan 环境完成安装/卸载/主题/重启手工验证。
+
+---
+
+## 2026-11-09 重设计对接 · 后端改造分析（未编码）
+
+- 阶段：UI 重设计对接 — 分析
+- 分支：`pigo`
+- 输入：
+  - Stitch 项目 `projects/12319694648067702779`（SiYuan Pigo UI Redesign）
+  - 4 个 Screen 的 HTML + 截图已通过 MCP `download_file` 拉取到 `/tmp/opencode/stitch/`
+    （`stats` / `upload` / `sync` / `settings`，含清理二次确认弹窗）
+  - 输出分析文档：`docs/2026-11-09-redesign-backend-analysis.md`
+- 结论：
+  - 设计稿约 85% 的数据/操作后端已具备：10 张 KPI 卡、7 个统计筛选、5 个同步分类、
+    全库扫描/上传、fileMap 修复、批量清理、CSV/JSON 导出、日志面板、配置校验均已有。
+  - 真正需要后端改动 9 项：只读 S3 健康检查、存储供应商显示名、本地资源尺寸/扩展名、
+    面板内独立上传、选中子集批量、每文档待修复计数、清理预估空间 + 删除前复核、
+    `sourceTypes` 显式过滤、`replaceLink`/`skipIfAlreadyS3` 生效。
+- 关键技术验证（内核实测 3.8.9）：
+  - `pragma table_info(assets)` → 只有 `id, block_id, root_id, box, docpath, path, name, title, hash`，
+    **没有 size/ext/hw**；`/api/file/readDir` 也只有 `name/isDir/isSymlink/updated`。
+  - `/assets/<name>` 支持 `Range: bytes=0-0` → `206` + `Content-Range: bytes 0-0/43461`，
+    可用 1 字节 GET 取到本地资源尺寸（不能全量 HEAD，需懒加载）。
+  - 基线（当前工作空间）：文档 969、assets 1121、`assets.title='title-img'` 100。
+- 行为缺陷发现：
+  - `behavior.replaceLink`（上传后替换文档链接）在配置和 UI 中存在，但上传管线**从未读取**。
+  - `behavior.skipIfAlreadyS3` 只在 `upload/types.ts` 类型里出现，uploader 实际用 `options.force`。
+  - “上传本地图片”实际受 `includeRemoteImages` 控制，默认 true 会连带上传网络图。
+  - 面板内 Ctrl+V 目前会被文档粘贴处理器接管（会写入 assets 并插入正文），需按焦点路由。
+- 测试命令与结果：
+  - Stitch MCP `list_projects` / `list_screens` / `download_file` —— ✅ 4 屏资源获取成功
+  - `curl /api/query/sql`（token `glbu1bcm7uueheu9`）基线查询 —— ✅
+  - `curl -H 'Range: bytes=0-0' /assets/...` —— ✅ 206 + Content-Range
+- 遗留/风险：
+  - 「自动监控」与「粘贴图片时自动上传」是否同一开关待确认。
+  - 「置顶面板」在网页层无法真正 always-on-top，需确认是否接受“保持最上层 + 点空白不关闭”。
+  - 统计页多选后的批量操作范围、上传页进度口径、清理弹窗是否保留输入 DELETE 待确认。
+- 下一步：确认 5 个问题后按 P0（describe/health/assetMeta/数据模型）→ P1（独立上传/粘贴路由/选中批量）→ P2（清理计划/开关生效/快照失效）→ P3（UI 重写）实施。
+
+---
+
+## 2026-11-09 前端重构 · 开发计划（F0–F6）
+
+- 阶段：计划（未编码）
+- 分支：`pigo`
+- 输出：`docs/2026-11-09-frontend-redesign-plan.md`
+- 用户已确认的决策：
+  1. 清理弹窗删除「预计释放空间」；
+  2. 「自动监控」=「粘贴图片时自动上传」，顶栏与设置页双向联动同一开关；
+  3. 统计页不做多选，只展示，范围仅「当前文档 / 全库」；
+  4. 「置顶面板」按简单实现（z-index 最高 + 常驻 + 状态持久化）；
+  5. 上传页「同步进度」= 已同步 / 可同步；
+  6. 清理弹窗只保留「勾选确认」，移除输入 DELETE。
+- 阶段划分：
+  - F0 设计基线 + 面板外壳（tokens、基础组件、顶栏/页脚、置顶、`describeStorage`）
+  - F1 设置页（手风琴 + 摘要 chip + 开关 + 日志）
+  - F2 上传页（独立上传、粘贴路由、sourceTypes、pending 计数、尺寸懒加载）
+  - F3 统计页（totalDocs、健康检查、10 KPI、筛选、卡片）
+  - F4 同步页（docCount/totalObjects、清理计划、勾选确认弹窗、删除前复核）
+  - F5 行为一致性（replaceLink / skipIfAlreadyS3 生效、configRevision、防闪烁）
+  - F6 验收与发布（回归、文档、版本 0.2.0、打包）
+- 纪律：一个 Phase 一个 commit；每阶段先自测（node --test / tsc / vite build），再由用户手动验证通过后提交。
+- 下一步：等用户确认后开始 F0。
+
+---
+
+## 2026-11-09 Phase F0 — 设计基线 + 面板外壳
+
+- 阶段：前端重构 F0
+- 分支：`pigo`
+- 设计稿快照：`docs/design/2026-11-09/`（4 个 HTML + 4 张 PNG，来自 Stitch MCP）
+- 变更：
+  - 新增 `src/styles/pigo-tokens.scss`：
+    - 设计 token → CSS 变量（背景/卡片/边框/文本优先映射思源主题变量，语义色用设计色）；
+    - 只在 `.siyuan-plugin-pigo-app` 内生效，避免污染思源样式。
+  - 新增 `src/styles/pigo-ui.scss`：公共零件类（`.pigo-btn` 5 种变体、`.pigo-switch`、`.pigo-chip` 10 种色调、`.pigo-card`）。
+  - `src/index.scss` 改用 `@use` 引入两个样式文件。
+  - 新增 `src/components/ui/PigoButton.vue`、`PigoSwitch.vue`、`PigoChip.vue`、`PigoCard.vue`。
+  - 新增 `src/core/s3/describe.ts`：`describeStorage()` / `detectStorageVendor()`，识别腾讯云 COS、AWS S3、阿里云 OSS、华为 OBS、七牛、MinIO 等，生成页脚 `Tencent COS (ap-guangzhou)` 文案。
+  - 重写 `src/components/PigoPanel.vue`：
+    - 左侧 Logo（橙金渐变）+ 标题 + 4 页签（激活态橙边 + 圆点）；
+    - 右侧「自动监控」开关（绑定 `behavior.autoUploadOnPaste`，改动即时保存）；
+    - 页脚插槽 + 渲染错误条；
+    - 页签切换时更新页脚“当前模式”。
+  - 新增 `src/components/PigoStatusBar.vue`：`S3 存储桶: label` + `当前模式: xxx` + `vX.Y.Z`。
+  - 重写 `src/components/PigoPopup.vue`：
+    - 尺寸 1000×760（窄屏自适应）、圆角 16、深投影；
+    - 顶栏按钮：置顶 / 关闭（内联 SVG）；拖动改为按住顶栏空白区域（页签、开关、按钮等交互元素不触发）；
+    - 首次打开居中，位置记忆保留；
+    - 置顶：提高 `.siyuan-plugin-pigo-app` z-index、Esc 不关闭、按钮高亮、状态持久化。
+  - `src/core/uiStore.ts`：新增 `pinned`（localStorage）+ `modeLabel` + `setPigoMode()` / `setPigoPinned()` / `togglePigoPinned()`；`hidePigoPopup(force)` 置顶时拒绝非强制关闭；顶部图标 toggle 仍可强制关闭。
+  - `src/core/configStore.ts`：新增 `saveBehaviorPatch()`（跳过 S3 校验、乐观更新、写盘失败回滚），供顶栏开关与后续设置页复用。
+  - 新增 `tests/describe.test.mjs`：7 条供应商识别用例。
+- 未做（按计划推迟）：
+  - `PigoModal` 推迟到 F4（清理弹窗时引入），`PigoHealthDot` 推迟到 F3（健康检查时引入），避免无用代码。
+  - 四个 Tab 的内部布局保持原样，F1–F4 逐页替换。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 72 passed / 0 failed（新增 7 条）
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 218.13 kB，`dist/index.css` 34.42 kB；`package.zip` 已生成
+  - 工作空间 `data/plugins/siyuan-plugin-pigo` 已被 watch 进程自动更新（17:41）
+  - ESLint 未执行：脚手架 `eslint.config.mjs` 引用了不存在的 `src/utils/eslint/i18n-validate-keys.mjs`（既有问题，非本次引入）
+- 待用户手动验证（F0 清单）：
+  1. 重启/重载插件，打开 Pigo：新外壳、Logo、页签、页脚存储名正确；
+  2. 按住顶栏空白区域拖动面板（页签/开关/按钮上不起作用），关闭再打开，位置保持；首次打开居中；
+  3. 置顶：按钮高亮、关闭后重开仍置顶、Esc 不关闭、显式关闭按钮可关闭；
+  4. 自动监控：顶栏开关切换后，到设置页确认「粘贴图片时自动上传」同步变化；反向再试；
+  5. 暗色/亮色主题下文字、边框、页脚可读；
+  6. 快速切换 4 个页签：无闪烁、无空白、无重复渲染；
+  7. 窄窗口（<720px）：面板铺满、页脚只显示存储名。
+- 遗留/风险：
+  - 旧 Tab 内部仍是旧样式，与新外壳有视觉落差（F1–F4 逐页替换）；
+  - 置顶只能做到页面内层级（网页层无法系统级 always-on-top）；
+  - 顶栏「自动监控」文案点击也可切换，若用户希望只点开关，可在 F5 调整。
+- 下一步：用户验证 F0 → 提交 `feat(pigo): 重构面板外壳与设计系统基线（F0）` → 开始 F1 设置页。

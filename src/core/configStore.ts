@@ -116,6 +116,46 @@ export function resetPigoConfig(): void {
 }
 
 /**
+ * 只更新行为开关（自动监控等），跳过 S3 字段校验，保证未配置存储时也能保存。
+ *
+ * 采用“乐观更新 + 失败回滚”：开关点下去立刻生效，写盘失败再恢复。
+ */
+export async function saveBehaviorPatch(
+  plugin: Plugin,
+  patch: Partial<PigoConfig['behavior']>
+): Promise<{ ok: boolean, error?: string }> {
+  await ensureConfigLoaded(plugin)
+
+  const previous = cloneConfig(configState.config)
+  const next = normalizeConfig({
+    ...configState.config,
+    behavior: {
+      ...configState.config.behavior,
+      ...patch,
+    },
+  })
+
+  configState.config = next
+  configState.saving = true
+  configState.error = ''
+
+  try {
+    await plugin.saveData(CONFIG_STORAGE_NAME, next)
+    setDebugLogging(next.behavior.debug)
+    return { ok: true }
+  }
+  catch (error) {
+    configState.config = previous
+    configState.error = errorToMessage(error)
+    logError('保存行为配置失败', error)
+    return { ok: false, error: configState.error }
+  }
+  finally {
+    configState.saving = false
+  }
+}
+
+/**
  * 当前配置是否可以执行上传/同步等写操作。
  */
 export function getConfigIssues(): ValidationIssue[] {

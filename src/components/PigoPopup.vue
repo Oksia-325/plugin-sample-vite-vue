@@ -3,30 +3,38 @@
     <div
       ref="cardRef"
       class="pigo-popup__card"
+      :class="{ 'pigo-popup__card--pinned': uiState.pinned }"
       :style="cardStyle"
       role="dialog"
       aria-modal="false"
       aria-label="Pigo 图床"
     >
-      <pigo-panel :plugin="props.plugin">
+      <pigo-panel :plugin="props.plugin" @header-pointerdown="startDrag">
         <template #actions>
           <button
-            class="pigo-popup__icon-btn pigo-popup__drag"
+            class="pigo-popup__chrome"
+            :class="{ 'pigo-popup__chrome--active': uiState.pinned }"
             type="button"
-            title="拖动"
-            aria-label="拖动"
-            @pointerdown="startDrag"
+            :title="uiState.pinned ? '取消置顶' : '置顶面板'"
+            :aria-label="uiState.pinned ? '取消置顶' : '置顶面板'"
+            :aria-pressed="uiState.pinned"
+            @click="togglePigoPinned"
           >
-            ⠿
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M16 12l2-2m-8 8l2-2m-7 3l4-4 6 2 4-4-6-6-4 4 2 6-4 4zm8-11l3 3"></path>
+            </svg>
           </button>
+
           <button
-            class="pigo-popup__icon-btn pigo-popup__close"
+            class="pigo-popup__chrome pigo-popup__chrome--close"
             type="button"
             title="关闭"
             aria-label="关闭"
-            @click="hidePigoPopup"
+            @click="hidePigoPopup(true)"
           >
-            ×
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
           </button>
         </template>
       </pigo-panel>
@@ -38,23 +46,26 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
 import PigoPanel from '@/components/PigoPanel.vue'
-import { hidePigoPopup, uiState } from '@/core/uiStore'
+import {
+  hidePigoPopup,
+  setPigoPinned,
+  togglePigoPinned,
+  uiState,
+} from '@/core/uiStore'
 
 const props = defineProps<{
-  plugin: Plugin
+  plugin: Plugin & { version?: string }
 }>()
 
 const STORAGE_KEY = 'siyuan-plugin-pigo:popup-position'
 const VIEWPORT_MARGIN = 8
-const DEFAULT_WIDTH = 760
-const DEFAULT_HEIGHT = 680
+const DEFAULT_WIDTH = 1000
+const DEFAULT_HEIGHT = 760
 
 const cardRef = ref<HTMLElement | null>(null)
-const position = reactive({
-  x: Math.max(VIEWPORT_MARGIN, window.innerWidth - DEFAULT_WIDTH - 24),
-  y: 48,
-})
+const position = reactive({ x: 24, y: 48 })
 
+let hasSavedPosition = false
 let dragging = false
 let dragStart = { x: 0, y: 0, left: 0, top: 0 }
 
@@ -65,8 +76,12 @@ const cardStyle = computed(() => ({
 
 onMounted(() => {
   restorePosition()
+  setPigoPinned(uiState.pinned)
   window.addEventListener('resize', clampPosition)
   window.addEventListener('keydown', handleKeydown)
+  if (uiState.popupVisible) {
+    void nextTick(placeIfNeeded)
+  }
 })
 
 watch(
@@ -76,7 +91,7 @@ watch(
       return
     }
     await nextTick()
-    clampPosition()
+    placeIfNeeded()
   }
 )
 
@@ -94,6 +109,7 @@ function restorePosition() {
       if (typeof saved.x === 'number' && typeof saved.y === 'number') {
         position.x = saved.x
         position.y = saved.y
+        hasSavedPosition = true
       }
     }
   }
@@ -103,9 +119,25 @@ function restorePosition() {
   clampPosition()
 }
 
+function placeIfNeeded() {
+  if (!hasSavedPosition) {
+    centerPosition()
+  }
+  clampPosition()
+}
+
+function centerPosition() {
+  const rect = cardRef.value?.getBoundingClientRect()
+  const width = rect?.width || DEFAULT_WIDTH
+  const height = rect?.height || DEFAULT_HEIGHT
+  position.x = Math.max(VIEWPORT_MARGIN, Math.round((window.innerWidth - width) / 2))
+  position.y = Math.max(VIEWPORT_MARGIN, Math.round((window.innerHeight - height) / 2))
+}
+
 function savePosition() {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ x: position.x, y: position.y }))
+    hasSavedPosition = true
   }
   catch {
     // Ignore storage failures.
@@ -118,7 +150,7 @@ function clampPosition() {
   }
 
   const rect = cardRef.value?.getBoundingClientRect()
-  if (!rect) {
+  if (!rect || rect.width === 0) {
     return
   }
   position.x = Math.min(
@@ -132,6 +164,10 @@ function clampPosition() {
 }
 
 function startDrag(event: PointerEvent) {
+  if (event.button !== 0) {
+    return
+  }
+
   const rect = cardRef.value?.getBoundingClientRect()
   if (!rect) {
     return
@@ -178,9 +214,13 @@ function stopDrag() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && uiState.popupVisible) {
-    hidePigoPopup()
+  if (event.key !== 'Escape' || !uiState.popupVisible) {
+    return
   }
+  if (uiState.pinned) {
+    return
+  }
+  hidePigoPopup()
 }
 </script>
 
@@ -196,51 +236,64 @@ function handleKeydown(event: KeyboardEvent) {
   position: fixed;
   display: flex;
   flex-direction: column;
-  width: min(760px, calc(100vw - 16px));
-  height: min(680px, calc(100vh - 16px));
+  width: min(1000px, calc(100vw - 16px));
+  height: min(760px, calc(100vh - 16px));
   overflow: hidden;
   pointer-events: auto;
-  color: var(--b3-theme-on-background, #dfe0e1);
-  background: var(--b3-theme-background, #1f1f1f);
-  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.12));
-  border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.36);
+  color: var(--pigo-text);
+  background: var(--pigo-bg);
+  border: 1px solid var(--pigo-border-strong);
+  border-radius: var(--pigo-radius-xl);
+  box-shadow: var(--pigo-shadow-lg);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.pigo-popup__icon-btn {
-  width: 26px;
-  height: 26px;
-  flex: 0 0 26px;
+.pigo-popup__card--pinned {
+  border-color: rgba(249, 115, 22, 0.4);
+  box-shadow: var(--pigo-shadow-lg), 0 0 0 1px rgba(249, 115, 22, 0.22);
+}
+
+.pigo-popup__chrome {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 6px;
-  color: inherit;
+  border-radius: var(--pigo-radius-sm);
+  color: var(--pigo-muted);
   background: transparent;
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.pigo-popup__icon-btn:hover,
-.pigo-popup__icon-btn:focus {
-  background: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.1));
+.pigo-popup__chrome svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pigo-popup__chrome:hover,
+.pigo-popup__chrome:focus-visible {
+  color: var(--pigo-text);
+  background: var(--pigo-card);
   outline: none;
 }
 
-.pigo-popup__drag {
-  cursor: move;
-  color: var(--b3-theme-on-surface-light, #999);
+.pigo-popup__chrome--active {
+  color: var(--pigo-accent);
+  background: var(--pigo-accent-soft);
 }
 
-.pigo-popup__close {
-  font-size: 20px;
+.pigo-popup__chrome--close:hover,
+.pigo-popup__chrome--close:focus-visible {
+  color: var(--pigo-rose);
+  background: var(--pigo-rose-soft);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .pigo-popup__card {
     width: calc(100vw - 16px);
     height: calc(100vh - 16px);

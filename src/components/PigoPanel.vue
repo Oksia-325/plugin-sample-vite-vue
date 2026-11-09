@@ -1,10 +1,17 @@
 <template>
   <div class="pigo-panel">
-    <div class="pigo-panel__header">
-      <div class="pigo-panel__title">
-        Pigo 图床
+    <header class="pigo-panel__header" @pointerdown="onHeaderPointerDown">
+      <div class="pigo-panel__brand">
+        <span class="pigo-panel__logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 16a4 4 0 0 1-.88-7.903A5 5 0 1 1 15.9 6L16 6a5 5 0 0 1 1 9.9"></path>
+            <path d="M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+        </span>
+        <span class="pigo-panel__title">Pigo 图床</span>
       </div>
-      <div class="pigo-panel__tabs">
+
+      <nav class="pigo-panel__tabs" aria-label="Pigo 页签">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -13,16 +20,37 @@
           type="button"
           @click="uiState.activeTab = tab.id"
         >
-          {{ tab.label }}
+          <span v-if="uiState.activeTab === tab.id" class="pigo-panel__tab-dot" aria-hidden="true"></span>
+          <span>{{ tab.label }}</span>
         </button>
-      </div>
+      </nav>
+
       <div class="pigo-panel__spacer"></div>
-      <slot name="actions"></slot>
-    </div>
+
+      <div class="pigo-panel__auto">
+        <button
+          class="pigo-panel__auto-label"
+          type="button"
+          @click="toggleAutoMonitor"
+        >
+          自动监控
+        </button>
+        <pigo-switch
+          v-model="autoMonitor"
+          label="粘贴图片时自动上传"
+          title="与设置页「粘贴图片时自动上传」为同一开关"
+          :disabled="!configState.loaded"
+        />
+      </div>
+
+      <div class="pigo-panel__actions">
+        <slot name="actions"></slot>
+      </div>
+    </header>
 
     <div v-if="renderError" class="pigo-panel__error">
       <span>页面渲染出错：{{ renderError }}</span>
-      <button class="b3-button b3-button--text" type="button" @click="renderError = ''">
+      <button class="pigo-btn pigo-btn--ghost pigo-btn--sm" type="button" @click="renderError = ''">
         关闭
       </button>
     </div>
@@ -36,29 +64,32 @@
 
       <settings-tab v-show="uiState.activeTab === 'settings'" :plugin="props.plugin" />
     </div>
+
+    <pigo-status-bar :version="props.plugin.version" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onErrorCaptured, ref } from 'vue'
+import { computed, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
+import PigoStatusBar from '@/components/PigoStatusBar.vue'
 import SettingsTab from '@/components/settings/SettingsTab.vue'
 import StatsTab from '@/components/stats/StatsTab.vue'
 import SyncTab from '@/components/sync/SyncTab.vue'
 import UploadTab from '@/components/upload/UploadTab.vue'
-import { uiState, type PigoTabId } from '@/core/uiStore'
+import PigoSwitch from '@/components/ui/PigoSwitch.vue'
+import { configState, ensureConfigLoaded, saveBehaviorPatch } from '@/core/configStore'
+import { setPigoMode, uiState, type PigoTabId } from '@/core/uiStore'
 
 const props = defineProps<{
-  plugin: Plugin
+  plugin: Plugin & { version?: string }
+}>()
+
+const emit = defineEmits<{
+  'header-pointerdown': [event: PointerEvent]
 }>()
 
 const renderError = ref('')
-
-onErrorCaptured((error) => {
-  renderError.value = error instanceof Error ? error.message : String(error)
-  console.error('[Pigo] 页面渲染出错', error)
-  return false
-})
 
 const tabs: Array<{ id: PigoTabId, label: string }> = [
   { id: 'upload', label: '上传' },
@@ -66,6 +97,56 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
   { id: 'sync', label: '同步' },
   { id: 'settings', label: '设置' },
 ]
+
+const MODE_BY_TAB: Record<PigoTabId, string> = {
+  upload: '当前文档上传',
+  stats: '全库统计',
+  sync: '全库与存储桶双向比对',
+  settings: '配置管理',
+}
+
+const autoMonitor = computed({
+  get: () => configState.config.behavior.autoUploadOnPaste,
+  set: (value: boolean) => {
+    void saveBehaviorPatch(props.plugin, { autoUploadOnPaste: value })
+  },
+})
+
+function toggleAutoMonitor(): void {
+  if (!configState.loaded) {
+    return
+  }
+  autoMonitor.value = !autoMonitor.value
+}
+
+/**
+ * 顶栏空白区域可以拖动窗口，交互元素（页签、开关、按钮）不触发。
+ */
+function onHeaderPointerDown(event: PointerEvent): void {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('button, a, input, textarea, select, [contenteditable="true"]')) {
+    return
+  }
+  emit('header-pointerdown', event)
+}
+
+onMounted(() => {
+  void ensureConfigLoaded(props.plugin)
+})
+
+watch(
+  () => uiState.activeTab,
+  (tab) => {
+    setPigoMode(MODE_BY_TAB[tab])
+  },
+  { immediate: true }
+)
+
+onErrorCaptured((error) => {
+  renderError.value = error instanceof Error ? error.message : String(error)
+  console.error('[Pigo] 页面渲染出错', error)
+  return false
+})
 </script>
 
 <style scoped>
@@ -75,68 +156,146 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
   height: 100%;
   min-height: 0;
   box-sizing: border-box;
-  color: var(--b3-theme-on-background, #dfe0e1);
-  background: var(--b3-theme-background, #1f1f1f);
+  color: var(--pigo-text);
+  background: var(--pigo-bg);
 }
 
 .pigo-panel__header {
-  flex: 0 0 auto;
   display: flex;
+  flex: 0 0 var(--pigo-header-height);
   align-items: center;
   gap: 10px;
-  padding: 6px 8px 6px 12px;
-  border-bottom: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
-  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.12));
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--pigo-border);
+  background: var(--pigo-panel);
+  user-select: none;
+}
+
+.pigo-panel__brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  border-right: 1px solid var(--pigo-border);
+}
+
+.pigo-panel__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--pigo-radius-md);
+  color: #fff;
+  background: linear-gradient(135deg, #ea580c, #f59e0b);
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.28);
+}
+
+.pigo-panel__logo svg {
+  width: 15px;
+  height: 15px;
 }
 
 .pigo-panel__title {
-  flex: 0 0 auto;
-  font-size: 14px;
+  color: var(--pigo-text);
+  font-size: var(--pigo-fs-sm);
   font-weight: 600;
-  user-select: none;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .pigo-panel__tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
 }
 
 .pigo-panel__tab {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 6px;
-  color: var(--b3-theme-on-surface, #c9c9c9);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--pigo-radius-md);
+  color: var(--pigo-muted);
   background: transparent;
   cursor: pointer;
-  font-size: 13px;
-  line-height: 1.6;
+  font-family: inherit;
+  font-size: var(--pigo-fs-xs);
+  line-height: 1.5;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .pigo-panel__tab:hover {
-  background: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
+  color: var(--pigo-text);
+  background: var(--pigo-card);
 }
 
 .pigo-panel__tab--active {
-  color: var(--b3-theme-on-background, #dfe0e1);
-  background: var(--b3-theme-primary-lightest, rgba(53, 115, 240, 0.16));
+  color: var(--pigo-accent);
+  background: var(--pigo-accent-soft);
+  border-color: rgba(249, 115, 22, 0.32);
+}
+
+.pigo-panel__tab-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .pigo-panel__spacer {
   flex: 1 1 auto;
-  min-width: 8px;
+  min-width: 4px;
+}
+
+.pigo-panel__auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pigo-panel__auto-label {
+  padding: 0;
+  border: 0;
+  color: var(--pigo-muted);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--pigo-fs-2xs);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.pigo-panel__auto-label:hover {
+  color: var(--pigo-text);
+}
+
+.pigo-panel__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  color: var(--pigo-muted);
 }
 
 .pigo-panel__error {
-  flex: 0 0 auto;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
   justify-content: space-between;
+  gap: 8px;
   padding: 6px 12px;
-  color: var(--b3-theme-error, #d23f31);
-  background: rgba(210, 63, 49, 0.12);
-  font-size: 12px;
+  color: var(--pigo-rose);
+  background: var(--pigo-rose-soft);
+  font-size: var(--pigo-fs-2xs);
   line-height: 1.6;
 }
 
@@ -144,6 +303,22 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
+@media (max-width: 820px) {
+  .pigo-panel__auto-label {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .pigo-panel__brand {
+    padding-right: 6px;
+  }
+
+  .pigo-panel__title {
+    display: none;
+  }
+}
 </style>

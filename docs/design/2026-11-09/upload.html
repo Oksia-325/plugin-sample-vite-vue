@@ -1,0 +1,440 @@
+<!DOCTYPE html><html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Pigo 图床 - 思源笔记扩展</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            siyuan: {
+              base: '#16161a',
+              card: '#202026',
+              cardHover: '#282830',
+              border: '#32323d',
+              borderLight: '#424250',
+              accent: '#f97316',
+              accentHover: '#ea580c',
+              s3: '#3b82f6',
+              s3Light: '#60a5fa',
+              success: '#10b981',
+              textMain: '#f4f4f5',
+              textMuted: '#9ca3af',
+              textDim: '#6b7280'
+            }
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Style: Animations and Scrollbar -->
+<style data-purpose="custom-ui-styling">
+    /* Custom Scrollbar for desktop panel feel */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #18181f;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #333340;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #49495c;
+    }
+    /* Smooth transition for rotating icons */
+    .spin-on-hover:hover svg {
+      transform: rotate(180deg);
+      transition: transform 0.5s ease;
+    }
+    .badge-subtle-glow {
+      box-shadow: 0 0 10px -2px rgba(59, 130, 246, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-[#121216] text-siyuan-textMain font-sans antialiased min-h-screen p-3 md:p-6 flex justify-center items-start selection:bg-orange-500/20 selection:text-orange-400">
+<!-- BEGIN: MainPluginWindow -->
+<div class="w-full max-w-5xl bg-siyuan-base rounded-2xl border border-siyuan-border shadow-2xl overflow-hidden flex flex-col transition-all">
+<!-- BEGIN: TopNavigationBar -->
+<header class="h-13 bg-[#1a1a21] border-b border-siyuan-border px-4 py-2.5 flex items-center justify-between select-none">
+<!-- Left: Brand Title & Tab Switchers -->
+<div class="flex items-center space-x-6">
+<!-- Logo and Title -->
+<div class="flex items-center space-x-2.5 pr-2 border-r border-siyuan-border">
+<div class="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shadow-sm shadow-orange-500/30">
+<!-- Cloud & Upload Icon -->
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<span class="font-bold text-sm tracking-wide text-zinc-100">Pigo 图床</span>
+</div>
+<!-- Navigation Tabs -->
+<nav aria-label="Plugin Tabs" class="flex items-center space-x-1.5">
+<button class="px-3.5 py-1.5 text-xs font-medium rounded-md bg-orange-500/15 text-orange-400 border border-orange-500/30 shadow-xs flex items-center space-x-1.5 transition-colors">
+<span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+<span class="">上传</span>
+</button>
+<button class="px-3.5 py-1.5 text-xs font-medium rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors">
+            统计
+          </button>
+<button class="px-3.5 py-1.5 text-xs font-medium rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors">
+            同步
+          </button>
+<button class="px-3.5 py-1.5 text-xs font-medium rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors">
+            设置
+          </button>
+</nav>
+</div>
+<!-- Right: Plugin Controls -->
+<div class="flex items-center space-x-2 text-zinc-400">
+<!-- Auto Monitor Toggle Indicator -->
+<label class="hidden sm:flex items-center space-x-1.5 mr-2 text-xs text-zinc-400 cursor-pointer select-none">
+<span class="text-[11px]">自动监控</span>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-7 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-orange-500"></div>
+</div>
+</label>
+<!-- Drag handle -->
+<button class="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-300" title="拖拽窗口">
+<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+<circle cx="5" cy="8" r="2"></circle><circle cx="12" cy="8" r="2"></circle><circle cx="19" cy="8" r="2"></circle>
+<circle cx="5" cy="16" r="2"></circle><circle cx="12" cy="16" r="2"></circle><circle cx="19" cy="16" r="2"></circle>
+</svg>
+</button>
+<!-- Window Pin -->
+<button class="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-300" title="置顶面板">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M16 12l2-2m-8 8l2-2m-7 3l4-4 6 2 4-4-6-6-4 4 2 6-4 4zm8-11l3 3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Close Button -->
+<button class="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-md text-zinc-500 transition-colors" title="关闭">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</header>
+<!-- END: TopNavigationBar -->
+<!-- Panel Scroll Container -->
+<main class="p-5 md:p-6 space-y-5 overflow-y-auto max-h-[calc(92vh-52px)]">
+<!-- BEGIN: HeaderAndStatsModule -->
+<!-- Module 1: 标题 & 信息统计 (带常驻超纤细进度指示器) -->
+<section class="bg-siyuan-card rounded-xl border border-siyuan-border p-5 space-y-4 shadow-sm" data-purpose="document-statistics-summary">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-3 px-1">
+<!-- Document Path and Title -->
+<div class="space-y-1">
+<div class="flex items-center space-x-2 text-[11px] text-siyuan-textDim">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400">SQL / MySQL 是怎样运行的</span>
+<span class="">•</span>
+<span class="truncate">ID: 20230205224034-sys2gk9</span>
+<span class="">•</span>
+<span class="">扫描于 11:24:18</span>
+</div>
+<div class="flex items-center space-x-2.5">
+<h1 class="text-base font-semibold text-zinc-100 tracking-tight">06-快速查询的秘籍-B+树索引</h1>
+<span class="px-2 py-0.5 text-[10px] font-medium tracking-wide bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>已就绪
+              </span>
+</div>
+</div>
+<!-- Refresh Action Button -->
+<div class="flex items-center space-x-2 self-start md:self-auto">
+<button class="spin-on-hover px-3 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border border-siyuan-border text-zinc-300 hover:text-white text-xs font-medium flex items-center space-x-1.5 shadow-sm transition-all" title="重新扫描此文档">
+<svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">刷新文档</span>
+</button>
+</div>
+</div>
+<!-- Badges & Aggregated Info -->
+<div class="pt-3.5 px-1 border-t border-siyuan-border/70 flex flex-wrap items-center justify-between gap-3 text-xs">
+<!-- Categorized Counts -->
+<div class="flex flex-wrap items-center gap-2">
+<!-- 本地 Badge -->
+<div class="flex items-center px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-300">
+<span class="text-[11px] text-amber-400/80 mr-1.5">本地</span>
+<span class="font-semibold text-xs">0</span>
+</div>
+<!-- S3 Badge -->
+<div class="flex items-center px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-300 badge-subtle-glow">
+<span class="text-[11px] text-blue-400/80 mr-1.5">S3 已同步</span>
+<span class="font-semibold text-xs">18</span>
+</div>
+<!-- 网络外链 Badge -->
+<div class="flex items-center px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-400">
+<span class="text-[11px] text-zinc-500 mr-1.5">网络外链</span>
+<span class="font-semibold text-xs">0</span>
+</div>
+<!-- Divider -->
+<span class="text-zinc-600 hidden sm:inline">|</span>
+<!-- Metadata pills -->
+<span class="text-zinc-400 text-[11px]">总数: <strong class="text-zinc-200 font-semibold">30</strong></span>
+<span class="text-zinc-400 text-[11px]">唯一图片: <strong class="text-zinc-200 font-semibold">18</strong></span>
+<span class="text-zinc-500 text-[11px]">扫描耗时: 5818ms</span>
+</div>
+<!-- Progress Indicator Status with breathing room -->
+<div class="flex items-center space-x-2 text-[11px] text-zinc-400 pr-1">
+<span class="text-emerald-400 font-medium">✓ 同步进度 14 / 14</span>
+<span class="text-zinc-500 font-mono">(100%)</span>
+</div>
+</div>
+<!-- Progress Bar Container with safe horizontal margins and rounded track -->
+<div class="px-1 pt-1">
+<div class="w-full bg-zinc-800/90 h-2 rounded-full overflow-hidden p-0.5 border border-zinc-700/60 shadow-inner">
+<div class="bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500 h-full w-full rounded-full transition-all duration-300"></div>
+</div>
+</div>
+</section>
+<!-- END: HeaderAndStatsModule -->
+<!-- BEGIN: ManualUploadDropzoneModule -->
+<!-- Module 2: 手动图片上传 / 粘贴区域 -->
+<section class="bg-siyuan-card rounded-xl border border-siyuan-border p-4 space-y-3" data-purpose="manual-image-dropzone">
+<div class="flex items-center justify-between text-xs text-zinc-400 px-1">
+<span class="font-medium text-zinc-300 flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+            快速添加图片
+          </span>
+<span class="text-[11px] text-zinc-500">支持批量拖放与剪贴板极速上传</span>
+</div>
+<!-- Dashed Modern Dropzone Box (Image 1 reference styling) -->
+<div class="border-2 border-dashed border-zinc-700/80 hover:border-orange-500/50 bg-[#191922] rounded-xl p-6 transition-all duration-200 text-center flex flex-col items-center justify-center group cursor-pointer">
+<!-- Upload Icon Circle -->
+<div class="w-11 h-11 rounded-xl bg-zinc-800/90 group-hover:bg-orange-500/20 group-hover:text-orange-400 text-zinc-300 flex items-center justify-center transition-colors shadow-inner mb-3">
+<svg class="w-5 h-5 transition-transform group-hover:-translate-y-0.5 duration-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<!-- Instructions -->
+<p class="text-sm font-medium text-zinc-200 mb-1.5">
+            点击上传、拖拽图片，或直接 
+            <kbd class="px-1.5 py-0.5 bg-zinc-800 text-zinc-300 border border-zinc-700 rounded text-xs mx-0.5">Ctrl</kbd> + 
+            <kbd class="px-1.5 py-0.5 bg-zinc-800 text-zinc-300 border border-zinc-700 rounded text-xs mx-0.5">V</kbd> 粘贴
+          </p>
+<p class="text-xs text-zinc-500">截图后想自动识别？开启右上角「自动监控」</p>
+<!-- Interactive File Selection Preview State Demonstration -->
+<div class="mt-4 pt-3.5 border-t border-zinc-800/80 w-full max-w-md flex items-center justify-between bg-zinc-900/60 p-2.5 rounded-lg border border-zinc-700/60 text-left">
+<div class="flex items-center space-x-3">
+<!-- Thumbnail mini preview with delete tag -->
+<div class="relative w-10 h-10 rounded-md bg-zinc-800 overflow-hidden shrink-0 border border-zinc-700">
+<img alt="Preview" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFdp3duLyU5Lqo2jBXXm1xFxLEHnM6yHs1lIX6JyX7GzZEA3uzkCkFHP0WV5xEeM6y50KeyrHVv5iyR-mZLU9SIkruNa0xVa4M8lHploWiv88VPsBNGiOUe1MGjeZPxpuu4hmksvOKBrzVc2oQCldzxvGdCX6OVSB40sWneH1X9m_IwlAU-kJUnD5Snj4SGTre98Grr8xyMaBpKaU7_yRCnw81sEoZlrcwbZUitPWAVCY9cYw-1loGwg">
+<!-- Delete 'x' badge on thumbnail top right -->
+<button class="absolute top-0 right-0 w-3.5 h-3.5 bg-red-600/90 text-white flex items-center justify-center text-[9px] hover:bg-red-500 rounded-bl transition-colors" title="移除该图">
+                  ✕
+                </button>
+</div>
+<div class="overflow-hidden">
+<div class="text-xs font-medium text-zinc-200 truncate">screenshot_20261109_buffer.png</div>
+<div class="text-[11px] text-zinc-400">420.5 KB · 待上传到 S3</div>
+</div>
+</div>
+<!-- Action Buttons for selected image -->
+<div class="flex items-center space-x-1.5 shrink-0">
+<button class="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors">取消</button>
+<button class="px-3 py-1 text-xs font-medium rounded bg-orange-600 hover:bg-orange-500 text-white shadow-xs transition-colors flex items-center space-x-1">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">开始上传</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- END: ManualUploadDropzoneModule -->
+<!-- BEGIN: ActionButtonsModule -->
+<!-- Module 3: 主要功能操作区域 (当前页面操作) -->
+<section class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-siyuan-card border border-siyuan-border" data-purpose="page-action-toolbar">
+<div class="flex items-center space-x-2 text-xs text-zinc-400 pl-1">
+<span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
+<span class="font-medium text-zinc-300">当前页面批量操作:</span>
+</div>
+<!-- Modern Action Buttons with Icons -->
+<div class="flex flex-wrap items-center gap-2.5">
+<!-- Button 1: 上传本地图片 (Primary Highlight) -->
+<button class="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 rounded-lg shadow-sm shadow-orange-500/20 flex items-center justify-center space-x-1.5 transition-all">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">上传本地图片</span>
+</button>
+<!-- Button 2: 强制重新上传 -->
+<button class="flex-1 sm:flex-none px-3.5 py-2 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800/90 hover:bg-zinc-700/80 border border-siyuan-border rounded-lg flex items-center justify-center space-x-1.5 transition-all">
+<svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">强制重新上传</span>
+</button>
+<!-- Button 3: 替换为S3链接 (Secondary Accent) -->
+<button class="flex-1 sm:flex-none px-3.5 py-2 text-xs font-medium text-blue-300 hover:text-blue-200 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 rounded-lg flex items-center justify-center space-x-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-800/40 disabled:text-zinc-500 disabled:border-zinc-700/60 disabled:hover:text-zinc-500 disabled:hover:bg-zinc-800/40">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">替换为S3链接</span>
+<span class="px-1.5 py-0.2 text-[10px] font-semibold rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 group-disabled:bg-zinc-700 group-disabled:text-zinc-500">7</span>
+</button>
+</div>
+</section>
+<!-- END: ActionButtonsModule -->
+<!-- BEGIN: ImageGridPreviewModule -->
+<!-- Module 4: 图片预览卡片 (现代双栏网格布局) -->
+<section class="space-y-3" data-purpose="image-cards-grid">
+<div class="flex items-center justify-between px-1 text-xs text-zinc-400">
+<div class="flex items-center space-x-2">
+<span class="font-medium text-zinc-200">已解析图片列表</span>
+
+</div>
+
+</div>
+<!-- 2-Column Responsive Card Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+<!-- Card 1 -->
+<div class="bg-siyuan-card hover:bg-siyuan-cardHover border border-siyuan-border hover:border-zinc-600 rounded-xl p-3 flex gap-3 transition-all duration-200 group">
+<!-- Thumbnail with hover zoom -->
+<div class="relative w-28 h-24 shrink-0 rounded-lg overflow-hidden bg-black/40 border border-siyuan-border flex items-center justify-center">
+<img alt="06-01.png" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFdp3duLyU5Lqo2jBXXm1xFxLEHnM6yHs1lIX6JyX7GzZEA3uzkCkFHP0WV5xEeM6y50KeyrHVv5iyR-mZLU9SIkruNa0xVa4M8lHploWiv88VPsBNGiOUe1MGjeZPxpuu4hmksvOKBrzVc2oQCldzxvGdCX6OVSB40sWneH1X9m_IwlAU-kJUnD5Snj4SGTre98Grr8xyMaBpKaU7_yRCnw81sEoZlrcwbZUitPWAVCY9cYw-1loGwg">
+<span class="absolute bottom-1 right-1 px-1 py-0.2 bg-black/70 backdrop-blur-xs text-[9px] text-zinc-300 rounded font-mono">142 KB</span>
+</div>
+<!-- Card Details -->
+<div class="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+<div class="space-y-1">
+<div class="flex items-center justify-between gap-1">
+<div class="flex items-center space-x-1.5 min-w-0">
+<span class="px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-semibold">S3</span>
+<h3 class="text-xs font-semibold text-zinc-200 truncate" title="06-01.png">06-01.png</h3>
+</div>
+<span class="text-[10px] text-emerald-400 shrink-0">● 已替换</span>
+</div>
+<!-- S3 Key & Block ID subtle info -->
+<p class="text-[11px] text-zinc-400 truncate font-mono" title="https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com/siyuan/06-01.png">
+                  cos.ap-guangzhou.../06-01-202302.png
+                </p>
+<p class="text-[10px] text-zinc-500 truncate font-mono">
+                  块: 20230205224037-6ksw8h1
+                </p>
+</div>
+<!-- Card Action Toolbar -->
+<div class="flex items-center space-x-2 pt-2 border-t border-zinc-800 flex-wrap gap-1.5">
+<button class="px-2.5 py-1 text-[11px] font-medium rounded bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/25 flex items-center space-x-1 transition-colors">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">复制链接</span>
+</button><button class="px-2.5 py-1 text-[11px] font-medium rounded bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 hover:text-white border border-zinc-700/80 flex items-center space-x-1 transition-colors"><svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="">复制MD链接</span></button>
+<button class="px-2.5 py-1 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded flex items-center space-x-1 transition-colors">
+<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">重新上传</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-siyuan-card hover:bg-siyuan-cardHover border border-siyuan-border hover:border-zinc-600 rounded-xl p-3 flex gap-3 transition-all duration-200 group">
+<!-- Thumbnail -->
+<div class="relative w-28 h-24 shrink-0 rounded-lg overflow-hidden bg-black/40 border border-siyuan-border flex items-center justify-center">
+<img alt="06-02.png" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFdp3duLyU5Lqo2jBXXm1xFxLEHnM6yHs1lIX6JyX7GzZEA3uzkCkFHP0WV5xEeM6y50KeyrHVv5iyR-mZLU9SIkruNa0xVa4M8lHploWiv88VPsBNGiOUe1MGjeZPxpuu4hmksvOKBrzVc2oQCldzxvGdCX6OVSB40sWneH1X9m_IwlAU-kJUnD5Snj4SGTre98Grr8xyMaBpKaU7_yRCnw81sEoZlrcwbZUitPWAVCY9cYw-1loGwg">
+<span class="absolute bottom-1 right-1 px-1 py-0.2 bg-black/70 backdrop-blur-xs text-[9px] text-zinc-300 rounded font-mono">86 KB</span>
+</div>
+<!-- Card Details -->
+<div class="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+<div class="space-y-1">
+<div class="flex items-center justify-between gap-1">
+<div class="flex items-center space-x-1.5 min-w-0">
+<span class="px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-semibold">S3</span>
+<h3 class="text-xs font-semibold text-zinc-200 truncate" title="06-02.png">06-02.png</h3>
+</div>
+<span class="text-[10px] text-emerald-400 shrink-0">● 已替换</span>
+</div>
+<p class="text-[11px] text-zinc-400 truncate font-mono" title="https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com/siyuan/06-02.png">
+                  cos.ap-guangzhou.../06-02-202302.png
+                </p>
+<p class="text-[10px] text-zinc-500 truncate font-mono">
+                  块: 20230205224063-uubony2
+                </p>
+</div>
+<!-- Card Action Toolbar -->
+<div class="flex items-center space-x-2 pt-2 border-t border-zinc-800 flex-wrap gap-1.5">
+<button class="px-2.5 py-1 text-[11px] font-medium rounded bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/25 flex items-center space-x-1 transition-colors">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">复制链接</span>
+</button><button class="px-2.5 py-1 text-[11px] font-medium rounded bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 hover:text-white border border-zinc-700/80 flex items-center space-x-1 transition-colors"><svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="">复制MD链接</span></button>
+<button class="px-2.5 py-1 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded flex items-center space-x-1 transition-colors">
+<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">重新上传</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-siyuan-card hover:bg-siyuan-cardHover border border-siyuan-border hover:border-zinc-600 rounded-xl p-3 flex gap-3 transition-all duration-200 group">
+<!-- Thumbnail -->
+<div class="relative w-28 h-24 shrink-0 rounded-lg overflow-hidden bg-black/40 border border-siyuan-border flex items-center justify-center">
+<img alt="06-03.png" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFdp3duLyU5Lqo2jBXXm1xFxLEHnM6yHs1lIX6JyX7GzZEA3uzkCkFHP0WV5xEeM6y50KeyrHVv5iyR-mZLU9SIkruNa0xVa4M8lHploWiv88VPsBNGiOUe1MGjeZPxpuu4hmksvOKBrzVc2oQCldzxvGdCX6OVSB40sWneH1X9m_IwlAU-kJUnD5Snj4SGTre98Grr8xyMaBpKaU7_yRCnw81sEoZlrcwbZUitPWAVCY9cYw-1loGwg">
+<span class="absolute bottom-1 right-1 px-1 py-0.2 bg-black/70 backdrop-blur-xs text-[9px] text-zinc-300 rounded font-mono">218 KB</span>
+</div>
+<!-- Card Details -->
+<div class="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+<div class="space-y-1">
+<div class="flex items-center justify-between gap-1">
+<div class="flex items-center space-x-1.5 min-w-0">
+<span class="px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-semibold">S3</span>
+<h3 class="text-xs font-semibold text-zinc-200 truncate" title="06-03.png">06-03.png</h3>
+</div>
+<span class="text-[10px] text-emerald-400 shrink-0">● 已替换</span>
+</div>
+<p class="text-[11px] text-zinc-400 truncate font-mono" title="https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com/siyuan/06-03.png">
+                  cos.ap-guangzhou.../06-03-202302.png
+                </p>
+<p class="text-[10px] text-zinc-500 truncate font-mono">
+                  块: 20230205224075-ye6r04z
+                </p>
+</div>
+<!-- Card Action Toolbar -->
+<div class="flex items-center space-x-2 pt-2 border-t border-zinc-800 flex-wrap gap-1.5">
+<button class="px-2.5 py-1 text-[11px] font-medium rounded bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/25 flex items-center space-x-1 transition-colors">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">复制链接</span>
+</button><button class="px-2.5 py-1 text-[11px] font-medium rounded bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 hover:text-white border border-zinc-700/80 flex items-center space-x-1 transition-colors"><svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="">复制MD链接</span></button>
+<button class="px-2.5 py-1 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded flex items-center space-x-1 transition-colors">
+<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+<span class="">重新上传</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Placeholder for upcoming image sync -->
+<div class="border border-dashed border-zinc-800 hover:border-zinc-700 rounded-xl p-4 flex flex-col items-center justify-center text-center text-zinc-500 text-xs min-h-[114px] bg-zinc-900/30">
+
+
+</div>
+</div>
+</section>
+<!-- END: ImageGridPreviewModule -->
+</main>
+<!-- BEGIN: FooterStatusBar -->
+<footer class="bg-[#181820] border-t border-siyuan-border px-5 py-2.5 text-xs text-zinc-400 flex flex-wrap items-center justify-between gap-2">
+<div class="flex items-center space-x-3 text-[11px]">
+<span class="flex items-center space-x-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="text-zinc-300">S3 存储桶: Tencent COS (ap-guangzhou)</span>
+</span>
+<span class="text-zinc-600">|</span>
+
+</div>
+<div class="flex items-center space-x-2 text-[11px] text-zinc-500">
+
+</div>
+</footer>
+<!-- END: FooterStatusBar -->
+</div>
+<!-- END: MainPluginWindow -->
+
+
+</body></html>

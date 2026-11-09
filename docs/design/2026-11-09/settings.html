@@ -1,0 +1,537 @@
+<!DOCTYPE html><html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Pigo 图床 - 设置</title>
+<!-- Tailwind CSS v3 CDN with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              400: '#fb923c',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c'
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Scrollbar & Interactive Styles -->
+<style data-purpose="custom-scrollbars">
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #52525b;
+    }
+  </style>
+<style data-purpose="animations-and-states">
+    .accordion-content {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+    }
+    .accordion-item.is-open .accordion-content {
+      max-height: 2000px;
+      opacity: 1;
+    }
+    .accordion-item.is-open .arrow-icon {
+      transform: rotate(180deg);
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200 antialiased flex items-center justify-center min-h-screen p-2 md:p-6 font-sans select-none">
+<!-- BEGIN: DesktopWindowContainer -->
+<!-- Main Desktop Window Mockup mimicking SiYuan Desktop plugin dialog -->
+<div class="w-full max-w-[960px] h-[900px] max-h-[94vh] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-white/5" data-purpose="window-wrapper">
+<!-- BEGIN: TopBar -->
+<header class="h-12 bg-zinc-900/90 border-b border-zinc-800/80 px-4 flex items-center justify-between shrink-0 backdrop-blur select-none">
+<!-- Left: Logo & Navigation Tabs -->
+<div class="flex items-center space-x-6">
+<!-- Brand Title & Icon -->
+<div class="flex items-center space-x-2.5">
+<div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+<path d="M4 5h16a2 22 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v10h16V7H4zm2 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm12 7l-4.5-6-3.5 4.5-2.5-3-3.5 4.5h14z"></path>
+</svg>
+</div>
+<span class="font-bold text-sm tracking-wide text-zinc-100">Pigo 图床</span>
+</div>
+<!-- Navigation Tabs -->
+<nav aria-label="Plugin Sections" class="flex items-center space-x-1">
+<button class="px-3.5 py-1 text-xs font-medium rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors" type="button">
+            上传
+          </button>
+<button class="px-3.5 py-1 text-xs font-medium rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors" type="button">
+            统计
+          </button>
+<button class="px-3.5 py-1 text-xs font-medium rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors" type="button">
+            同步
+          </button>
+<!-- Active Tab: 设置 -->
+<button class="px-3.5 py-1 text-xs font-medium rounded-md bg-brand-500/15 text-brand-400 border border-brand-500/20 shadow-sm shadow-brand-500/10" type="button">
+            设置
+          </button>
+</nav>
+</div>
+<!-- Right: Global Auto-Monitor & Window Controls -->
+<div class="flex items-center space-x-4">
+<!-- Auto Monitor Quick Switch -->
+<div class="flex items-center space-x-2 pl-3 border-l border-zinc-800">
+<span class="text-xs text-zinc-400 hidden sm:inline">自动监控</span>
+<button aria-label="Toggle Auto Monitor" class="w-8 h-4.5 bg-brand-500 rounded-full p-0.5 transition-colors relative inline-flex items-center focus:outline-none" data-toggle="switch" type="button">
+<span class="w-3.5 h-3.5 bg-white rounded-full shadow-sm transform translate-x-3.5 transition-transform duration-200"></span>
+</button>
+</div>
+<!-- Desktop Window Actions -->
+<div class="flex items-center space-x-1 text-zinc-400">
+<!-- Pin window -->
+<button class="p-1 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors" title="置顶" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 2v8l3 3H9l3-3V2z"></path>
+<path d="M4 17h16"></path>
+<path d="M12 17v5"></path>
+</svg>
+</button>
+<!-- Minimize -->
+<button class="p-1 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors" title="最小化" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<line x1="4" x2="20" y1="12" y2="12"></line>
+</svg>
+</button>
+<!-- Close -->
+<button class="p-1 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors" title="关闭" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<line x1="18" x2="6" y1="6" y2="18"></line>
+<line x1="6" x2="18" y1="6" y2="18"></line>
+</svg>
+</button>
+</div>
+</div>
+</header>
+<!-- END: TopBar -->
+<!-- BEGIN: MainContentScrollableArea -->
+<main class="flex-1 overflow-y-auto px-6 py-5 space-y-5" data-purpose="settings-main-scroll">
+<!-- BEGIN: HeroQuickToggles -->
+<!-- Two High-Frequency Toggles promoted to the top -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-3.5" data-purpose="quick-toggles">
+<!-- Toggle 1: Auto Upload on Paste -->
+<div class="group relative flex items-center justify-between p-3.5 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/60 border border-zinc-700/50 hover:border-zinc-700 transition-all cursor-pointer" id="quick-toggle-1">
+<div class="flex items-start space-x-3.5 pr-2">
+<div class="mt-0.5 w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 text-brand-400 flex items-center justify-center shrink-0">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<div class="flex items-center space-x-2">
+<span class="text-sm font-medium text-zinc-100">粘贴图片时自动上传</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">已启用</span>
+</div>
+<p class="text-xs text-zinc-400 mt-0.5">剪贴板捕获到新图片时即刻转存到图床</p>
+</div>
+</div>
+<!-- Toggle Pill -->
+<button class="w-10 h-6 bg-brand-500 rounded-full p-0.5 transition-colors relative inline-flex items-center shrink-0" type="button">
+<span class="w-5 h-5 bg-white rounded-full shadow-md transform translate-x-4 transition-transform duration-200"></span>
+</button>
+</div>
+<!-- Toggle 2: Replace Link in Document -->
+<div class="group relative flex items-center justify-between p-3.5 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/60 border border-zinc-700/50 hover:border-zinc-700 transition-all cursor-pointer" id="quick-toggle-2">
+<div class="flex items-start space-x-3.5 pr-2">
+<div class="mt-0.5 w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 text-brand-400 flex items-center justify-center shrink-0">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<div class="flex items-center space-x-2">
+<span class="text-sm font-medium text-zinc-100">上传后替换文档中的图片链接</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">已启用</span>
+</div>
+<p class="text-xs text-zinc-400 mt-0.5">将本地相对路径无缝替换为远程 S3/COS 外链</p>
+</div>
+</div>
+<!-- Toggle Pill -->
+<button class="w-10 h-6 bg-brand-500 rounded-full p-0.5 transition-colors relative inline-flex items-center shrink-0" type="button">
+<span class="w-5 h-5 bg-white rounded-full shadow-md transform translate-x-4 transition-transform duration-200"></span>
+</button>
+</div>
+</section>
+<!-- END: HeroQuickToggles -->
+<!-- BEGIN: AccordionSection -->
+<section class="space-y-3" data-purpose="settings-accordions">
+<!-- ================= ACCORDION 1: S3 存储配置 ================= -->
+<article class="accordion-item bg-zinc-800/30 border border-zinc-800 hover:border-zinc-700/80 rounded-xl transition-colors overflow-hidden" id="acc-s3">
+<!-- Accordion Header -->
+<button aria-expanded="false" class="accordion-toggle w-full px-4 py-3.5 flex items-center justify-between text-left focus:outline-none" type="button">
+<div class="flex items-center space-x-3">
+<div class="w-7 h-7 rounded-lg bg-zinc-800 text-zinc-300 flex items-center justify-center border border-zinc-700">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<h3 class="text-sm font-semibold text-zinc-100 flex items-center space-x-2">
+<span class="">S3 存储配置</span>
+<span class="text-xs font-normal text-zinc-400">（兼容 AWS S3、腾讯云 COS、阿里云 OSS、MinIO 等）</span>
+</h3>
+</div>
+</div>
+<div class="flex items-center space-x-3">
+<!-- Summary Tag -->
+<span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono text-[11px]">
+                Tencent COS (ap-guangzhou)
+              </span>
+<div class="arrow-icon w-5 h-5 rounded-md flex items-center justify-center text-zinc-400 transition-transform duration-200">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+</button>
+<!-- Accordion Body -->
+<div class="accordion-content border-t border-zinc-800/80 bg-zinc-900/40">
+<div class="p-5 space-y-4 text-xs">
+<div class="p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg text-amber-300 text-xs flex items-center space-x-2">
+<svg class="w-4 h-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="10"></circle>
+<line x1="12" x2="12" y1="8" y2="12"></line>
+<line x1="12" x2="12.01" y1="16" y2="16"></line>
+</svg>
+<span class="">只保留一个 S3 兼容存储桶。若使用腾讯云 COS，请填写 S3 兼容 Endpoint。</span>
+</div>
+<!-- Endpoint & Region Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="md:col-span-2 space-y-1.5">
+<label class="block font-medium text-zinc-300">Endpoint</label>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" type="text" value="https://cos.ap-guangzhou.myqcloud.com">
+<p class="text-[11px] text-zinc-400">例如腾讯云 COS: https://cos.ap-guangzhou.myqcloud.com</p>
+</div>
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">Region</label>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" type="text" value="ap-guangzhou">
+<p class="text-[11px] text-zinc-400">区域代号，如 ap-guangzhou</p>
+</div>
+</div>
+<!-- Bucket -->
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">Bucket 名称</label>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" type="text" value="picgo-1312673255">
+</div>
+<!-- AccessKeyId & SecretAccessKey -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">AccessKeyId</label>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" type="text" value="AKIDEXAMPLE0000000000000000000000">
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<label class="block font-medium text-zinc-300">SecretAccessKey</label>
+<label class="flex items-center space-x-1.5 text-[11px] text-zinc-400 hover:text-zinc-200 cursor-pointer">
+<input class="rounded bg-zinc-800 border-zinc-700 text-brand-500 focus:ring-0 w-3.5 h-3.5" id="toggleSecret" type="checkbox">
+<span class="">显示密钥</span>
+</label>
+</div>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" id="secretInput" type="password" value="wZ8a9Xk2Lp0QrstUVwXyZ1234567890">
+</div>
+</div>
+<!-- Upload Path Template -->
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">上传路径模板</label>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" type="text" value="siyuan/{year}/{month}/{md5}.{ext}">
+<p class="text-[11px] text-zinc-400">
+                  支持变量: <span class="text-zinc-300 font-mono">{year}</span>, <span class="text-zinc-300 font-mono">{month}</span>, <span class="text-zinc-300 font-mono">{day}</span>, <span class="text-zinc-300 font-mono">{timestamp}</span>, <span class="text-zinc-300 font-mono">{md5}</span>, <span class="text-zinc-300 font-mono">{sha256}</span>, <span class="text-zinc-300 font-mono">{ext}</span>, <span class="text-zinc-300 font-mono">{filename}</span>, <span class="text-zinc-300 font-mono">{fullName}</span>
+</p>
+</div>
+<!-- Custom URL & Extra URL Prefix -->
+<div class="space-y-3">
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">CustomUrl (自定义访问域名)</label>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" type="text" value="https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com">
+<p class="text-[11px] text-zinc-400">用于生成图片公网地址，也用于反推 S3 key。留空时按 Endpoint/Bucket 推导。</p>
+</div>
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">额外 URL 前缀 (历史域名)</label>
+<textarea class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500 resize-none" rows="2">https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com</textarea>
+<p class="text-[11px] text-zinc-400">用于识别旧域名或 CDN 域名下的已上传图片。每行一个。</p>
+</div>
+</div>
+<!-- ACL & Timeout & Advanced Flags -->
+<div class="pt-2 border-t border-zinc-800/80 grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">ACL 访问控制</label>
+<select class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500">
+<option selected="" value="public-read">public-read (公开读)</option>
+<option value="private">private (私有)</option>
+<option value="public-read-write">public-read-write (公有读写)</option>
+<option value="authenticated-read">authenticated-read (授权读)</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="block font-medium text-zinc-300">网络超时（毫秒）</label>
+<input class="w-full bg-zinc-950 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 font-mono text-xs focus:ring-1 focus:ring-brand-500 focus:border-brand-500" type="number" value="60000">
+</div>
+</div>
+<!-- Checkbox Options -->
+<div class="pt-1 flex flex-wrap gap-5 text-xs text-zinc-300">
+<label class="flex items-center space-x-2 cursor-pointer hover:text-zinc-100">
+<input class="rounded bg-zinc-950 border-zinc-700 text-brand-500 focus:ring-0" type="checkbox">
+<span class="">使用 Path Style</span>
+</label>
+<label class="flex items-center space-x-2 cursor-pointer text-brand-400 hover:text-brand-300 font-medium">
+<input checked="" class="rounded bg-zinc-950 border-zinc-700 text-brand-500 focus:ring-0" type="checkbox">
+<span class="">通过思源内核代理访问 S3（推荐，避免跨域与网络阻隔）</span>
+</label>
+</div>
+<div class="pt-4 border-t border-zinc-800/80 flex items-center justify-between"><button class="inline-flex items-center text-xs text-zinc-400 hover:text-zinc-200 transition-colors py-1.5 px-2.5 rounded-lg hover:bg-zinc-800/60 border border-transparent hover:border-zinc-700/60" title="从旧版 PicGo 配置文件快速迁移 S3 参数" type="button"><svg class="w-3.5 h-3.5 mr-1.5 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="">导入旧 PicGo 配置...</span></button><button class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs text-zinc-200 hover:text-white bg-zinc-800 hover:bg-zinc-700/80 rounded-lg border border-zinc-700 transition-colors shadow-sm" type="button"><svg class="w-3.5 h-3.5 text-brand-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="">测试连接</span></button></div></div>
+</div>
+</article>
+<!-- ================= ACCORDION 2: 详细行为与上传设置 ================= -->
+<article class="accordion-item bg-zinc-800/30 border border-zinc-800 hover:border-zinc-700/80 rounded-xl transition-colors overflow-hidden" id="acc-behavior">
+<!-- Accordion Header -->
+<button aria-expanded="false" class="accordion-toggle w-full px-4 py-3.5 flex items-center justify-between text-left focus:outline-none" type="button">
+<div class="flex items-center space-x-3">
+<div class="w-7 h-7 rounded-lg bg-zinc-800 text-zinc-300 flex items-center justify-center border border-zinc-700">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<h3 class="text-sm font-semibold text-zinc-100">详细行为与上传规则</h3>
+</div>
+</div>
+<div class="flex items-center space-x-3">
+<span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400 border border-zinc-700 text-[11px]">
+                并发: 4 | 过滤网络图: 否
+              </span>
+<div class="arrow-icon w-5 h-5 rounded-md flex items-center justify-center text-zinc-400 transition-transform duration-200">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+</button>
+<!-- Accordion Body -->
+<div class="accordion-content border-t border-zinc-800/80 bg-zinc-900/40">
+<div class="p-5 space-y-4 text-xs">
+<!-- Mixed Clipboard Toggle -->
+<div class="p-3 bg-zinc-900/70 border border-zinc-800 rounded-lg flex items-start justify-between">
+<div class="space-y-0.5">
+<label class="font-medium text-zinc-200 flex items-center space-x-2">
+<input class="rounded bg-zinc-950 border-zinc-700 text-brand-500 focus:ring-0" type="checkbox">
+<span class="">允许图片和文字混合粘贴时接管</span>
+</label>
+<p class="text-zinc-400 text-[11px] pl-6 leading-relaxed">
+                    开启后，混合粘贴会由 Pigo 接管；当前实现只保留图片，混合的文字可能丢失。不确定时请保持关闭。
+                  </p>
+</div>
+</div>
+<!-- Scanning & Upload Range -->
+<div class="space-y-2">
+<label class="block font-medium text-zinc-300">批量扫描与上传选项</label>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+<label class="flex items-center space-x-2.5 p-2.5 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+<input checked="" class="rounded bg-zinc-950 border-zinc-700 text-brand-500 focus:ring-0" type="checkbox">
+<span class="text-zinc-200 text-xs">包含题头图</span>
+</label>
+<label class="flex items-center space-x-2.5 p-2.5 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+<input checked="" class="rounded bg-zinc-950 border-zinc-700 text-brand-500 focus:ring-0" type="checkbox">
+<span class="text-zinc-200 text-xs">包含网络图片</span>
+</label>
+<label class="flex items-center space-x-2.5 p-2.5 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
+<input checked="" class="rounded bg-zinc-950 border-zinc-700 text-brand-500 focus:ring-0" type="checkbox">
+<span class="text-zinc-200 text-xs">跳过已上传到 S3 的图片</span>
+</label>
+</div>
+</div>
+<!-- Concurrency Slider/Input -->
+<div class="space-y-1.5 pt-1">
+<div class="flex items-center justify-between">
+<label class="block font-medium text-zinc-300">上传并发数</label>
+<span class="text-brand-400 font-mono font-semibold" id="concurrencyVal">4</span>
+</div>
+<div class="flex items-center space-x-3">
+<input class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-brand-500" id="concurrencyRange" max="10" min="1" type="range" value="4">
+<input class="w-16 bg-zinc-950 border border-zinc-700/80 rounded-lg px-2.5 py-1 text-center font-mono text-xs focus:ring-1 focus:ring-brand-500" max="10" min="1" type="number" value="4">
+</div>
+<p class="text-[11px] text-zinc-400">取值范围 1-10，默认 4。图片较多时可适当提高，但请留意云存储限流防刷。</p>
+</div>
+<!-- Debug switch -->
+<div class="pt-2 border-t border-zinc-800/80">
+<label class="flex items-center space-x-2 cursor-pointer text-zinc-300 hover:text-zinc-100">
+<input class="rounded bg-zinc-950 border-zinc-700 text-brand-500 focus:ring-0" type="checkbox">
+<span class="">输出调试日志 (开启后会同步输出到开发者控制台)</span>
+</label>
+</div>
+</div>
+</div>
+</article>
+<!-- ================= ACCORDION 3: 调试与运行日志 ================= -->
+<article class="accordion-item bg-zinc-800/30 border border-zinc-800 hover:border-zinc-700/80 rounded-xl transition-colors overflow-hidden" id="acc-logs">
+<!-- Accordion Header -->
+<button aria-expanded="false" class="accordion-toggle w-full px-4 py-3.5 flex items-center justify-between text-left focus:outline-none" type="button">
+<div class="flex items-center space-x-3">
+<div class="w-7 h-7 rounded-lg bg-zinc-800 text-zinc-300 flex items-center justify-center border border-zinc-700">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<polyline points="4 17 10 11 4 5"></polyline>
+<line x1="12" x2="20" y1="19" y2="19"></line>
+</svg>
+</div>
+<div>
+<h3 class="text-sm font-semibold text-zinc-100">调试与运行日志</h3>
+</div>
+</div>
+<div class="flex items-center space-x-3">
+<!-- Log Count Pill -->
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-300 border border-zinc-700 text-[11px]">
+                共 6 条
+              </span>
+<div class="arrow-icon w-5 h-5 rounded-md flex items-center justify-center text-zinc-400 transition-transform duration-200">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+</div>
+</button>
+<!-- Accordion Body -->
+<div class="accordion-content border-t border-zinc-800/80 bg-zinc-900/40">
+<div class="p-5 space-y-3">
+<!-- Toolbar -->
+<div class="flex items-center justify-between text-xs">
+<span class="text-zinc-400">保留最近 200 条运行日志（不会记录与泄露密钥）。</span>
+<div class="flex items-center space-x-2">
+<button class="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-md border border-zinc-700 transition-colors flex items-center space-x-1.5" type="button">
+<svg class="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<rect height="13" rx="2" ry="2" width="13" x="9" y="9"></rect>
+<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+</svg>
+<span class="">复制日志</span>
+</button>
+<button class="px-2.5 py-1 bg-zinc-800/60 hover:bg-red-500/20 text-zinc-300 hover:text-red-400 rounded-md border border-zinc-700/80 transition-colors" type="button">
+                    清空日志
+                  </button>
+</div>
+</div>
+<!-- Terminal Console Card -->
+<div class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 font-mono text-[11px] leading-relaxed text-zinc-300 space-y-1 overflow-x-auto shadow-inner max-h-52 overflow-y-auto">
+<div class="flex items-start">
+<span class="text-zinc-400 shrink-0">[2026/11/9 16:34:56]</span>
+<span class="text-blue-400 mx-2 shrink-0">[INFO]</span>
+<span class="text-zinc-300">同步报告完成 {"matched":2886,"onlyS3":1049,"onlySiyuan":1,"notUploaded":2292,"outsidePrefix":0,"ignored":1}</span>
+</div>
+<div class="flex items-start">
+<span class="text-zinc-400 shrink-0">[2026/11/9 10:48:27]</span>
+<span class="text-blue-400 mx-2 shrink-0">[INFO]</span>
+<span class="text-zinc-300">任务完成: 替换块 15, 题头图 0, 未替换 7, 耗时 5818ms</span>
+</div>
+<div class="flex items-start">
+<span class="text-zinc-400 shrink-0">[2026/11/9 10:48:25]</span>
+<span class="text-blue-400 mx-2 shrink-0">[INFO]</span>
+<span class="text-zinc-300">上传结束: 上传 14, 复用 0, 跳过 0, 失败 0</span>
+</div>
+<div class="flex items-start">
+<span class="text-zinc-400 shrink-0">[2026/11/9 10:48:21]</span>
+<span class="text-blue-400 mx-2 shrink-0">[INFO]</span>
+<span class="text-zinc-300">开始上传 14 张图片 (并发 4)</span>
+</div>
+<div class="flex items-start">
+<span class="text-zinc-400 shrink-0">[2026/11/9 10:46:38]</span>
+<span class="text-blue-400 mx-2 shrink-0">[INFO]</span>
+<span class="text-zinc-300">粘贴与图片右键菜单事件已注册</span>
+</div>
+<div class="flex items-start">
+<span class="text-zinc-400 shrink-0">[2026/11/9 10:46:38]</span>
+<span class="text-blue-400 mx-2 shrink-0">[INFO]</span>
+<span class="text-emerald-400">Pigo 插件已加载: desktop</span>
+</div>
+</div>
+</div>
+</div>
+</article>
+</section>
+<!-- END: AccordionSection -->
+</main>
+<!-- END: MainContentScrollableArea -->
+<!-- BEGIN: FooterActionToolbar -->
+<!-- Sticky Footer with Core Actions, Subdued Import Link, and Security Notice -->
+<footer class="bg-zinc-950/90 border-t border-zinc-800/90 px-6 py-3.5 shrink-0 backdrop-blur" data-purpose="settings-footer"><div class="flex flex-col sm:flex-row items-center justify-between gap-3"><div class="text-center sm:text-left text-[11px] text-zinc-400 order-2 sm:order-1">配置保存在思源工作空间的 petal 存储中，会随思源同步到其他设备。请确保你的同步空间是可信的。</div><div class="flex items-center space-x-3 order-1 sm:order-2 w-full sm:w-auto justify-end shrink-0"><button class="px-3.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 rounded-lg border border-zinc-800 transition-colors" type="button">恢复默认</button><button class="px-5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 rounded-lg shadow-md shadow-brand-500/25 active:scale-95 transition-all" type="button">保存配置</button></div></div></footer>
+<!-- END: FooterActionToolbar -->
+</div>
+<!-- END: DesktopWindowContainer -->
+<!-- BEGIN: InteractiveScripts -->
+<script data-purpose="accordion-toggle-logic">
+    // Accordion expand/collapse handling
+    document.querySelectorAll('.accordion-toggle').forEach(button => {
+      button.addEventListener('click', () => {
+        const item = button.closest('.accordion-item');
+        const isOpen = item.classList.contains('is-open');
+        
+        // Optional accordion multi-open allowed or single toggle
+        item.classList.toggle('is-open');
+        button.setAttribute('aria-expanded', !isOpen);
+      });
+    });
+
+    // Sync input range and number display
+    const range = document.getElementById('concurrencyRange');
+    const valDisplay = document.getElementById('concurrencyVal');
+    if (range && valDisplay) {
+      range.addEventListener('input', (e) => {
+        valDisplay.textContent = e.target.value;
+      });
+    }
+
+    // Toggle Secret Key visibility
+    const toggleSecret = document.getElementById('toggleSecret');
+    const secretInput = document.getElementById('secretInput');
+    if (toggleSecret && secretInput) {
+      toggleSecret.addEventListener('change', () => {
+        secretInput.type = toggleSecret.checked ? 'text' : 'password';
+      });
+    }
+
+    // Interactive switches (visual demo feedback)
+    document.querySelectorAll('[data-toggle="switch"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const knob = btn.querySelector('span');
+        const isCurrentlyActive = btn.classList.contains('bg-brand-500');
+        
+        if (isCurrentlyActive) {
+          btn.classList.remove('bg-brand-500');
+          btn.classList.add('bg-zinc-700');
+          knob.classList.remove('translate-x-3.5');
+          knob.classList.add('translate-x-0');
+        } else {
+          btn.classList.remove('bg-zinc-700');
+          btn.classList.add('bg-brand-500');
+          knob.classList.remove('translate-x-0');
+          knob.classList.add('translate-x-3.5');
+        }
+      });
+    });
+  </script>
+<!-- END: InteractiveScripts -->
+
+
+</body></html>

@@ -1,0 +1,49 @@
+/*
+ * Pigo 设计 token（F0）
+ * 原则：背景 / 文本 / 边框优先跟随思源主题变量，语义色使用固定设计色。
+ * 所有变量只在插件容器内生效，避免污染思源自身样式。
+ */
+.siyuan-plugin-pigo-app {
+  --pigo-bg: var(--b3-theme-background, #141417);
+  --pigo-panel: var(--b3-theme-surface, #19191d);
+  --pigo-card: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.05));
+  --pigo-surface: var(--b3-theme-surface, #25252b);
+  --pigo-surface-strong: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.1));
+  --pigo-border: var(--b3-border-color, rgba(255, 255, 255, 0.08));
+  --pigo-border-strong: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.16));
+
+  --pigo-text: var(--b3-theme-on-background, #e6e6e9);
+  --pigo-text-2: var(--b3-theme-on-surface, #c9c9cf);
+  --pigo-muted: var(--b3-theme-on-surface-light, #8b8b95);
+
+  --pigo-accent: #f97316;
+  --pigo-accent-hover: #ea580c;
+  --pigo-accent-soft: rgba(249, 115, 22, 0.14);
+  --pigo-purple: #8b5cf6;
+  --pigo-purple-soft: rgba(139, 92, 246, 0.14);
+  --pigo-blue: #3b82f6;
+  --pigo-blue-soft: rgba(59, 130, 246, 0.14);
+  --pigo-cyan: #06b6d4;
+  --pigo-emerald: #10b981;
+  --pigo-emerald-soft: rgba(16, 185, 129, 0.14);
+  --pigo-rose: #f43f5e;
+  --pigo-rose-soft: rgba(244, 63, 94, 0.14);
+  --pigo-amber: #f59e0b;
+
+  --pigo-radius-sm: 6px;
+  --pigo-radius-md: 8px;
+  --pigo-radius-lg: 12px;
+  --pigo-radius-xl: 16px;
+
+  --pigo-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --pigo-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.24);
+  --pigo-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.36);
+
+  --pigo-fs-2xs: 11px;
+  --pigo-fs-xs: 12px;
+  --pigo-fs-sm: 13px;
+  --pigo-fs-md: 14px;
+
+  --pigo-header-height: 52px;
+  --pigo-footer-height: 34px;
+}
