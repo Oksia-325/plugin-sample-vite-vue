@@ -347,3 +347,80 @@
   - 若 SiYuan 将某些图片渲染为 blob URL，右键菜单可能无法与 Markdown 中的原 URL 对应；常见本地资产/网络图片不受影响。
   - 旧 PicGo 插件同时启用时会重复接管/重复菜单，建议禁用旧插件。
 - 下一步：Phase 6 — 全库统计与全库上传 UI。
+
+---
+
+## 2026-11-09 Phase 6 — 全库统计与全库上传 UI
+
+- 阶段：Phase 6
+- 分支：`pigo`
+- 变更：
+  - 新增 `src/core/stats/aggregate.ts`：`dedupeRefs`、`computeRefStats`、`isUploadedButNotReplaced`、`countUploadedButNotReplaced`，纯函数可单测。
+  - 新增 `src/core/stats/siyuanData.ts`：一次 SQL 读取所有带 `custom-picgo-file-map-key` 的文档 IAL；统计 `assets` 与 `title-img` 资源数量。
+  - 新增 `src/core/stats/service.ts`：`buildStatsSnapshot(scope, config)`，扫描后附加 fileMap 未替换数与 assets 数量。
+  - 新增 `src/core/stats/export.ts`：JSON/CSV 导出，CSV 处理逗号、引号、换行。
+  - 新增 `src/components/stats/StatsTab.vue`：
+    - 当前文档 / 全库切换；
+    - 开始统计、取消、修复未替换链接、上传未上传图片；
+    - 进度条、扫描耗时、扫描时间、文档数、资源文件数；
+    - 卡片：总引用、唯一图片、本地、S3、网络、Data URI、题头图、已上传未替换、含图文档、资源文件；
+    - 按来源/题头图/已上传未替换筛选；
+    - 搜索文档、地址、描述；
+    - 列表分页显示（默认 300 条，可加载更多）；
+    - 复制链接、导出 JSON/CSV。
+  - `PigoPanel.vue` 接入 `StatsTab`。
+  - `scan/types.ts` 的 `ScanStats` 增加 `uploadedButNotReplaced`、`assetFiles`、`titleAssets`。
+  - 拆分 `fileMapPure.ts`（纯函数）与 `fileMap.ts`（读写思源），便于 Node 单测；原导入路径保持兼容。
+  - 新增 `tests/stats.test.mjs`：去重、来源统计、fileMap 未替换判定、CSV 转义、JSON 导出。
+- 真实数据验证（只读，不改笔记）：
+  - 示例文档 `20261106145728-e3r9zm3`（图片测试）：
+    - `totalRefs=4`、`uniqueRefs=4`
+    - 本地 2（含题头图 1）、S3 1、网络 1、Data 0
+    - `assetFiles=1179`、`titleAssets=100`
+    - 扫描耗时 139 ms（含 fileMap/assets 统计）
+  - 全库：
+    - 文档 971 篇，含图 663 篇
+    - 总引用 5393、唯一图片 4437
+    - 本地 1681、S3 2075、网络 681、Data 0
+    - 题头图 281
+    - 已上传未替换 53
+    - `assetFiles=1179`、`titleAssets=100`
+    - 加载 fileMap 文档 395 篇
+    - 总耗时 370 ms
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 50 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 183.40 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间并禁用/启用插件（或重启思源）。
+  2. 打开 Pigo -> 统计：
+     - 默认自动统计当前文档；
+     - 示例文档应显示：总引用 4、本地 2、S3 1、网络 1、题头图 1。
+  3. 点击“全库”->“开始统计”：
+     - 进度条按文档推进；
+     - 预期文档约 971 篇、唯一图片约 4437；
+     - 期间可以点击“取消”，旧结果保留。
+  4. 筛选与搜索：
+     - 点击“本地 / S3 / 网络 / Data / 题头图 / 已上传未替换”；
+     - 搜索文档标题或 URL；
+     - 列表超过 300 条时点击“加载更多”。
+  5. 导出 JSON/CSV：
+     - 浏览器下载文件；
+     - 打开确认字段 `docId, docTitle, blockId, kind, sourceType, url, s3Key, status`。
+  6. “已上传未替换”：
+     - 若数量 > 0，页面顶部出现提示；
+     - 点击“修复未替换链接”，按 fileMap 记录替换，不重新上传对象；
+     - 完成后自动重新统计，数量应下降。
+  7. “上传未上传图片”：
+     - 当前文档：上传本文档本地/网络图片并替换链接；
+     - 全库：扫描全部并上传，耗时较长，完成后自动重新统计；
+     - 上传过程中可取消，已完成部分保留。
+  8. 多端/重启：
+     - 切到别的文档再切回，统计页应跟随当前文档；
+     - 关闭再打开弹窗，全库结果仍保留在内存中。
+- 已知问题：
+  - 全库统计结果只保存在内存，重启思源后需要重新扫描。
+  - 列表默认只渲染 300 条，避免一次渲染数千条卡顿；导出包含全部引用。
+  - “已上传未替换”依赖 `custom-picgo-file-map-key`，没有 fileMap 的旧笔记无法判断。
+  - 全库上传/修复仍属于长任务，建议先在小范围验证。
+- 下一步：Phase 7 — S3 双向同步与清理。

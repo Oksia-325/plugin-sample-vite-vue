@@ -8,6 +8,7 @@ import {
   parseMarkdownImages,
   parseTitleImage,
 } from './parser.ts'
+import { computeRefStats, dedupeRefs } from '../stats/aggregate.ts'
 import {
   ScanCancelledError,
   type DocMeta,
@@ -15,7 +16,6 @@ import {
   type ScanAllOptions,
   type ScanAllResult,
   type ScanDocResult,
-  type ScanStats,
 } from './types.ts'
 
 interface DocRow {
@@ -62,7 +62,7 @@ export async function scanDoc(docId: string, config: PigoConfig): Promise<ScanDo
     doc,
     refs,
     uniqueRefs,
-    stats: computeStats(refs, uniqueRefs),
+    stats: computeRefStats(refs, uniqueRefs),
     scannedAt: Date.now(),
     durationMs: Date.now() - startedAt,
   }
@@ -84,7 +84,7 @@ export async function scanAll(config: PigoConfig, options: ScanAllOptions = {}):
       docs: [],
       refs: [],
       uniqueRefs: [],
-      stats: computeStats([], []),
+      stats: computeRefStats([], []),
       scannedAt: Date.now(),
       durationMs: Date.now() - startedAt,
     }
@@ -148,7 +148,7 @@ export async function scanAll(config: PigoConfig, options: ScanAllOptions = {}):
     docs,
     refs,
     uniqueRefs,
-    stats: computeStats(refs, uniqueRefs),
+    stats: computeRefStats(refs, uniqueRefs),
     scannedAt: Date.now(),
     durationMs: Date.now() - startedAt,
   }
@@ -202,46 +202,6 @@ function buildRefsForDoc(
   }
 
   return refs
-}
-
-function dedupeRefs(refs: ImageRef[]): ImageRef[] {
-  const seen = new Set<string>()
-  const unique: ImageRef[] = []
-
-  refs.forEach((ref) => {
-    if (seen.has(ref.normalizedUrl)) {
-      return
-    }
-    seen.add(ref.normalizedUrl)
-    unique.push(ref)
-  })
-
-  return unique
-}
-
-function computeStats(refs: ImageRef[], uniqueRefs: ImageRef[]): ScanStats {
-  const docsWithImages = new Set<string>()
-  const stats: ScanStats = {
-    totalRefs: refs.length,
-    uniqueRefs: uniqueRefs.length,
-    local: 0,
-    s3: 0,
-    remote: 0,
-    data: 0,
-    title: 0,
-    docs: 0,
-  }
-
-  uniqueRefs.forEach((ref) => {
-    stats[ref.sourceType] += 1
-    if (ref.kind === 'title') {
-      stats.title += 1
-    }
-    docsWithImages.add(ref.docId)
-  })
-
-  stats.docs = docsWithImages.size
-  return stats
 }
 
 function groupBlocksByDoc(blocks: BlockRow[]): Map<string, BlockRow[]> {

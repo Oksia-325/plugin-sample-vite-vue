@@ -23,14 +23,7 @@
     <div class="pigo-panel__body">
       <upload-tab v-show="uiState.activeTab === 'upload'" :plugin="props.plugin" />
 
-      <div v-show="uiState.activeTab === 'stats'" class="pigo-placeholder">
-        <div class="pigo-placeholder__title">
-          统计
-        </div>
-        <div class="pigo-placeholder__desc">
-          Phase 6 接入：全库扫描、本地/已上传 S3/网络图片统计、全库上传。
-        </div>
-      </div>
+      <stats-tab v-show="uiState.activeTab === 'stats'" :plugin="props.plugin" />
 
       <div v-show="uiState.activeTab === 'sync'" class="pigo-placeholder">
         <div class="pigo-placeholder__title">
@@ -49,6 +42,7 @@
 <script setup lang="ts">
 import type { Plugin } from 'siyuan'
 import SettingsTab from '@/components/settings/SettingsTab.vue'
+import StatsTab from '@/components/stats/StatsTab.vue'
 import UploadTab from '@/components/upload/UploadTab.vue'
 import { uiState, type PigoTabId } from '@/core/uiStore'
 

@@ -36,6 +36,12 @@ export interface ScanStats {
   data: number
   title: number
   docs: number
+  /** 文档仍是本地/网络图片，但 fileMap 中已有 S3 上传记录。 */
+  uploadedButNotReplaced: number
+  /** assets 表中的资源文件数量。 */
+  assetFiles: number
+  /** assets 表中 title='title-img' 的资源数量。 */
+  titleAssets: number
 }
 
 export interface ScanDocResult {
