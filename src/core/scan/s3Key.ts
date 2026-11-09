@@ -34,7 +34,23 @@ export function isS3Url(url: string, config: S3Config): boolean {
   return typeof matchS3Key(url, config) === 'string'
 }
 
+// 同一配置会被大量 URL 反复匹配；缓存前缀避免重复解析 endpoint。
+const prefixCache = new Map<string, string[]>()
+
 function buildUrlPrefixes(config: S3Config): string[] {
+  const cacheKey = [
+    config.endpoint,
+    config.bucket,
+    config.region,
+    config.customUrl,
+    config.extraUrlPrefixes.join(','),
+    config.pathStyleAccess ? '1' : '0',
+  ].join('|')
+  const cached = prefixCache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
   const prefixes: string[] = []
 
   addPrefix(prefixes, config.customUrl)
@@ -74,9 +90,12 @@ function buildUrlPrefixes(config: S3Config): string[] {
     }
   }
 
-  return [...new Set(prefixes)]
+  const result = [...new Set(prefixes)]
     .filter(Boolean)
     .sort((left, right) => right.length - left.length)
+
+  prefixCache.set(cacheKey, result)
+  return result
 }
 
 function addPrefix(prefixes: string[], value: string | undefined): void {

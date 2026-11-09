@@ -48,7 +48,7 @@ export async function testS3Connection(config: S3Config): Promise<TestConnection
 
   try {
     await runStep('读取存储桶', async () => {
-      const result = await client.listObjectsV2({ prefix, maxKeys: 1 })
+      const result = await client.listObjectsV2({ prefix: prefix || undefined, maxKeys: 1 })
       return `可访问，前缀 ${prefix || '(桶根目录)'} 下返回 ${result.objects.length} 个对象`
     })
 

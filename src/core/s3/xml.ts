@@ -49,6 +49,35 @@ export function buildDeleteObjectsXml(keys: string[]): string {
   return `<Delete><Quiet>true</Quiet>${objects}</Delete>`
 }
 
+export interface S3DeleteError {
+  key?: string
+  code?: string
+  message?: string
+}
+
+/**
+ * 解析 DeleteObjects 响应中的逐对象错误（Quiet=true 时成功项不会返回）。
+ */
+export function parseDeleteObjectsErrors(xml: string): S3DeleteError[] {
+  const errors: S3DeleteError[] = []
+  if (!xml) {
+    return errors
+  }
+
+  const regex = /<Error>([\s\S]*?)<\/Error>/g
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(xml)) !== null) {
+    const block = match[1]
+    errors.push({
+      key: decodeXmlEntities(getTag(block, 'Key') || '') || undefined,
+      code: getTag(block, 'Code') || undefined,
+      message: getTag(block, 'Message') || undefined,
+    })
+  }
+
+  return errors
+}
+
 export function decodeXmlEntities(value: string): string {
   if (!value || !value.includes('&')) {
     return value

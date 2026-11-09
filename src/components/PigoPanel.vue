@@ -32,14 +32,7 @@
 
       <stats-tab v-show="uiState.activeTab === 'stats'" :plugin="props.plugin" />
 
-      <div v-show="uiState.activeTab === 'sync'" class="pigo-placeholder">
-        <div class="pigo-placeholder__title">
-          同步
-        </div>
-        <div class="pigo-placeholder__desc">
-          Phase 7 接入：S3 与笔记双向匹配、仅 S3 存在、仅思源存在、清理 S3 孤儿对象。
-        </div>
-      </div>
+      <sync-tab v-show="uiState.activeTab === 'sync'" :plugin="props.plugin" />
 
       <settings-tab v-show="uiState.activeTab === 'settings'" :plugin="props.plugin" />
     </div>
@@ -51,6 +44,7 @@ import { onErrorCaptured, ref } from 'vue'
 import type { Plugin } from 'siyuan'
 import SettingsTab from '@/components/settings/SettingsTab.vue'
 import StatsTab from '@/components/stats/StatsTab.vue'
+import SyncTab from '@/components/sync/SyncTab.vue'
 import UploadTab from '@/components/upload/UploadTab.vue'
 import { uiState, type PigoTabId } from '@/core/uiStore'
 
@@ -152,20 +146,4 @@ const tabs: Array<{ id: PigoTabId, label: string }> = [
   overflow: auto;
 }
 
-.pigo-placeholder {
-  padding: 32px 24px;
-}
-
-.pigo-placeholder__title {
-  margin-bottom: 8px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.pigo-placeholder__desc {
-  max-width: 640px;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 13px;
-  line-height: 1.7;
-}
 </style>

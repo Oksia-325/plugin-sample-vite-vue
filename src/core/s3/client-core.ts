@@ -1,7 +1,15 @@
 import type { S3Config } from '../config'
+import md5 from '../upload/vendor/md5.ts'
 import { AwsClient } from './vendor/aws4fetch.ts'
 import { buildObjectUrl, buildPublicUrl } from './url.ts'
-import { parseListBucketResult, type ListBucketResult, type S3ObjectInfo } from './xml.ts'
+import {
+  buildDeleteObjectsXml,
+  parseDeleteObjectsErrors,
+  parseListBucketResult,
+  type ListBucketResult,
+  type S3DeleteError,
+  type S3ObjectInfo,
+} from './xml.ts'
 
 export type S3Requester = (request: Request) => Promise<Response>
 
@@ -24,6 +32,26 @@ export interface ListObjectsOptions {
   maxKeys?: number
 }
 
+export interface DeleteObjectsProgress {
+  done: number
+  total: number
+  batch: number
+  batchCount: number
+}
+
+export interface DeleteObjectsOptions {
+  batchSize?: number
+  onProgress?: (progress: DeleteObjectsProgress) => void
+  isCancelled?: () => boolean
+}
+
+export interface DeleteObjectsResult {
+  deleted: number
+  failed: S3DeleteError[]
+  cancelled: boolean
+  batches: number
+}
+
 export interface S3ClientCore {
   listObjectsV2: (options?: ListObjectsOptions) => Promise<ListBucketResult>
   listAllObjects: (prefix: string, onPage?: (objects: S3ObjectInfo[], total: number) => void) => Promise<S3ObjectInfo[]>
@@ -31,6 +59,7 @@ export interface S3ClientCore {
   getObject: (key: string) => Promise<Uint8Array>
   putObject: (key: string, body: Uint8Array | ArrayBuffer | Blob | string, contentType: string, acl?: string) => Promise<PutObjectResult>
   deleteObject: (key: string) => Promise<void>
+  deleteObjectsBatched: (keys: string[], options?: DeleteObjectsOptions) => Promise<DeleteObjectsResult>
   buildPublicUrl: (key: string) => string
 }
 
@@ -85,7 +114,7 @@ export function createS3Core(config: S3Config, requester: S3Requester): S3Client
 
       do {
         const page = await this.listObjectsV2({
-          prefix,
+          prefix: prefix || undefined,
           maxKeys: 1000,
           continuationToken,
         })
@@ -157,6 +186,49 @@ export function createS3Core(config: S3Config, requester: S3Requester): S3Client
       if (!response.ok) {
         throw await toS3Error(response)
       }
+    },
+
+    async deleteObjectsBatched(keys, options = {}) {
+      const batchSize = Math.min(1000, Math.max(1, Math.round(options.batchSize ?? 1000)))
+      const batchCount = Math.ceil(keys.length / batchSize)
+      const failed: S3DeleteError[] = []
+      let deleted = 0
+      let done = 0
+
+      for (let index = 0; index < keys.length; index += batchSize) {
+        if (options.isCancelled?.()) {
+          return { deleted, failed, cancelled: true, batches: Math.ceil(done / batchSize) }
+        }
+
+        const batch = keys.slice(index, index + batchSize)
+        const body = buildDeleteObjectsXml(batch)
+        const response = await signedRequest('POST', '', {
+          query: { delete: '' },
+          headers: {
+            'Content-Type': 'application/xml',
+            'Content-MD5': md5.base64(body),
+          },
+          body,
+        })
+
+        if (!response.ok) {
+          throw await toS3Error(response)
+        }
+
+        const errors = parseDeleteObjectsErrors(await response.text())
+        failed.push(...errors)
+        deleted += batch.length - errors.length
+        done += batch.length
+
+        options.onProgress?.({
+          done,
+          total: keys.length,
+          batch: Math.floor(index / batchSize) + 1,
+          batchCount,
+        })
+      }
+
+      return { deleted, failed, cancelled: false, batches: batchCount }
     },
 
     buildPublicUrl(key: string) {

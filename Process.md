@@ -444,3 +444,84 @@
   - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 51 passed / 0 failed
   - `node_modules/.bin/tsc --noEmit` —— ✅ 无类型错误
   - `node_modules/.bin/vite build` —— ✅ 构建成功
+
+---
+
+## 2026-11-09 Phase 7 — S3 双向同步与安全清理
+
+- 阶段：Phase 7
+- 分支：`pigo`
+- 变更：
+  - 新增 `src/core/sync/report.ts`：纯函数双向对比，分类 `matched / onlyS3 / onlySiyuan / notUploaded / outsidePrefix / testObjects / folderMarkers`。
+  - 新增 `src/core/sync/service.ts`：扫描全部笔记 + 列出整个存储桶 + 生成报告；删除封装。
+  - 新增 `src/core/sync/export.ts`：JSON/CSV 报告导出。
+  - 新增 `src/components/sync/SyncTab.vue`：
+    - 扫描并对比、取消、重新扫描；
+    - 卡片与列表：双向匹配、仅 S3、仅思源（失效）、未上传、前缀外；
+    - 搜索、分页、复制 key/链接；
+    - “清除 S3 多余图片”：第一次确认展示数量和前 20 个 key，第二次要求输入 `DELETE`；
+    - 删除进度、成功/失败数，完成后自动重新扫描；
+    - JSON/CSV 导出。
+  - `src/core/s3/client-core.ts`：
+    - 新增 `deleteObjectsBatched`，使用 S3 `POST ?delete` 批量删除，默认 1000 个/批；
+    - `Content-MD5` 由本地 md5 计算，支持分批进度与取消。
+  - `src/core/s3/xml.ts`：新增 `parseDeleteObjectsErrors`。
+  - `src/core/s3/url.ts`：支持裸子资源参数 `?delete`，同时避免空 `prefix` 参数。
+  - `src/core/scan/s3Key.ts`：URL 前缀缓存，避免大量 URL 重复解析 endpoint。
+  - `PigoPanel.vue` 接入 `SyncTab`。
+  - 新增 `tests/sync.test.mjs`：分类、匹配/失效、前缀保护、测试对象保护、批量删除签名与分批、失败停止。
+- 安全策略（重要）：
+  - 同步始终扫描**全部笔记**，不能只用当前文档，否则会把其它文档引用中的对象误判为孤儿。
+  - 只有同时满足以下条件的对象才会进入清理列表：
+    - 没有图片引用；
+    - 不在 `_pigo_test/`；
+    - 在上传前缀内；
+    - 不是文件夹占位；
+    - 没有被 fileMap / 原始链接 / 本地资源文件名保护。
+  - 额外保护证据：
+    - 笔记正文/IAL 中出现的 S3 URL（包括非图片语法链接）；
+    - 本地 `assets/...` 文件名与 S3 对象文件名一致（兼容旧 PicGo 上传后未替换链接的笔记）；
+    - fileMap 中记录的上传地址。
+  - 前缀为空时页面显示强警告，清理范围覆盖整个桶。
+  - 删除失败立即停止，不继续下一批。
+- 真实桶只读/安全验证：
+  - 全库扫描 971 篇文档，S3 对象 3922 个，耗时约 3.0 秒。
+  - 报告：双向匹配 2891、仅 S3 存在 1030、仅思源失效 1、未上传 2309、前缀外 0、忽略 2（1 个 folder marker + 测试对象）。
+  - 保护规则生效：旧笔记中仍以 `assets/...` 引用、但 S3 已有同名对象的图片被计入匹配，不会进入清理。
+  - 安全删除测试：
+    - 上传 `siyuan/_pigo_test/pigo-sync-*.png` 与 `siyuan/pigo-sync-verify-*.png`；
+    - 报告将 `_pigo_test/` 对象归入 testObjects，未进入清理候选；
+    - 普通孤儿对象进入 `onlyS3` 与 `cleanupCandidates`；
+    - 使用 `deleteObjectsBatched` 分 2 批删除，结果 `deleted=2, failed=0`；
+    - HEAD 确认两个对象均为 `exists:false`。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 58 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 203.95 kB；`package.zip` 已生成
+- 手动验证（需用户完成，Agent 不代替操作）：
+  1. 重新构建到工作空间并禁用/启用插件（或重启思源）。
+  2. 打开 Pigo -> 同步 -> 扫描并对比：
+     - 显示匹配/仅 S3/仅思源/未上传数量；
+     - 扫描过程中显示进度。
+  3. 检查“仅 S3 存在”列表：
+     - key、大小、时间、URL 是否正确；
+     - 用“复制链接”抽查对象是否能打开。
+  4. 检查“仅思源（失效）”：
+     - 是否有确实被删除的 S3 对象；
+     - 不会进入清理候选。
+  5. 导出 JSON/CSV，确认分类与字段。
+  6. 制造测试对象（可选）：
+     - 上传 `siyuan/_pigo_test/xxx.png` 和 `siyuan/xxx-orphan.png`；
+     - 重新扫描确认：`_pigo_test` 不进入候选，`xxx-orphan.png` 进入候选；
+     - 清理后确认对象已删除。
+  7. 清理前的双重确认：
+     - 第一次展示数量 + 前 20 个 key；
+     - 第二次必须输入 `DELETE`；
+     - 输入错误或取消时不删除任何对象。
+  8. 清理后自动重新扫描，仅 S3 数量应下降，匹配数不应减少。
+- 已知问题/风险：
+  - 旧笔记中以 `assets/...` 引用但 S3 对象文件名不同（例如内容 MD5 命名）时，无法自动保护；建议清理前先导出报告并抽查。
+  - 清理只基于当前工作空间；如果还有其它工作空间共用同一个桶，请勿使用清理功能。
+  - 前缀为空时清理整个桶，风险极高，不建议。
+  - 删除不可恢复，建议先手动备份或开启桶版本控制。
+- 下一步：Phase 8 — 稳定性、兼容、性能与发布。

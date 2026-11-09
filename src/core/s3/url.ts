@@ -18,14 +18,21 @@ export function buildObjectUrl(
   }
 
   const params = new URLSearchParams()
+  const bareParams: string[] = []
   Object.entries(query).forEach(([name, value]) => {
-    if (value === undefined || value === null || value === '') {
+    if (value === undefined || value === null) {
+      return
+    }
+    // 空值保留为裸参数名，仅用于 S3 子资源（如 ?delete）
+    if (value === '') {
+      bareParams.push(encodeURIComponent(name))
       return
     }
     params.set(name, String(value))
   })
 
-  const queryString = params.toString()
+  const parts = [params.toString(), bareParams.join('&')].filter(Boolean)
+  const queryString = parts.join('&')
   return queryString ? `${baseUrl}?${queryString}` : baseUrl
 }
 
