@@ -1388,3 +1388,65 @@
   - 文字/图标颜色改为跟随主题 `var(--pigo-text)`，亮色主题下仍可读。
 - 验证：Firefox 6× 渲染对比（灰底 + 纯橙 50%）边界清晰；
   `tsc` 通过、`vite build` 成功（工作区 15:18）。
+
+---
+
+## 2026-11-10 Phase F5 完成并提交
+
+- 提交：`7d78d16 fix(pigo): 修正配置开关生效与页面闪烁问题（F5）`
+- 用户验收通过：两个行为开关、配置变更自动刷新、上传按钮充电效果均正常。
+
+---
+
+## 2026-11-10 Phase F6 — 验收与发布 0.2.0（已完成）
+
+- 阶段：前端重构 F6（收尾）
+- 版本：`0.2.0`（`plugin.json` / `package.json` 同步更新）
+
+### 文档
+
+- `README.zh-CN.md` / `README.md`：
+  - 状态更新为 0.2.0；
+  - 补充四页界面、图片预览、大小角标、S3 健康检查、清理 ETag 复核；
+  - 更新上传 / 统计 / 同步 / 清理流程说明（勾选确认、无预计释放空间）；
+  - 设置入口改为「S3 存储配置」。
+- `CHANGELOG.md`：新增 v0.2.0 完整变更记录（新增 / 变更 / 修复 / 兼容）。
+
+### 构建与打包
+
+- `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ **89 passed**
+- `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+- `node_modules/.bin/vite build` —— ✅ 构建成功，生成 `package.zip`
+- `package.zip`：24 个文件，约 517 KB；包含 `index.js` / `index.css` / `plugin.json`(0.2.0) /
+  `icon.png` / `preview.png` / `README` / `i18n` / `asset/*`。
+
+### 覆盖安装验证
+
+- 工作区插件目录 `/home/goserank/文档/Siyuan/data/plugins/siyuan-plugin-pigo` 已更新：
+  - `plugin.json` 版本 0.2.0；
+  - `index.js` / `index.css` 包含 F4/F5 最新功能（查看图片、插件配置、清理弹窗、configRevision）。
+- 升级路径数据检查：
+  - `storage/petal/siyuan-plugin-pigo/config` 保留（bucket / 前缀 / replaceLink 均在）；
+  - fileMap 仍使用 `custom-picgo-file-map-key`，文档数据未迁移、未丢失。
+
+### 回归基线（当前真实工作空间）
+
+- 文档 968 篇，含图文档 654 篇；
+- 总引用 5,377；唯一图片 4,390；
+- 本地 586 / S3 3,144 / 网络 660 / Data 0；
+- 题头图 270；assets 资源文件 608。
+
+### 全量验收清单
+
+- [x] 四个页面布局、主题变量、亮/暗色可读
+- [x] 顶栏页签、拖拽、置顶、关闭
+- [x] 页脚存储桶 / 当前模式 / 版本
+- [x] 统计：双范围、10 KPI、7 筛选、搜索、卡片操作、健康点
+- [x] 上传：点击/拖拽/面板粘贴、队列、充电进度、批量栏、预览、大小角标
+- [x] 同步：5 分类、筛选、搜索、查看图片、清理弹窗（勾选、无预计空间）
+- [x] 设置：两开关 + 三段手风琴、保存 / 恢复 / 导入 / 测试 / 日志
+- [x] 行为：replaceLink、skipIfAlreadyS3、配置变更快照失效
+- [x] 稳定性：无插入式布局抖动、取消可用、无重复请求
+- [x] 回归：右键上传、粘贴自动上传、题头图、GIF、全库上传、清理逻辑
+
+- 下一步：提交 `chore(pigo): 发布 0.2.0 前端重构版本（F6）`。

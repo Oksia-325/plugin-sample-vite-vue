@@ -4,7 +4,7 @@
 
 A personal S3-compatible picture bed plugin for [SiYuan](https://b3log.org/siyuan), built with Vite + Vue.
 
-> Status: `0.1.0` — single S3 bucket, built-in upload pipeline, statistics, two-way sync and safe cleanup.
+> Status: `0.2.0` — redesigned four-tab UI (Upload / Stats / Sync / Settings), built-in upload pipeline, S3 health check, two-way sync and safe cleanup.
 
 ## Features
 
@@ -18,9 +18,10 @@ A personal S3-compatible picture bed plugin for [SiYuan](https://b3log.org/siyua
 - **Right-click menu** — “Upload to Pigo Picbed” on images.
 - **Link replacement** — only image destinations are replaced, never body text.
 - **fileMap compatibility** — keeps the old `custom-picgo-file-map-key` attribute.
-- **Statistics** — current doc or whole workspace: total/unique/local/S3/remote/data/title/pending counts.
-- **Two-way S3 sync** — matched, S3-only, note-only (broken), not uploaded, outside prefix.
-- **Safe cleanup** — deletes only unreferenced objects inside the upload prefix, with two confirmations.
+- **Statistics** — 10 metrics for the current doc or whole workspace, 7 filters, search, image sizes, S3 health, CSV export.
+- **Two-way S3 sync** — matched, S3-only, note-only (broken), not uploaded, outside prefix; preview any image.
+- **Safe cleanup** — only unreferenced objects inside the upload prefix; revalidates each object by ETag before deletion and requires a checkbox confirmation.
+- **Image preview** — click a thumbnail in Upload or “View image” in Sync to open a full-screen preview.
 - **Multi-device config** — configuration is stored in SiYuan workspace `petal` storage and synced by SiYuan.
 
 ## Installation
@@ -38,7 +39,7 @@ A personal S3-compatible picture bed plugin for [SiYuan](https://b3log.org/siyua
 
 ## Configuration
 
-Open **Pigo → Settings** and fill in:
+Open **Pigo → Settings → S3 storage** and fill in:
 
 | Field | Example |
 |---|---|
@@ -64,18 +65,25 @@ Use **Import old PicGo config** to read `/data/storage/syp/picgo/picgo.cfg.json`
 
 ### Upload
 
-- **Upload** tab: scan the current document, then upload unuploaded images, force re-upload, repair unreplaced links, or upload all notes.
-- **Paste**: paste images directly into the editor.
+- **Upload** tab: scans the current document and shows sync progress, size/format and source.
+- **Quick add**: click, drag or paste inside the panel (`Ctrl+V`); uploads return links without touching the document.
+- **Batch actions**: upload local images, force re-upload, replace with S3 links.
+- **Preview**: click a thumbnail to open the full-screen preview; click outside or press `Esc` to close.
+- **Paste**: paste images in the editor and upload automatically when enabled.
 - **Right-click** an image → Plugins → Upload to Pigo Picbed.
 
-Uploaded images are recorded in the document's `custom-picgo-file-map-key` so they can be reused and repaired.
+Uploaded images are recorded in the document's `custom-picgo-file-map-key` so they can be reused and repaired. When “replace links after upload” is off, images are uploaded without touching the document and can be fixed later from Stats.
 
 ### Statistics
 
-- Current document or whole workspace.
-- Shows total references, unique images, local, S3, remote, data URI, title images, and “uploaded but not replaced”.
-- Export JSON/CSV.
-- “Repair unreplaced links” replaces links using existing fileMap records without uploading again.
+- Current document or whole workspace, cached per scope while the panel is open.
+- 10 metrics: total refs, unique, local, S3, remote, data URI, title images, uploaded-but-not-replaced, docs with images, asset files.
+- 7 filters + search (document / path / URL / description); cards can upload, transfer or copy links.
+- Thumbnails show `size | format`; click to preview.
+- S3 health dot in the top-right corner; click to re-check.
+- Export CSV (icon button).
+- “Repair S3 links” replaces links using existing fileMap records without uploading again.
+- Saving configuration invalidates stats snapshots; the next visit scans with the new config.
 
 ### S3 sync and cleanup
 
@@ -95,13 +103,16 @@ Protection evidence includes:
 
 Cleanup rules:
 
-- Only objects with no evidence
+- Only objects with no reference evidence (S3-only)
 - Only inside the static upload prefix
 - Never `_pigo_test/`
 - Never folder markers
-- First confirmation shows count + first 20 keys
-- Second confirmation requires typing `DELETE`
-- Fails stop immediately
+- Each object is revalidated with `HEAD` before deletion; missing or ETag-changed objects are skipped
+- The modal shows the prefix, protected directory and object count (no estimated freed space)
+- You must tick “I have backed up and understand this is irreversible” before confirming
+- A successful cleanup automatically rescans
+
+Every sync card offers “View image” (broken note-only objects have no preview) and “Copy link”.
 
 > **Warning:** deletion is irreversible. Export the report first, spot-check, and consider bucket versioning. Do not use cleanup if other workspaces share the same bucket.
 
