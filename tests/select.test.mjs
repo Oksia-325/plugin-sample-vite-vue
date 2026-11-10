@@ -63,3 +63,20 @@ test('selectRefs respects includeRemoteImages=false', () => {
 
   assert.deepEqual(selected.map((ref) => ref.id), [local.id, localTitle.id])
 })
+
+test('selectRefs includes S3 refs when skipIfAlreadyS3 is disabled', () => {
+  const config = cloneConfig(DEFAULT_CONFIG)
+  config.behavior.skipIfAlreadyS3 = false
+
+  const selected = selectRefs([local, remote, s3, localTitle], config)
+
+  assert.deepEqual(selected.map((ref) => ref.id), [local.id, remote.id, s3.id, localTitle.id])
+})
+
+test('selectRefs skipIfAlreadyS3 option overrides config', () => {
+  const selected = selectRefs([local, s3], cloneConfig(DEFAULT_CONFIG), {
+    skipIfAlreadyS3: false,
+  })
+
+  assert.deepEqual(selected.map((ref) => ref.id), [local.id, s3.id])
+})

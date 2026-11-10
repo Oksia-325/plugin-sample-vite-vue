@@ -886,10 +886,13 @@ async function runPipeline(kind: string, task: () => Promise<PipelineResult>): P
       applyOptimisticUpload(result)
       logInfo(`已乐观更新 ${replacedUrls.length} 张图片为 S3，等待索引确认`)
     }
-      const failed = result.upload.failed + result.replace.errors.length
+    const failed = result.upload.failed + result.replace.errors.length
     if (kind !== 'single') {
       if (failed > 0) {
         pushToast('error', `上传完成，但有 ${failed} 条失败，请查看日志。`)
+      }
+      else if (result.upload.uploaded > 0 && !store.config.behavior.replaceLink) {
+        pushToast('info', `已上传 ${result.upload.uploaded} 张图片，按设置未替换文档链接；可在统计页点击「修复S3链接」。`)
       }
       else {
         pushToast('success', '上传完成。')
@@ -1637,8 +1640,24 @@ async function copyMarkdown(ref: ImageRef): Promise<void> {
   inset: 0 auto 0 0;
   z-index: -1;
   width: var(--pigo-progress, 0%);
-  background: rgba(249, 115, 22, 0.32);
+  /* 纯橙填充：从透明底逐渐覆盖为橙色 */
+  background: var(--pigo-accent);
   transition: width 0.2s ease;
+}
+
+/*
+ * 主按钮平时是橙色渐变，橙色进度层会与底色混在一起。
+ * 运行中把主按钮底色切到中性灰，橙色充电层才清晰可见。
+ */
+.pigo-upload__btn--progress.pigo-btn--primary {
+  color: var(--pigo-text);
+  background: var(--pigo-surface-strong);
+  border-color: rgba(249, 115, 22, 0.55);
+}
+
+/* 运行中按钮处于 disabled，但充电动画需要保持清晰 */
+.pigo-upload__btn--progress:disabled {
+  opacity: 1;
 }
 
 .pigo-upload__refresh :deep(svg) {

@@ -228,7 +228,7 @@ import PigoButton from '@/components/ui/PigoButton.vue'
 import PigoChip from '@/components/ui/PigoChip.vue'
 import PigoHealthDot from '@/components/ui/PigoHealthDot.vue'
 import PigoImagePreview from '@/components/ui/PigoImagePreview.vue'
-import { ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
+import { configState, ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
 import { toUserMessage } from '@/core/errors'
 import { logError, logInfo } from '@/core/log'
 import { checkS3Health, type S3HealthResult } from '@/core/s3/health'
@@ -293,6 +293,8 @@ const cleanupLoadingText = ref('正在删除…')
 const health = ref<S3HealthResult | null>(null)
 const healthChecking = ref(false)
 const preview = ref<{ url: string, label: string } | null>(null)
+/** 配置保存后旧报告失效，下次进入同步页时自动重扫一次。 */
+const stale = ref(false)
 
 let cancelRequested = false
 
@@ -474,6 +476,20 @@ watch(cleanupPlan, (plan) => {
 }, { immediate: true })
 
 watch(
+  () => configState.revision,
+  () => {
+    snapshot.value = null
+    stale.value = true
+    preview.value = null
+    uiState.cleanupCount = null
+    void checkHealth(true)
+    if (uiState.popupVisible && uiState.activeTab === 'sync' && !running.value) {
+      void scan(true)
+    }
+  }
+)
+
+watch(
   () => store.config.s3,
   () => {
     if (uiState.popupVisible && uiState.activeTab === 'sync') {
@@ -501,6 +517,9 @@ watch(
   (tab) => {
     if (tab === 'sync' && uiState.popupVisible) {
       void checkHealth()
+      if (stale.value && !running.value) {
+        void scan(true)
+      }
     }
   }
 )
@@ -534,6 +553,7 @@ async function scan(silent = false): Promise<void> {
     })
 
     snapshot.value = next
+    stale.value = false
     activeCategory.value = next.report.summary.onlyS3 > 0 ? 'onlyS3' : 'matched'
     searchText.value = ''
     visibleLimit.value = 300

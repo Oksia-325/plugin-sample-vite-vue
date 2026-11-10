@@ -10,6 +10,8 @@ export interface RefSelectionOptions {
   includeRemoteImages?: boolean
   /** 显式限定来源类型；设置后优先于 includeRemoteImages。 */
   sourceTypes?: ImageSourceType[]
+  /** 是否跳过已经是 S3 的图片；默认跟随设置项。 */
+  skipIfAlreadyS3?: boolean
 }
 
 /**
@@ -25,6 +27,7 @@ export function selectRefs(
 ): ImageRef[] {
   const includeTitle = options.includeTitleImage ?? config.behavior.includeTitleImage
   const includeRemote = options.includeRemoteImages ?? config.behavior.includeRemoteImages
+  const skipS3 = options.skipIfAlreadyS3 ?? config.behavior.skipIfAlreadyS3
   const sourceTypes = options.sourceTypes
 
   return refs.filter((ref) => {
@@ -37,7 +40,7 @@ export function selectRefs(
     if (ref.sourceType === 'remote' && !includeRemote && !options.force) {
       return false
     }
-    if (ref.sourceType === 's3' && !options.force) {
+    if (ref.sourceType === 's3' && !options.force && skipS3) {
       return false
     }
     if (options.repairOnly && ref.sourceType === 's3') {

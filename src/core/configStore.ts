@@ -25,6 +25,8 @@ interface ConfigState {
   saving: boolean
   error: string
   validation: ValidationIssue[]
+  /** 配置成功落盘后 +1；统计 / 同步 / 健康状态据此失效。 */
+  revision: number
 }
 
 export type { LegacyS3ImportResult } from './legacyConfig'
@@ -38,6 +40,7 @@ export const configState = reactive<ConfigState>({
   saving: false,
   error: '',
   validation: [],
+  revision: 0,
 })
 
 let loadPromise: Promise<void> | null = null
@@ -98,6 +101,7 @@ export async function savePigoConfig(plugin: Plugin): Promise<{ ok: boolean, iss
     configState.loaded = true
     configState.validation = []
     savedConfig = cloneConfig(normalized)
+    configState.revision += 1
     setDebugLogging(normalized.behavior.debug)
     logInfo('配置已保存')
     return { ok: true, issues: [] }
@@ -116,6 +120,7 @@ export function resetPigoConfig(): void {
   configState.config = cloneConfig(DEFAULT_CONFIG)
   configState.validation = []
   configState.error = ''
+  configState.revision += 1
   setDebugLogging(false)
 }
 

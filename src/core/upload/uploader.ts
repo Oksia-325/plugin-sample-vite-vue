@@ -128,12 +128,15 @@ async function uploadOne(ref: ImageRef, context: UploadOneContext): Promise<Uplo
     return { ref, ok: true, skipped: true, error: '已跳过网络图片' }
   }
 
-  if (ref.sourceType === 's3' && !options.force) {
+  const skipS3 = options.skipIfAlreadyS3 ?? config.behavior.skipIfAlreadyS3
+  if (ref.sourceType === 's3' && !options.force && skipS3) {
     return { ref, ok: true, skipped: true, error: '已经是 S3 图片' }
   }
 
+  // 关闭“跳过已上传”时，S3 图片也视为强制重新上传，忽略 fileMap 中的旧记录。
+  const forceThis = options.force || (ref.sourceType === 's3' && !skipS3)
   const fileMap = await getFileMap(ref.docId)
-  const existing = options.repairOnly || !options.force
+  const existing = options.repairOnly || !forceThis
     ? findFileMapEntry(fileMap, ref.url)
     : undefined
 

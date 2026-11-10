@@ -547,6 +547,22 @@ const filteredRefs = computed(() => {
 
 const visibleRefs = computed(() => filteredRefs.value.slice(0, visibleLimit.value))
 
+// 配置保存后让旧快照失效：统计里的 S3 判定依赖 customUrl / 前缀等配置。
+watch(
+  () => configState.revision,
+  () => {
+    allSnapshot.value = null
+    docSnapshot.value = null
+    docSnapshotDocId.value = ''
+    activeFilter.value = 'all'
+    searchText.value = ''
+    void checkHealth(true)
+    if (uiState.popupVisible && uiState.activeTab === 'stats') {
+      void ensureStatsForCurrentTab()
+    }
+  }
+)
+
 watch(
   () => uiState.popupVisible,
   (visible) => {
@@ -669,6 +685,7 @@ async function scanStats(target: StatsScope, silent = false): Promise<void> {
   const ready = await ensureConfigReady(props.plugin)
   if (!ready.ok) {
     pushToast('error', '请先在设置页补全 S3 配置后再统计。')
+    uiState.activeTab = 'settings'
     return
   }
 
