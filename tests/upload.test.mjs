@@ -98,6 +98,18 @@ test('runWithConcurrency limits parallelism and completes all tasks', async () =
   assert.ok(maxActive <= 4, `max active was ${maxActive}`)
 })
 
+test('runWithConcurrency works when isCancelled is omitted', async () => {
+  let completed = 0
+  const tasks = Array.from({ length: 6 }, () => async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1))
+    completed++
+  })
+
+  await runWithConcurrency(tasks, 3)
+
+  assert.equal(completed, 6)
+})
+
 test('runWithConcurrency stops scheduling after cancellation', async () => {
   let completed = 0
   let cancelled = false

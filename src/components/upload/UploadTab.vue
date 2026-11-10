@@ -78,9 +78,10 @@
           @change="onFileChange"
         >
         <span class="pigo-upload__drop-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 16V4m0 0L8 8m4-4l4 4"></path>
-            <path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"></path>
+          <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
+            <path d="M469.333333 682.666667V42.666667c0-23.466667 19.2-42.666667 42.666667-42.666667s42.666667 19.2 42.666667 42.666667v640c0 23.466667-19.2 42.666667-42.666667 42.666666s-42.666667-19.2-42.666667-42.666666"></path>
+            <path d="M226.210133 268.0576L481.826133 12.433067a42.7776 42.7776 0 0 1 60.330667 0c16.597333 16.597333 16.597333 43.776 0 60.330666L286.5408 328.388267a42.7776 42.7776 0 0 1-60.330667 0 42.7776 42.7776 0 0 1 0-60.330667"></path>
+            <path d="M542.0544 12.4416l255.616 255.616a42.7776 42.7776 0 0 1 0 60.330667c-16.597333 16.605867-43.776 16.605867-60.330667 0L481.723733 72.789333a42.7776 42.7776 0 0 1 0-60.330666 42.7776 42.7776 0 0 1 60.330667 0M896 1024H128c-70.570667 0-128-57.429333-128-128V640c0-23.594667 19.072-42.666667 42.666667-42.666667s42.666667 19.072 42.666666 42.666667v256c0 23.552 19.114667 42.666667 42.666667 42.666667h768c23.552 0 42.666667-19.114667 42.666667-42.666667V640c0-23.594667 19.072-42.666667 42.666666-42.666667s42.666667 19.072 42.666667 42.666667v256c0 70.570667-57.429333 128-128 128"></path>
           </svg>
         </span>
         <span class="pigo-upload__drop-text">
@@ -165,7 +166,12 @@
         :disabled="running || loading || !scanResult"
         @click="handleUploadLocal"
       >
-        上传本地图片
+        <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
+              <path d="M469.333333 682.666667V42.666667c0-23.466667 19.2-42.666667 42.666667-42.666667s42.666667 19.2 42.666667 42.666667v640c0 23.466667-19.2 42.666667-42.666667 42.666666s-42.666667-19.2-42.666667-42.666666"></path>
+              <path d="M226.210133 268.0576L481.826133 12.433067a42.7776 42.7776 0 0 1 60.330667 0c16.597333 16.597333 16.597333 43.776 0 60.330666L286.5408 328.388267a42.7776 42.7776 0 0 1-60.330667 0 42.7776 42.7776 0 0 1 0-60.330667"></path>
+              <path d="M542.0544 12.4416l255.616 255.616a42.7776 42.7776 0 0 1 0 60.330667c-16.597333 16.605867-43.776 16.605867-60.330667 0L481.723733 72.789333a42.7776 42.7776 0 0 1 0-60.330666 42.7776 42.7776 0 0 1 60.330667 0M896 1024H128c-70.570667 0-128-57.429333-128-128V640c0-23.594667 19.072-42.666667 42.666667-42.666667s42.666667 19.072 42.666666 42.666667v256c0 23.552 19.114667 42.666667 42.666667 42.666667h768c23.552 0 42.666667-19.114667 42.666667-42.666667V640c0-23.594667 19.072-42.666667 42.666666-42.666667s42.666667 19.072 42.666667 42.666667v256c0 70.570667-57.429333 128-128 128"></path>
+            </svg>
+        <span>上传本地图片</span>
       </pigo-button>
       <pigo-button
         variant="secondary"
@@ -176,7 +182,10 @@
         :disabled="running || loading || !scanResult"
         @click="handleForceReupload"
       >
-        强制重新上传
+        <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
+              <path d="M446.464 0h264.192l-198.656 409.6h331.776L245.76 1024l198.656-477.184H180.224z m0 0"></path>
+            </svg>
+        <span>强制重新上传</span>
       </pigo-button>
       <pigo-button
         variant="outline"
@@ -187,7 +196,11 @@
         :disabled="running || loading || !scanResult || pendingCount === 0"
         @click="handleRepair"
       >
-        替换为S3链接<span v-if="pendingCount > 0"> ({{ pendingCount }})</span>
+        <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
+              <path d="M262.4 1017.6c-64 0-128-25.6-179.2-76.8-102.4-102.4-102.4-262.4 0-364.8l134.4-134.4 89.6 89.6-134.4 134.4c-51.2 51.2-51.2 128 0 179.2 51.2 51.2 128 51.2 179.2 0l179.2-179.2c25.6-25.6 38.4-57.6 38.4-89.6S556.8 512 537.6 486.4L467.2 422.4l89.6-89.6 70.4 70.4C672 448 697.6 512 697.6 582.4c0 70.4-25.6 134.4-76.8 179.2l-179.2 179.2C396.8 992 326.4 1017.6 262.4 1017.6z"></path>
+              <path d="M467.2 691.2 396.8 627.2c-102.4-102.4-102.4-262.4 0-364.8l179.2-179.2c102.4-102.4 262.4-102.4 364.8 0 102.4 102.4 102.4 262.4 0 364.8l-134.4 134.4-89.6-89.6 134.4-134.4c51.2-51.2 51.2-128 0-179.2-51.2-51.2-134.4-51.2-179.2 0L486.4 352c-51.2 51.2-51.2 128 0 179.2l70.4 70.4L467.2 691.2z"></path>
+            </svg>
+        <span>替换为S3链接<span v-if="pendingCount > 0"> ({{ pendingCount }})</span></span>
       </pigo-button>
     </section>
 
@@ -230,7 +243,10 @@
               @error="markPreviewError(ref.id)"
             >
             <span v-else class="pigo-upload__thumb-fallback">预览失败</span>
-            <span v-if="extOf(ref)" class="pigo-upload__ext">{{ extOf(ref) }}</span>
+            <span v-if="extOf(ref) || sizeOf(ref)" class="pigo-upload__badge-strip">
+              <span v-if="sizeOf(ref)" class="pigo-upload__badge-cell">{{ formatSizeBadge(sizeOf(ref)) }}</span>
+              <span v-if="extOf(ref)" class="pigo-upload__badge-cell pigo-upload__badge-cell--ext">{{ extOf(ref) }}</span>
+            </span>
           </div>
 
           <div class="pigo-upload__item-body">
@@ -327,13 +343,12 @@ import { createParsedImage } from '@/core/scan/parser'
 import { scanDoc } from '@/core/scan/scanner'
 import type { ImageRef, ScanDocResult } from '@/core/scan/types'
 import { createS3Client } from '@/core/s3/client'
-import type { S3ClientCore } from '@/core/s3/client-core'
 import { computeRefStats, countUploadedButNotReplaced } from '@/core/stats/aggregate'
-import { extensionOf, getAssetSize } from '@/core/stats/assetMeta'
+import { extensionOf } from '@/core/stats/assetMeta'
+import { fillRefSizes, formatSizeBadge } from '@/core/stats/refSize'
 import { updateStatusBar } from '@/core/statusBar'
 import { pushToast } from '@/core/toastStore'
-import { runWithConcurrency } from '@/core/upload/concurrency'
-import { findFileMapEntry, loadFileMap, type FileMapEntry } from '@/core/upload/fileMap'
+import { loadFileMap, type FileMapEntry } from '@/core/upload/fileMap'
 import {
   uploadCurrentDoc,
   uploadSingleRef,
@@ -379,7 +394,7 @@ const previewErrors = ref(new Set<string>())
 const progress = ref<PipelineProgress | null>(null)
 const pendingCount = ref(0)
 const fileMap = ref<Record<string, FileMapEntry>>({})
-const sizeMap = reactive(new Map<string, number>())
+const sizeMap = reactive(new Map<string, number | null>())
 const dropActive = ref(false)
 const previewRef = ref<ImageRef | null>(null)
 /** 本次会话内加载失败的网络图片（不持久化，重开面板/刷新即重置）。 */
@@ -692,49 +707,30 @@ async function loadDocState(docId: string, result: ScanDocResult): Promise<void>
 }
 
 async function resolveSizes(): Promise<void> {
-  const targets = uniqueRefs.value.filter((ref) => !sizeMap.has(ref.id) && ref.sourceType !== 'data')
+  const targets = uniqueRefs.value.filter((ref) => (
+    !sizeMap.has(ref.id)
+    && ref.sourceType !== 'data'
+    && !previewErrors.value.has(ref.id)
+  ))
   if (targets.length === 0) {
     return
   }
 
-  const client = createS3Client(store.config.s3)
-  await runWithConcurrency(
-    targets.map((ref) => async () => {
-      const size = await resolveSize(ref, client)
-      if (size !== undefined) {
-        sizeMap.set(ref.id, size)
-      }
-    }),
-    4
-  )
+  try {
+    const client = createS3Client(store.config.s3)
+    await fillRefSizes(
+      targets,
+      client,
+      () => fileMap.value,
+      (id, size) => sizeMap.set(id, size ?? null)
+    )
+  }
+  catch (error) {
+    // 尺寸只是展示信息，失败不影响主流程。
+    logWarn('读取图片大小失败', error)
+  }
 }
 
-async function resolveSize(ref: ImageRef, client: S3ClientCore): Promise<number | undefined> {
-  if (ref.sourceType === 'local' && ref.assetPath) {
-    return await getAssetSize(ref.assetPath)
-  }
-
-  if (ref.sourceType === 's3' && ref.s3Key) {
-    const entry = findFileMapEntry(fileMap.value, ref.url)
-    const localPath = entry?.originUrl || ''
-    if (localPath.startsWith('assets/')) {
-      const localSize = await getAssetSize(localPath)
-      if (localSize !== undefined) {
-        return localSize
-      }
-    }
-
-    try {
-      const head = await client.headObject(ref.s3Key)
-      return head.exists && 'contentLength' in head ? head.contentLength : undefined
-    }
-    catch {
-      return undefined
-    }
-  }
-
-  return undefined
-}
 
 function scheduleRefresh(docId: string): void {
   if (refreshTimer) {
@@ -1212,7 +1208,8 @@ function extOf(ref: ImageRef): string {
 }
 
 function sizeOf(ref: ImageRef): number | undefined {
-  return sizeMap.get(ref.id)
+  const value = sizeMap.get(ref.id)
+  return typeof value === 'number' ? value : undefined
 }
 
 function sourceLabel(ref: ImageRef): string {
@@ -1499,7 +1496,7 @@ async function copyMarkdown(ref: ImageRef): Promise<void> {
 }
 
 .pigo-upload__drop-text kbd {
-  padding: 1px 4px;
+  padding: 2px 4px 0;
   border: 1px solid var(--pigo-border-strong);
   border-radius: 4px;
   background: var(--pigo-surface);
@@ -1622,6 +1619,12 @@ async function copyMarkdown(ref: ImageRef): Promise<void> {
   font-size: var(--pigo-fs-2xs);
 }
 
+.pigo-upload__btn svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+}
+
 .pigo-upload__btn--progress {
   position: relative;
   isolation: isolate;
@@ -1694,9 +1697,9 @@ async function copyMarkdown(ref: ImageRef): Promise<void> {
 
 .pigo-upload__thumb {
   position: relative;
-  width: 64px;
-  height: 64px;
-  flex: 0 0 64px;
+  width: 108px;
+  height: 108px;
+  flex: 0 0 108px;
   overflow: hidden;
   border-radius: var(--pigo-radius-md);
   background: var(--pigo-surface);
@@ -1731,16 +1734,36 @@ async function copyMarkdown(ref: ImageRef): Promise<void> {
   font-size: 10px;
 }
 
-.pigo-upload__ext {
+.pigo-upload__badge-strip {
   position: absolute;
-  right: 3px;
-  bottom: 3px;
-  padding: 0 4px;
-  border-radius: 3px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  height: 16px;
+  overflow: hidden;
   color: #fff;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(38, 38, 42, 0.82);
   font-size: 9px;
-  line-height: 1.5;
+  line-height: 16px;
+}
+
+.pigo-upload__badge-cell {
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 0 2px;
+  overflow: hidden;
+  font-family: var(--b3-font-family-code, ui-monospace, monospace);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pigo-upload__badge-cell + .pigo-upload__badge-cell {
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.pigo-upload__badge-cell--ext {
   text-transform: uppercase;
 }
 

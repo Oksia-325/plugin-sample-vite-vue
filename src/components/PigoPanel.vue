@@ -175,6 +175,8 @@ onErrorCaptured((error) => {
 }
 
 .pigo-panel__title {
+  position: relative;
+  top: 1px;
   color: var(--pigo-text);
   font-size: var(--pigo-fs-sm);
   font-weight: 600;
@@ -193,7 +195,8 @@ onErrorCaptured((error) => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 11px;
+  /* 补偿字体视觉基线，文字下移 1px */
+  padding: 6px 11px 4px;
   border: 1px solid transparent;
   border-radius: var(--pigo-radius-md);
   color: var(--pigo-muted);
@@ -217,6 +220,8 @@ onErrorCaptured((error) => {
 }
 
 .pigo-panel__tab-dot {
+  position: relative;
+  top: -1px;
   width: 5px;
   height: 5px;
   flex: 0 0 5px;

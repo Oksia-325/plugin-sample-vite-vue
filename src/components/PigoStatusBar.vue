@@ -52,7 +52,8 @@ function fallbackMode(tab: string): string {
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
-  padding: 0 12px;
+  /* 补偿字体视觉基线，文字下移 1px */
+  padding: 2px 12px 0;
   border-top: 1px solid var(--pigo-border);
   color: var(--pigo-muted);
   background: var(--pigo-panel);
@@ -76,6 +77,8 @@ function fallbackMode(tab: string): string {
 }
 
 .pigo-status-bar-row__dot {
+  position: relative;
+  top: -1px;
   width: 6px;
   height: 6px;
   flex: 0 0 6px;

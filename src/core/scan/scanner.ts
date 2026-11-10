@@ -62,7 +62,7 @@ export async function scanDoc(docId: string, config: PigoConfig): Promise<ScanDo
     doc,
     refs,
     uniqueRefs,
-    stats: computeRefStats(refs, uniqueRefs),
+    stats: computeRefStats(refs, uniqueRefs, 1),
     scannedAt: Date.now(),
     durationMs: Date.now() - startedAt,
   }
@@ -148,7 +148,7 @@ export async function scanAll(config: PigoConfig, options: ScanAllOptions = {}):
     docs,
     refs,
     uniqueRefs,
-    stats: computeRefStats(refs, uniqueRefs),
+    stats: computeRefStats(refs, uniqueRefs, docs.length),
     scannedAt: Date.now(),
     durationMs: Date.now() - startedAt,
   }

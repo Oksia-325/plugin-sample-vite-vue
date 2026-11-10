@@ -1020,3 +1020,202 @@
   - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
   - `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 10:51 更新）
 - 下一步：复测通过后提交 F2。
+
+---
+
+## 2026-11-10 Phase F2 完成并提交
+
+- 阶段：前端重构 F2
+- 用户复测通过：上传进度、失效外链重试、缩略图预览、单图无二次确认、删除结果统计条均正常。
+- 提交：`1be0224 feat(pigo): 重构上传页并支持面板内独立上传（F2）`
+- 下一步：F3 统计页。
+
+---
+
+## 2026-11-10 Phase F3 — 统计页重构（实现完成，待用户验收）
+
+- 阶段：前端重构 F3（统计页）
+- 目标：scope 切换 + 元信息行 + 10 KPI + 7 筛选 + 搜索 + 双列卡片 + S3 健康点；**不做多选**。
+
+### 后端最小支撑
+
+1. `ScanStats.totalDocs`：
+   - `src/core/scan/types.ts` 新增字段（文档总数，`docs` 仍是含图文档数）；
+   - `computeRefStats(refs, uniqueRefs, totalDocs = 0)`；
+   - `scanDoc` 传 1，`scanAll` 传 `docs.length`。
+2. `src/core/s3/health.ts`：
+   - `checkS3Health(config, { force })` 只读健康检查（`listObjectsV2 maxKeys=1`，按上传前缀）；
+   - 结果按「配置指纹」缓存 60s，并发请求合并；`force` 供点击健康点手动重查；
+   - `clearS3HealthCache()` 供后续同步页复用。
+3. `src/core/stats/service.ts`：
+   - `scope=doc` 时只加载当前文档的 fileMap（`loadFileMap`），不再全库读取。
+4. 新增 `src/components/ui/PigoHealthDot.vue`：ok / error / checking 三态点 + 文案。
+
+### 统计页重构 `src/components/stats/StatsTab.vue`
+
+- 顶部操作区（卡片）：
+  - 分段控件「当前文档 / 全库」+「开始统计」+ 运行中「取消」；
+  -「修复 S3 链接 / 修复全库S3链接」（紫色描边，无未替换时禁用）；
+  -「上传本地图片 / 上传全库本地图片」（主按钮，无本地+Data 时禁用）；
+  - CSV 导出改为图标按钮（不再提供 JSON 导出）。
+- 元信息行：扫描时间 / 耗时 / 文档总数（含图数）或当前文档标题 / 资源文件 / 题头图资源；
+  右侧为 S3 健康点（可点击强制重查）。
+- 进度：运行中在工具栏底部显示 2px 进度条（绝对定位，不推挤布局），不再插入整块进度面板或提示条。
+- 切换「当前文档 / 全库」时，若目标范围还没有快照会自动统计一次，避免切过去看到空页。
+- 「上传本地 / 上传全库本地图片」固定 `sourceTypes: ['local']`（题头图属于 local，会一起上传），不误传网络图。
+- 10 张 KPI：总引用、唯一图片、本地、已上传 S3、网络、Data URI、题头图、已上传未替换、含图文档、资源文件；沿用现有色语义。
+- 7 个筛选 chip + 搜索（文档 / 路径 / 地址 / 描述 / key / 资源路径），保留 300 条「加载更多」。
+- 双列卡片：
+  - 缩略图（懒加载 + 扩展名角标 + 点击放大预览，失败回退占位图）；
+  - 来源徽章、题头图徽章、已上传未替换徽章、文档标题；
+  - 路径 / URL、块 ID、S3 Key、资源路径；
+  - 状态点：未替换至云端 / 链接已同步 / 外部网络图源 / 内嵌 Data URI / 已上传未替换；
+  - 操作：复制路径、复制链接、复制MD链接、立即上传、转存至S3、重新上传。
+- 所有提示统一走底部 toast（不再使用 sticky notice 或横幅，避免推挤布局）；「已上传未替换」通过 KPI、筛选 chip 与修复按钮 title 表达。
+- S3 健康检查超时收紧到 10s，避免 Endpoint 错误时长时间转圈。
+- 响应式：<860px KPI 3 列，<720px 卡片 1 列，<560px KPI 2 列。
+
+### 验证
+
+- `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ **85 passed**（新增 totalDocs 用例）
+- `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+- `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 11:06 更新）
+- 实机 SQL 基线：文档 970 篇、assets 732。
+
+### 待用户验收
+
+1. 打开统计页默认「全库」，10 个 KPI 数字是否符合预期；
+2. 切到「当前文档」后按钮文案、元信息、KPI 是否同步；
+3. 筛选 chip 与搜索；
+4. 卡片操作（复制路径 / 链接 / MD、立即上传、转存至S3、重新上传）；
+5. 缩略图点击预览；
+6. 右上健康点为绿色，点击可重新检查；改错配置后应变红；
+7. 亮色主题下 KPI 与卡片配色是否可读。
+
+- 下一步：用户验收通过后提交 `feat(pigo): 重构统计页展示与健康状态（F3）`，然后进入 F4 同步页。
+
+---
+
+## 2026-11-10 Phase F3 修订 1 — 图标替换与删除进度条
+
+- 阶段：前端重构 F3（用户第一轮测试反馈）
+- 变更：
+  - 「开始统计」左侧图标换为用户提供的 `统计.svg`（内联 2 个 path，`viewBox 0 0 1024 1024`，`fill: currentColor`）；
+  - CSV 导出按钮图标换为 `导出.svg`（内联 3 个 path）；
+  - 删除「开始统计」下方的 2px 进度条及其 `progressPercent` 计算和样式；
+  - 同步移除元信息行右侧的扫描进度文字，只保留按钮 loading 状态与左侧状态文字，避免布局抖动。
+- 验证：`tests` 85 passed、`tsc` 通过、`vite build` 成功（工作区 11:19）。
+
+---
+
+## 2026-11-10 Phase F2 修订 9 — 缩略图文件大小角标
+
+- 阶段：前端重构 F2（用户补充需求）
+- 变更：
+  - 缩略图右下角在扩展名前增加文件大小：`12K jfif`、`1.4M png`；
+  - 单位规则：< 1MB 显示整数 `K`（最小 1K），≥ 1MB 显示 1 位小数 `M`；
+  - 覆盖本地图片、S3 图片、网络图片；Data URI 不显示；
+  - 本地图片用 `Range: bytes=0-0` 读大小；S3 优先取 fileMap 的本地原文件大小，否则 `HEAD` 对象；
+  - 网络图片用 `HEAD` 取 `content-length`（1.5s 超时，直连失败后思源代理兜底一次）；
+  - 缩略图已加载失败（`previewErrors`）的图片不再请求大小；S3 / 网络取不到大小时静默不显示，不重试。
+- 验证：`tests` 85 passed、`tsc` 通过、`vite build` 成功（工作区 11:19）。
+
+---
+
+## 2026-11-10 Phase F2 修订 10 — 修复文件大小不显示 + 统计页也显示大小
+
+- 阶段：前端重构 F2 / F3（用户反馈：上传页大小没显示；统计页也要显示）
+- 根因（上传页）：
+  - `resolveSizes()` 调用 `runWithConcurrency(tasks, 4)` 时漏传第三个参数 `isCancelled`；
+  - 函数内部执行 `isCancelled()` 抛 `TypeError`，导致整批尺寸读取直接失败（被 `void` 吞掉），所以一个大小都不显示。
+  - 修复：`runWithConcurrency` 的 `isCancelled` 改为可选（默认 `() => false`），并补单测。
+- 重构：
+  - 新增 `src/core/stats/refSize.ts`：
+    - `resolveRefSize()` 统一本地 / S3 / 网络图片的大小解析；
+    - `formatSizeBadge()` 统一 `K`（整数）/ `M`（1 位小数）格式；
+    - `fillRefSizes()` 并发 4 补全尺寸；失败写入 `null` 负缓存，切换筛选 / 搜索时不会反复请求失效图片。
+  - `UploadTab.vue` 改用共享实现，删除组件内的重复代码。
+  - `StatsTab.vue`：
+    - 新增 `sizeMap`，只对**当前可见的 300 条**卡片懒加载大小，避免全库 4000+ 次 HEAD 请求；
+    - 缩略图右下角同样显示 `12K png` / `1.4M jpg`；
+    - 筛选 / 搜索 / 加载更多后自动补全新出现的图片尺寸。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ **86 passed**（新增省略 isCancelled 的用例）
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 11:24 更新）
+- 待用户复测：上传页 / 统计页的缩略图大小角标。
+
+---
+
+## 2026-11-10 Phase F3 修订 2 — 图标更新 + 缩略图角标改版
+
+- 阶段：前端重构 F2 / F3（用户第二轮测试反馈）
+- 图标（全部内联，`viewBox 0 0 1024 1024`，`fill: currentColor`）：
+  - 统计页「修复 S3 链接」→ `链接.svg`（2 path）；
+  - 「上传本地 / 全库本地图片」→ `上传.svg`（3 path）；
+  - CSV 导出 → 更新后的 `导出.svg`（3 path）。
+- 缩略图角标（上传页 + 统计页统一）：
+  - 改为缩略图底部整条灰色层，左右两个等宽单元格，`大小 | 格式` 固定宽度、居中；
+  - 只剩一项时自动占满整条；
+  - 字号保持 9px，条高 16px，中间 1px 分隔线。
+- 缩略图尺寸增加 50%：上传页 72 → **108px**，统计页 64 → **96px**。
+- 验证：`tests` 86 passed、`tsc` 通过、`vite build` 成功（工作区 11:33）。
+
+---
+
+## 2026-11-10 Phase F3 修订 3 / F2 修订 11 — 图标修正与批量按钮图标
+
+- 阶段：前端重构 F3 + F2（用户第三轮反馈）
+- 修复统计页图标错位：
+  - 「上传本地 / 全库本地图片」误用了 `导出.svg`，已换回 `asset/上传.svg`（3 path）；
+  - CSV 导出按钮误用了旧的 `上传` 箭头，已换回 `asset/导出.svg`（3 path）。
+- 统计页其余图标仍为：统计 = `asset/统计.svg`，修复链接 = `asset/链接.svg`。
+- 上传页：
+  - 「快速添加图片」dropzone 图标换成 `asset/上传.svg`；
+  - 「上传本地图片」→ `asset/上传.svg`；
+  - 「强制重新上传」→ `asset/强制.svg`（闪电，1 path）；
+  - 「替换为S3链接」→ `asset/链接.svg`（2 path）；
+  - 批量按钮图标统一 13×13，与文字间距由 PigoButton 的 gap 控制。
+- 验证：`tests` 86 passed、`tsc` 通过、`vite build` 成功（工作区 11:51）。
+- 待用户验收后提交 F3。
+
+---
+
+## 2026-11-10 Phase F2 修订 12 — 按钮文字垂直居中（像素级修正）
+
+- 阶段：前端重构 F2（用户反馈三个批量按钮文字明显偏上）
+- 定位：用 Firefox headless 以 6× 放大渲染同款按钮并测像素质心：
+  - 文字包围盒中心比按钮中心高 **1px**（字体视觉基线偏高），与 line-height 无关；
+  - 单纯改 line-height（1 / 16 / 22）都无法消除。
+- 修复（`src/styles/pigo-ui.scss`）：
+  - `.pigo-btn` padding 改为 `2px 12px 0`，`.pigo-btn--sm` 改为 `2px 10px 0`；
+  - 这样内容中心整体下移 1px，文字包围盒与按钮中心完全重合；
+  - 新增 `.pigo-btn > svg { transform: translateY(-1px) }`，让图标回正，保持图标几何居中。
+- 统计页图标按钮 `.pigo-stats__export` 的 padding 同步为 `2px 0 0`。
+- 复测渲染结果：按钮中心 91.5，文字中心 91.5（0 偏移）；图标中心 94.5（0.5px，视觉可忽略）。
+- 验证：`tsc` 通过、`vite build` 成功（工作区已更新）。
+
+---
+
+## 2026-11-10 全局垂直居中审计（按钮 / chip / 标签 / 输入框）
+
+- 阶段：前端重构 F2 / F3 收尾
+- 方法：用 Firefox headless 8× 放大渲染同款组件并测像素质心，确认「中文字体视觉中心比行盒中心高约 1px」是全局性问题。
+- 统一修复方式：
+  - 有背景的小标签：上下内边距改为 `上+1 / 下-1`（总高度不变，内容下移 1px）；
+  - 固定高度容器：`padding-top` 增加、底部归零（内容中心下移 1px），图标再用 `translateY(-1px)` 回正；
+  - 圆点类装饰元素：`position: relative; top: -1px` 跟随文字视觉中心。
+- 已覆盖：
+  - `PigoChip`：`padding: 3px 8px 1px`（本地 / S3 / 网络 / 待处理 / 统计筛选 / 卡片徽章全部生效）；
+  - 顶栏页签：`padding: 6px 11px 4px`，页签圆点 `top: -1px`；标题 `top: 1px`；
+  - 页脚状态栏：`padding: 2px 12px 0`，状态圆点 `top: -1px`；
+  - 统计页范围分段按钮：`padding: 2px 9px 0` + 图标 `translateY(-1px)`；
+  - 手风琴摘要 chip：`padding: 3px 8px 1px`；
+  - 输入框 / 下拉框：`padding: 7px 10px 5px`；
+  - 统计页搜索框：`padding: 2px 9px 0 26px`；
+  - 复选框：`top: -1px`；
+  - 健康点 / 统计卡片状态点：圆点 `top: -1px`；
+  - Toast 圆点 `margin-top: 5px`；
+  - 上传页 `kbd` 快捷键：`padding: 2px 4px 0`。
+- 验证：`tests` 86 passed、`tsc` 通过、`vite build` 成功（工作区 14:17 更新）。
+- 备注：同步页仍是旧结构，F4 重构时统一套用以上规范。

@@ -127,7 +127,8 @@ defineEmits<{
 .pigo-accordion__summary {
   max-width: 300px;
   overflow: hidden;
-  padding: 2px 8px;
+  /* 补偿字体视觉基线，文字下移 1px */
+  padding: 3px 8px 1px;
   border: 1px solid var(--pigo-border);
   border-radius: var(--pigo-radius-sm);
   color: var(--pigo-text-2);

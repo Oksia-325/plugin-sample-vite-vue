@@ -35,7 +35,10 @@ export interface ScanStats {
   remote: number
   data: number
   title: number
+  /** 含图文档数量（全库统计时 = 至少出现一张图片的文档数）。 */
   docs: number
+  /** 扫描到的文档总数（当前文档范围时为 1）。 */
+  totalDocs: number
   /** 文档仍是本地/网络图片，但 fileMap 中已有 S3 上传记录。 */
   uploadedButNotReplaced: number
   /** assets 表中的资源文件数量。 */

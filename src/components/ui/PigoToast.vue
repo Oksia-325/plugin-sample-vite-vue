@@ -79,7 +79,7 @@ import { uiState } from '@/core/uiStore'
   width: 6px;
   height: 6px;
   flex: 0 0 6px;
-  margin-top: 6px;
+  margin-top: 5px;
   border-radius: 50%;
   background: var(--pigo-muted);
 }

@@ -68,8 +68,20 @@ test('computeRefStats counts sources, title images and docs', () => {
   assert.equal(stats.data, 1)
   assert.equal(stats.title, 1)
   assert.equal(stats.docs, 3)
+  assert.equal(stats.totalDocs, 0)
   assert.equal(stats.uploadedButNotReplaced, 0)
   assert.equal(stats.assetFiles, 0)
+})
+
+test('computeRefStats keeps totalDocs separate from docs with images', () => {
+  const refs = [
+    makeRef({ id: 'a', sourceType: 'local', normalizedUrl: 'a' }),
+  ]
+
+  const stats = computeRefStats(refs, dedupeRefs(refs), 12)
+
+  assert.equal(stats.docs, 1)
+  assert.equal(stats.totalDocs, 12)
 })
 
 test('isUploadedButNotReplaced detects a local ref with an S3 fileMap record', () => {

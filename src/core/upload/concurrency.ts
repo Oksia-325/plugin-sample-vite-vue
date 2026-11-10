@@ -1,7 +1,7 @@
 export async function runWithConcurrency(
   tasks: Array<() => Promise<void>>,
   limit: number,
-  isCancelled: () => boolean
+  isCancelled: () => boolean = () => false
 ): Promise<void> {
   if (tasks.length === 0) {
     return

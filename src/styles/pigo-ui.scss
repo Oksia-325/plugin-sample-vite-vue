@@ -10,7 +10,8 @@
     gap: 6px;
     box-sizing: border-box;
     height: 28px;
-    padding: 0 12px;
+    /* 上内边距补偿字体视觉基线：让中文文字在按钮里真正垂直居中 */
+    padding: 2px 12px 0;
     border: 1px solid var(--pigo-border);
     border-radius: var(--pigo-radius-md);
     color: var(--pigo-text-2);
@@ -40,10 +41,15 @@
 
   .pigo-btn--sm {
     height: 24px;
-    padding: 0 10px;
+    padding: 2px 10px 0;
     font-size: var(--pigo-fs-xs);
     line-height: 1.4;
     border-radius: var(--pigo-radius-sm);
+  }
+
+  /* 文字整体下移 1px 后，图标同步回正，保持图标与按钮几何居中 */
+  .pigo-btn > svg {
+    transform: translateY(-1px);
   }
 
   .pigo-btn--primary {
@@ -159,7 +165,8 @@
     align-items: center;
     gap: 4px;
     max-width: 100%;
-    padding: 2px 8px;
+    /* 上下 3/1 分配：补偿中文字体视觉基线，文字下移 1px */
+    padding: 3px 8px 1px;
     border: 1px solid transparent;
     border-radius: 999px;
     color: var(--pigo-text-2);
@@ -289,7 +296,8 @@
   .pigo-textarea {
     box-sizing: border-box;
     width: 100%;
-    padding: 6px 10px;
+    /* 补偿字体视觉基线，单行输入文字下移 1px */
+    padding: 7px 10px 5px;
     border: 1px solid var(--pigo-border-strong);
     border-radius: var(--pigo-radius-md);
     color: var(--pigo-text);
@@ -336,6 +344,8 @@
   }
 
   .pigo-check input[type='checkbox'] {
+    position: relative;
+    top: -1px;
     width: 13px;
     height: 13px;
     flex: 0 0 13px;

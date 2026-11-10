@@ -23,8 +23,14 @@ export function dedupeRefs(refs: ImageRef[]): ImageRef[] {
 
 /**
  * 纯函数统计：只依赖 refs，不访问思源。
+ *
+ * `totalDocs` 用于区分「文档总数」与 `docs`（含图文档数）。
  */
-export function computeRefStats(refs: ImageRef[], uniqueRefs: ImageRef[]): ScanStats {
+export function computeRefStats(
+  refs: ImageRef[],
+  uniqueRefs: ImageRef[],
+  totalDocs = 0
+): ScanStats {
   const docsWithImages = new Set<string>()
   const stats: ScanStats = {
     totalRefs: refs.length,
@@ -35,6 +41,7 @@ export function computeRefStats(refs: ImageRef[], uniqueRefs: ImageRef[]): ScanS
     data: 0,
     title: 0,
     docs: 0,
+    totalDocs: Math.max(0, totalDocs),
     uploadedButNotReplaced: 0,
     assetFiles: 0,
     titleAssets: 0,

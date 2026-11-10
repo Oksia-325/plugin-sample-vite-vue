@@ -8,6 +8,7 @@ import {
   type DocFileMaps,
 } from './aggregate'
 import { countAssetFiles, loadDocFileMaps } from './siyuanData'
+import { loadFileMap } from '../upload/fileMap'
 
 export type StatsScope = 'doc' | 'all'
 
@@ -36,9 +37,10 @@ export async function buildStatsSnapshot(
   options: BuildStatsOptions = {}
 ): Promise<StatsSnapshot> {
   const startedAt = Date.now()
+  const docId = scope === 'doc' ? requireDocId(options.docId) : ''
 
   const result = scope === 'doc'
-    ? await scanDoc(requireDocId(options.docId), config)
+    ? await scanDoc(docId, config)
     : await scanAll(config, {
       onProgress: options.onProgress,
       isCancelled: options.isCancelled,
@@ -49,7 +51,9 @@ export async function buildStatsSnapshot(
   }
 
   const [fileMaps, assetCounts] = await Promise.all([
-    loadDocFileMaps(),
+    scope === 'doc'
+      ? loadFileMap(docId).then((map) => new Map([[docId, map]]))
+      : loadDocFileMaps(),
     countAssetFiles(),
   ])
 
@@ -62,7 +66,7 @@ export async function buildStatsSnapshot(
 
   return {
     scope,
-    docId: options.docId,
+    docId: scope === 'doc' ? docId : options.docId,
     result,
     stats,
     fileMaps,
