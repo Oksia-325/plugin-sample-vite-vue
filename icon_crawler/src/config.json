@@ -1,0 +1,11 @@
+{
+    "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IkFTU3g4VXdLV3A1ciIsImVtYWlsIjoid2FuZ2xhbGE5OTFAZ21haWwuY29tIiwibmFtZSI6ImxhbGEgV2FuZyIsInB1YmxpY0FwaUtleSI6IlBvak9uTVpfYU5zSFhyZDJDaTl4NyIsImFjdGl2ZUxpY2Vuc2UiOnsiaWNvbkFJU2VhcmNoTWV0YUFwaSI6dHJ1ZSwiZXhwaXJlQXQiOjE4MzAyOTc1OTk5OTl9LCJlbnYiOiJwcm9kdWN0aW9uIiwiaWF0IjoxNzg4OTIwOTU0LCJleHAiOjE3ODk3ODQ5NTR9.XdRtiqQr9TySUd6Olyf6ooShQSxfElXl84JYNdsEurc",
+    "download_base_url": "https://img.icons8.com/",
+    "icons_dir": "/home/goserank/Projects/plugin-sample-vite-vue-main/icon_crawler/temp",
+    "local_aim_dir": "/home/goserank/下载/temp",
+    "download_size": 512,
+    "download_format": "png",
+    "max_concurrent_downloads": 4,
+    "preview_count": 5,
+    "collection_limit": 150
+}
