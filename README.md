@@ -4,7 +4,7 @@
 
 A personal S3-compatible picture bed plugin for [SiYuan](https://b3log.org/siyuan), built with Vite + Vue.
 
-> Status: `0.2.1` — redesigned four-tab UI (Upload / Stats / Sync / Settings), built-in upload pipeline, S3 health check, two-way sync and safe cleanup.
+> Status: `0.2.2` — redesigned four-tab UI (Upload / Stats / Sync / Settings), built-in upload pipeline, S3 health check, two-way sync and safe cleanup.
 
 ## Features
 
