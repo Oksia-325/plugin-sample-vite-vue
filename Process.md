@@ -1487,3 +1487,17 @@
 - 待用户验收：S3 图片大小、三个页面的分页与键盘翻页。
 
 - 验收通过后提交并升级为 `0.2.1`。
+
+---
+
+## 2026-11-10 发布 0.2.1
+
+- 用户验收通过：S3 图片大小、三个页面分页与键盘翻页均正常。
+- 修复提交：`6ffe4d5 fix(pigo): 修复 S3 图片大小与长列表分页`
+- 版本：`0.2.1`（`plugin.json` / `package.json`）
+- 文档：README 状态更新；CHANGELOG 新增 v0.2.1。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 89 passed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功并重新生成 `package.zip`
+- 覆盖安装：工作区插件目录已更新为 0.2.1，配置 / fileMap 不变。
