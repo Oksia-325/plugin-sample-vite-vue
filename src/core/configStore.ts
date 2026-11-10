@@ -41,6 +41,8 @@ export const configState = reactive<ConfigState>({
 })
 
 let loadPromise: Promise<void> | null = null
+/** 最近一次成功落盘的配置，避免行为开关把未保存的表单改动一起写盘。 */
+let savedConfig: PigoConfig | null = null
 
 export function usePigoConfigStore() {
   return configState
@@ -62,6 +64,7 @@ export async function ensureConfigLoaded(plugin: Plugin): Promise<void> {
       const raw = await plugin.loadData(CONFIG_STORAGE_NAME)
       configState.config = mergeConfig(raw)
       configState.loaded = true
+      savedConfig = cloneConfig(configState.config)
       setDebugLogging(configState.config.behavior.debug)
     }
     catch (error) {
@@ -94,6 +97,7 @@ export async function savePigoConfig(plugin: Plugin): Promise<{ ok: boolean, iss
     configState.config = normalized
     configState.loaded = true
     configState.validation = []
+    savedConfig = cloneConfig(normalized)
     setDebugLogging(normalized.behavior.debug)
     logInfo('配置已保存')
     return { ok: true, issues: [] }
@@ -126,32 +130,31 @@ export async function saveBehaviorPatch(
 ): Promise<{ ok: boolean, error?: string }> {
   await ensureConfigLoaded(plugin)
 
-  const previous = cloneConfig(configState.config)
-  const next = normalizeConfig({
-    ...configState.config,
+  const previousBehavior = { ...configState.config.behavior }
+  const base = cloneConfig(savedConfig ?? configState.config)
+  const nextSaved = normalizeConfig({
+    ...base,
     behavior: {
-      ...configState.config.behavior,
+      ...base.behavior,
       ...patch,
     },
   })
 
-  configState.config = next
-  configState.saving = true
+  // 只把行为字段同步到当前编辑态，未保存的 S3 表单改动不落盘。
+  configState.config.behavior = nextSaved.behavior
   configState.error = ''
 
   try {
-    await plugin.saveData(CONFIG_STORAGE_NAME, next)
-    setDebugLogging(next.behavior.debug)
+    await plugin.saveData(CONFIG_STORAGE_NAME, nextSaved)
+    savedConfig = cloneConfig(nextSaved)
+    setDebugLogging(nextSaved.behavior.debug)
     return { ok: true }
   }
   catch (error) {
-    configState.config = previous
+    configState.config.behavior = previousBehavior
     configState.error = errorToMessage(error)
     logError('保存行为配置失败', error)
     return { ok: false, error: configState.error }
-  }
-  finally {
-    configState.saving = false
   }
 }
 

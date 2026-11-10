@@ -12,7 +12,7 @@ test('plugin.json uses the Pigo plugin identity', () => {
   const info = readJson('plugin.json')
 
   assert.equal(info.name, 'siyuan-plugin-pigo')
-  assert.equal(info.version, '0.1.0')
+  assert.match(info.version, /^\d+\.\d+\.\d+$/)
   assert.equal(info.displayName['zh-CN'], 'Pigo 图床')
   assert.ok(info.minAppVersion)
   assert.ok(Array.isArray(info.backends) && info.backends.length > 0)

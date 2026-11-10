@@ -65,6 +65,8 @@
       <settings-tab v-show="uiState.activeTab === 'settings'" :plugin="props.plugin" />
     </div>
 
+    <pigo-toast />
+
     <pigo-status-bar :version="props.plugin.version" />
   </div>
 </template>
@@ -78,6 +80,7 @@ import StatsTab from '@/components/stats/StatsTab.vue'
 import SyncTab from '@/components/sync/SyncTab.vue'
 import UploadTab from '@/components/upload/UploadTab.vue'
 import PigoSwitch from '@/components/ui/PigoSwitch.vue'
+import PigoToast from '@/components/ui/PigoToast.vue'
 import { configState, ensureConfigLoaded, saveBehaviorPatch } from '@/core/configStore'
 import { setPigoMode, uiState, type PigoTabId } from '@/core/uiStore'
 
@@ -151,6 +154,7 @@ onErrorCaptured((error) => {
 
 <style scoped>
 .pigo-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;

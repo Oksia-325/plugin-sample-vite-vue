@@ -735,3 +735,69 @@
   - 置顶只能做到页面内层级（网页层无法系统级 always-on-top）；
   - 顶栏「自动监控」文案点击也可切换，若用户希望只点开关，可在 F5 调整。
 - 下一步：用户验证 F0 → 提交 `feat(pigo): 重构面板外壳与设计系统基线（F0）` → 开始 F1 设置页。
+
+---
+
+## 2026-11-09 Phase F1 — 设置页重构
+
+- 阶段：前端重构 F1
+- 分支：`pigo`
+- 变更：
+  - 新增 `src/components/ui/PigoAccordion.vue`：可折叠面板（图标插槽、标题/副标题、右侧摘要 chip、箭头旋转、`v-model:open`）。
+  - 新增 `src/components/ui/PigoField.vue`：表单字段容器（label / label 右侧插槽 / hint / error）。
+  - `src/styles/pigo-ui.scss` 增加表单零件：`.pigo-field*`、`.pigo-input`、`.pigo-select`、`.pigo-textarea`、`.pigo-check`、`.pigo-check-card`、`.pigo-divider`。
+  - 重写 `src/components/settings/SettingsTab.vue`：
+    - 顶部两张高频开关卡：`粘贴图片时自动上传`、`上传后替换文档中的图片链接`，含启用状态 chip、说明、开关；整卡可点击；
+    - 三段手风琴：`S3 存储配置`（摘要=存储名）、`详细行为与上传规则`（摘要=`并发: 4 | 过滤网络图: 否`）、`调试与运行日志`（摘要=`共 N 条`）；
+    - S3 表单：Endpoint/Region 三列栅格、Bucket、AK/SK（显示密钥）、上传路径模板（变量提示）、CustomUrl、额外前缀、ACL、超时、PathStyle、思源代理、`导入旧 PicGo 配置...` / `测试连接`、连接测试步骤结果；
+    - 行为区：混合粘贴说明框、三个“批量扫描与上传”复选卡、并发滑杆 + 数字输入联动、调试日志；
+    - 日志区：倒序列表（时间/级别/消息/详情）、复制、清空、条数；
+    - 页脚：安全说明 + `恢复默认` / `保存配置`，`position: sticky` 固定在面板底部。
+  - `src/core/configStore.ts` 行为保存加强：
+    - 新增模块级 `savedConfig`（最近一次成功落盘的配置）；
+    - `saveBehaviorPatch()` 改为“以已保存配置为基线 + 只合并行为字段”，避免顶栏/快捷开关把**未保存的 S3 表单改动**一起写盘；
+    - 加载、保存成功后同步 `savedConfig`。
+  - 快捷开关（粘贴自动上传 / 替换链接）改为**即时保存**（乐观更新 + 失败回滚 + 提示），其余表单仍走 `保存配置`。
+  - 新增底部浮层提示（修复消息弹窗打乱排版）：
+    - `src/core/toastStore.ts`：`pushToast()` / `dismissToast()` / `clearToasts()`，最多 3 条、自动消失、可点击关闭；
+    - `src/components/ui/PigoToast.vue`：绝对定位于面板右下（页脚上方），淡入上滑 + 移动过渡，`pointer-events` 只作用于提示本身；
+    - `PigoPanel.vue` 挂载 `PigoToast` 并设置 `position: relative`；
+    - 设置页移除顶部内联 alert（会推挤内容），保存/重置/导入/复制/测试连接/配置错误全部改为底部浮层；
+    - 快捷开关成功时不再弹提示（状态 chip 已可见），仅失败时提示。
+  - 浮层提示第一次实测异常（用户反馈右下角看不到、设置页页脚说明文字闪烁），第二次修正：
+    - `PigoToast` 改为**绝对定位全屏覆盖层**（`inset: 0` + `padding-bottom` 抬升），彻底脱离文档流，即使页脚变高也不会改变主内容布局；
+    - `bottom/padding` 使用 `var(--pigo-footer-height, 34px)` 兜底，变量缺失也不会落到静态位置；
+    - `z-index` 提到 60；设置页（有吸底操作栏）单独把提示抬高到 `页脚 + 96px`；
+    - 提示卡片背景改为 `--pigo-bg`，避免与页脚文字视觉混叠；
+    - `plugin.json` / `package.json` 版本升到 `0.1.1`，强制思源重新加载插件 JS/CSS，排除旧资源缓存；
+    - `tests/smoke.test.mjs` 版本断言改为 semver 格式校验，避免每次升版本都要改测试。
+  - 页脚文字闪烁修复（用户实测：切换快捷开关 / 保存配置时，页脚说明文字抖动）：
+    - 根因：`configState.saving` 变化让「保存配置」按钮临时出现 loading 圈，按钮宽度增加，导致页脚 flex 重新分配宽度、说明文字重新换行；
+    - `saveBehaviorPatch()` 不再切换 `configState.saving`（行为开关属于后台静默保存，不该驱动表单按钮 loading）；
+    - 页脚两个按钮统一 `min-width: 88px`，loading 圈出现/消失不再改变按钮宽度；
+    - 结果：三条触发路径（两个快捷开关、保存配置）都不会再引起页脚重排。
+  - 页脚按钮视觉微调：
+    - 「恢复默认」「保存配置」改用默认尺寸（12px 字号，原 11px 偏小）；
+    - `min-width: 96px` + `justify-content/text-align: center`，文字始终居中，loading 圈出现时也不位移；
+    - 仍保持宽度稳定，不会重新引入页脚闪烁。
+- 测试命令与结果：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 72 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功；`dist/index.js` 231.52 kB，`dist/index.css` 43.87 kB；`package.zip` 已生成
+  - 工作空间插件已由 watch 进程更新（17:54）
+- 待用户手动验证（F1 清单）：
+  1. 设置页顶部两个开关卡：点整卡、点开关都能切换；`已启用/已关闭` chip 同步；顶栏「自动监控」同步变化；
+  2. 两个快捷开关**立即生效并持久化**（重载插件后保持），而 S3 表单改动不点保存不落盘；
+  3. 三段手风琴展开/收起；摘要实时更新（存储名、`并发: 4 | 过滤网络图: 否`、`共 N 条`）；
+  4. S3 表单：字段可编辑、保存后保持；错误提示定位到字段；显示/隐藏密钥；路径模板变量提示；
+  5. `导入旧 PicGo 配置...`、`测试连接`（步骤、告警、错误展示）；
+  6. 并发滑杆与数字输入联动，范围 1–10；
+  7. 日志：倒序、时间/级别/消息、详情折叠展示、复制、清空、条数同步；
+  8. 页脚说明 + `恢复默认` + `保存配置`（滚动时吸底）；
+  9. 亮色主题、窄屏（<720px）单列显示。
+  10. 通知位置：点「保存配置」「测试连接」「复制日志」等，提示出现在**右下角浮层**，不下推页面内容、不遮挡底部按钮；多条提示可叠放，3 秒左右自动消失，点击可关闭。
+- 遗留/风险：
+  - `replaceLink` 开关目前只有配置与 UI，真正生效在 F5；
+  - `保存配置` 仍会整体校验 S3 字段（原有行为），只改行为开关时建议用顶部快捷开关；
+  - 设置页字段较多，保存后摘要与页脚存储名依赖实时配置，未保存时会显示“预览值”。
+- 下一步：用户验证 F1 → 提交 `feat(pigo): 重构设置页为手风琴布局（F1）` → 开始 F2 上传页。

@@ -5,356 +5,433 @@
     </div>
 
     <template v-else>
-      <div v-if="store.error" class="pigo-settings__alert pigo-settings__alert--error">
-        {{ store.error }}
-      </div>
-
-      <div v-if="notice" class="pigo-settings__alert" :class="`pigo-settings__alert--${notice.type}`">
-        {{ notice.text }}
-      </div>
-
-      <section class="pigo-settings__section">
-        <div class="pigo-settings__section-title">
-          S3 存储
-        </div>
-        <div class="pigo-settings__section-desc">
-          只保留一个 S3 兼容存储桶。腾讯云 COS 请使用 S3 兼容 Endpoint。
-        </div>
-
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-endpoint">Endpoint</label>
-          <div class="pigo-form-row__control">
-            <input
-              id="pigo-endpoint"
-              v-model="store.config.s3.endpoint"
-              class="b3-text-field fn__block"
-              placeholder="https://cos.ap-guangzhou.myqcloud.com"
-            >
-            <div class="pigo-form-row__hint">
-              例如腾讯云 COS：https://cos.ap-guangzhou.myqcloud.com
-            </div>
-            <div v-if="issueMap['s3.endpoint']" class="pigo-form-row__error">
-              {{ issueMap['s3.endpoint'] }}
-            </div>
+      <div class="pigo-settings__scroll">
+        <!-- 高频开关 -->
+        <section class="pigo-quick">
+          <div
+            class="pigo-quick__card"
+            :class="{ 'pigo-quick__card--on': store.config.behavior.autoUploadOnPaste }"
+            @click="toggleBehavior('autoUploadOnPaste', !store.config.behavior.autoUploadOnPaste)"
+          >
+            <span class="pigo-quick__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"></path>
+                <path d="M12 16V4m0 0L8 8m4-4l4 4"></path>
+              </svg>
+            </span>
+            <span class="pigo-quick__body">
+              <span class="pigo-quick__title">
+                粘贴图片时自动上传
+                <pigo-chip :tone="store.config.behavior.autoUploadOnPaste ? 'success' : 'muted'">
+                  {{ store.config.behavior.autoUploadOnPaste ? '已启用' : '已关闭' }}
+                </pigo-chip>
+              </span>
+              <span class="pigo-quick__desc">剪贴板捕获到新图片时即刻转存到图床</span>
+            </span>
+            <pigo-switch
+              :model-value="store.config.behavior.autoUploadOnPaste"
+              label="粘贴图片时自动上传"
+              :disabled="store.saving"
+              @update:model-value="value => toggleBehavior('autoUploadOnPaste', value)"
+            />
           </div>
-        </div>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-region">Region</label>
-          <div class="pigo-form-row__control">
-            <input
-              id="pigo-region"
-              v-model="store.config.s3.region"
-              class="b3-text-field fn__block"
-              placeholder="ap-guangzhou"
-            >
-            <div v-if="issueMap['s3.region']" class="pigo-form-row__error">
-              {{ issueMap['s3.region'] }}
-            </div>
+          <div
+            class="pigo-quick__card"
+            :class="{ 'pigo-quick__card--on': store.config.behavior.replaceLink }"
+            @click="toggleBehavior('replaceLink', !store.config.behavior.replaceLink)"
+          >
+            <span class="pigo-quick__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13.828 10.172a4 4 0 0 0-5.656 0l-4 4a4 4 0 1 0 5.656 5.656l1.102-1.101"></path>
+                <path d="M10.172 13.828a4 4 0 0 0 5.656 0l4-4a4 4 0 0 0-5.656-5.656l-1.1 1.1"></path>
+              </svg>
+            </span>
+            <span class="pigo-quick__body">
+              <span class="pigo-quick__title">
+                上传后替换文档中的图片链接
+                <pigo-chip :tone="store.config.behavior.replaceLink ? 'success' : 'muted'">
+                  {{ store.config.behavior.replaceLink ? '已启用' : '已关闭' }}
+                </pigo-chip>
+              </span>
+              <span class="pigo-quick__desc">将本地相对路径无缝替换为远程 S3/COS 外链</span>
+            </span>
+            <pigo-switch
+              :model-value="store.config.behavior.replaceLink"
+              label="上传后替换文档中的图片链接"
+              :disabled="store.saving"
+              @update:model-value="value => toggleBehavior('replaceLink', value)"
+            />
           </div>
-        </div>
+        </section>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-bucket">Bucket</label>
-          <div class="pigo-form-row__control">
+        <!-- S3 存储配置 -->
+        <pigo-accordion
+          v-model:open="open.s3"
+          title="S3 存储配置"
+          subtitle="（兼容 AWS S3、腾讯云 COS、阿里云 OSS、MinIO 等）"
+          :summary="storageLabel"
+        >
+          <template #icon>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="8" ry="3"></ellipse>
+              <path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"></path>
+              <path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path>
+            </svg>
+          </template>
+
+          <div class="pigo-settings__hint-box">
+            只保留一个 S3 兼容存储桶。若使用腾讯云 COS，请填写 S3 兼容 Endpoint。
+          </div>
+
+          <div class="pigo-settings__grid pigo-settings__grid--3">
+            <pigo-field
+              class="pigo-settings__col-2"
+              label="Endpoint"
+              for-id="pigo-endpoint"
+              hint="例如腾讯云 COS：https://cos.ap-guangzhou.myqcloud.com"
+              :error="issueMap['s3.endpoint']"
+            >
+              <input
+                id="pigo-endpoint"
+                v-model="store.config.s3.endpoint"
+                class="pigo-input pigo-input--mono"
+                placeholder="https://cos.ap-guangzhou.myqcloud.com"
+              >
+            </pigo-field>
+
+            <pigo-field
+              label="Region"
+              for-id="pigo-region"
+              hint="区域代号，如 ap-guangzhou"
+              :error="issueMap['s3.region']"
+            >
+              <input
+                id="pigo-region"
+                v-model="store.config.s3.region"
+                class="pigo-input pigo-input--mono"
+                placeholder="ap-guangzhou"
+              >
+            </pigo-field>
+          </div>
+
+          <pigo-field
+            label="Bucket 名称"
+            for-id="pigo-bucket"
+            :error="issueMap['s3.bucket']"
+          >
             <input
               id="pigo-bucket"
               v-model="store.config.s3.bucket"
-              class="b3-text-field fn__block"
+              class="pigo-input pigo-input--mono"
               placeholder="picgo-1312673255"
             >
-            <div v-if="issueMap['s3.bucket']" class="pigo-form-row__error">
-              {{ issueMap['s3.bucket'] }}
-            </div>
-          </div>
-        </div>
+          </pigo-field>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-access-key">AccessKeyId</label>
-          <div class="pigo-form-row__control">
-            <input
-              id="pigo-access-key"
-              v-model="store.config.s3.accessKeyId"
-              class="b3-text-field fn__block"
-              autocomplete="off"
-              placeholder="AccessKeyId / 腾讯云 SecretId"
+          <div class="pigo-settings__grid pigo-settings__grid--2">
+            <pigo-field
+              label="AccessKeyId"
+              for-id="pigo-access-key"
+              :error="issueMap['s3.accessKeyId']"
             >
-            <div v-if="issueMap['s3.accessKeyId']" class="pigo-form-row__error">
-              {{ issueMap['s3.accessKeyId'] }}
-            </div>
-          </div>
-        </div>
+              <input
+                id="pigo-access-key"
+                v-model="store.config.s3.accessKeyId"
+                class="pigo-input pigo-input--mono"
+                autocomplete="off"
+                placeholder="AccessKeyId / 腾讯云 SecretId"
+              >
+            </pigo-field>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-secret-key">SecretAccessKey</label>
-          <div class="pigo-form-row__control">
-            <input
-              id="pigo-secret-key"
-              v-model="store.config.s3.secretAccessKey"
-              class="b3-text-field fn__block"
-              :type="showSecrets ? 'text' : 'password'"
-              autocomplete="off"
-              placeholder="SecretAccessKey / 腾讯云 SecretKey"
+            <pigo-field
+              label="SecretAccessKey"
+              for-id="pigo-secret-key"
+              :error="issueMap['s3.secretAccessKey']"
             >
-            <label class="pigo-inline-check">
-              <input v-model="showSecrets" type="checkbox">
-              显示密钥
-            </label>
-            <div v-if="issueMap['s3.secretAccessKey']" class="pigo-form-row__error">
-              {{ issueMap['s3.secretAccessKey'] }}
-            </div>
+              <template #label-extra>
+                <label class="pigo-check pigo-check--sm">
+                  <input v-model="showSecrets" type="checkbox">
+                  显示密钥
+                </label>
+              </template>
+              <input
+                id="pigo-secret-key"
+                v-model="store.config.s3.secretAccessKey"
+                class="pigo-input pigo-input--mono"
+                :type="showSecrets ? 'text' : 'password'"
+                autocomplete="off"
+                placeholder="SecretAccessKey / 腾讯云 SecretKey"
+              >
+            </pigo-field>
           </div>
-        </div>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-upload-path">上传路径模板</label>
-          <div class="pigo-form-row__control">
+          <pigo-field
+            label="上传路径模板"
+            for-id="pigo-upload-path"
+            :error="issueMap['s3.uploadPath']"
+          >
             <input
               id="pigo-upload-path"
               v-model="store.config.s3.uploadPath"
-              class="b3-text-field fn__block"
+              class="pigo-input pigo-input--mono"
               placeholder="siyuan/{year}/{month}/{md5}.{ext}"
             >
-            <div class="pigo-form-row__hint">
-              支持变量：{year}、{month}、{day}、{timestamp}、{md5}、{sha256}、{ext}、{filename}、{fullName}
-            </div>
-            <div v-if="issueMap['s3.uploadPath']" class="pigo-form-row__error">
-              {{ issueMap['s3.uploadPath'] }}
-            </div>
-          </div>
-        </div>
+            <p class="pigo-settings__vars">
+              支持变量:
+              <code v-for="variable in KEY_VARIABLES" :key="variable">{{ variable }}</code>
+            </p>
+          </pigo-field>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-custom-url">CustomUrl</label>
-          <div class="pigo-form-row__control">
+          <pigo-field
+            label="CustomUrl (自定义访问域名)"
+            for-id="pigo-custom-url"
+            hint="用于生成图片公网地址，也用于反推 S3 key。留空时按 Endpoint/Bucket 推导。"
+            :error="issueMap['s3.customUrl']"
+          >
             <input
               id="pigo-custom-url"
               v-model="store.config.s3.customUrl"
-              class="b3-text-field fn__block"
+              class="pigo-input pigo-input--mono"
               placeholder="https://picgo-1312673255.cos.ap-guangzhou.myqcloud.com"
             >
-            <div class="pigo-form-row__hint">
-              用于生成图片公网地址，也用于反推 S3 key。留空时按 Endpoint/Bucket 推导。
-            </div>
-            <div v-if="issueMap['s3.customUrl']" class="pigo-form-row__error">
-              {{ issueMap['s3.customUrl'] }}
-            </div>
-          </div>
-        </div>
+          </pigo-field>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-extra-prefixes">额外 URL 前缀</label>
-          <div class="pigo-form-row__control">
+          <pigo-field
+            label="额外 URL 前缀 (历史域名)"
+            for-id="pigo-extra-prefixes"
+            hint="用于识别旧域名或 CDN 域名下的已上传图片。每行一个。"
+            :error="issueMap['s3.extraUrlPrefixes']"
+          >
             <textarea
               id="pigo-extra-prefixes"
               v-model="extraPrefixesText"
-              class="b3-text-field fn__block"
-              rows="3"
+              class="pigo-textarea pigo-textarea--mono"
+              rows="2"
               placeholder="每行一个，例如旧 CDN 域名"
             ></textarea>
-            <div class="pigo-form-row__hint">
-              用于识别旧域名或 CDN 域名下的已上传图片。每行一个。
-            </div>
-            <div v-if="issueMap['s3.extraUrlPrefixes']" class="pigo-form-row__error">
-              {{ issueMap['s3.extraUrlPrefixes'] }}
-            </div>
-          </div>
-        </div>
+          </pigo-field>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-acl">ACL</label>
-          <div class="pigo-form-row__control">
-            <select id="pigo-acl" v-model="store.config.s3.acl" class="b3-select fn__block">
-              <option v-for="option in ACL_OPTIONS" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
-            <div v-if="issueMap['s3.acl']" class="pigo-form-row__error">
-              {{ issueMap['s3.acl'] }}
-            </div>
-          </div>
-        </div>
+          <div class="pigo-divider"></div>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label">连接选项</label>
-          <div class="pigo-form-row__control pigo-form-row__control--checks">
-            <label class="pigo-inline-check">
+          <div class="pigo-settings__grid pigo-settings__grid--2">
+            <pigo-field label="ACL 访问控制" for-id="pigo-acl" :error="issueMap['s3.acl']">
+              <select id="pigo-acl" v-model="store.config.s3.acl" class="pigo-select">
+                <option v-for="option in ACL_OPTIONS" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </pigo-field>
+
+            <pigo-field
+              label="网络超时（毫秒）"
+              for-id="pigo-timeout"
+              :error="issueMap['s3.timeoutMs']"
+            >
+              <input
+                id="pigo-timeout"
+                v-model.number="store.config.s3.timeoutMs"
+                class="pigo-input pigo-input--mono"
+                type="number"
+                min="5000"
+                max="300000"
+                step="1000"
+              >
+            </pigo-field>
+          </div>
+
+          <div class="pigo-settings__checks">
+            <label class="pigo-check">
               <input v-model="store.config.s3.pathStyleAccess" type="checkbox">
               使用 Path Style
             </label>
-            <label class="pigo-inline-check">
+            <label class="pigo-check pigo-check--accent">
               <input v-model="store.config.s3.useSiyuanProxy" type="checkbox">
-              通过思源内核代理访问 S3
+              通过思源内核代理访问 S3（推荐，避免跨域与网络阻隔）
             </label>
           </div>
-        </div>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-timeout">超时（毫秒）</label>
-          <div class="pigo-form-row__control">
-            <input
-              id="pigo-timeout"
-              v-model.number="store.config.s3.timeoutMs"
-              class="b3-text-field fn__block"
-              type="number"
-              min="5000"
-              max="300000"
-              step="1000"
+          <div class="pigo-divider"></div>
+
+          <div class="pigo-settings__actions">
+            <pigo-button variant="ghost" size="sm" :disabled="store.saving" @click="handleImportLegacy">
+              导入旧 PicGo 配置...
+            </pigo-button>
+            <pigo-button variant="secondary" size="sm" :loading="testing" :disabled="store.saving" @click="handleTestConnection">
+              测试连接
+            </pigo-button>
+          </div>
+
+          <div v-if="testResult" class="pigo-test-result">
+            <div
+              class="pigo-test-result__summary"
+              :class="testResult.ok ? 'pigo-test-result__summary--ok' : 'pigo-test-result__summary--error'"
             >
-            <div v-if="issueMap['s3.timeoutMs']" class="pigo-form-row__error">
-              {{ issueMap['s3.timeoutMs'] }}
+              连接{{ testResult.ok ? '成功' : '失败' }} · 耗时 {{ testResult.latencyMs }}ms
+            </div>
+
+            <ul class="pigo-test-result__steps">
+              <li v-for="step in testResult.steps" :key="step.name" class="pigo-test-result__step">
+                <span class="pigo-test-result__icon">{{ step.ok ? '✅' : '❌' }}</span>
+                <span class="pigo-test-result__name">{{ step.name }}</span>
+                <span class="pigo-test-result__message">{{ step.message }}</span>
+                <span v-if="step.durationMs !== undefined" class="pigo-test-result__duration">{{ step.durationMs }}ms</span>
+              </li>
+            </ul>
+
+            <div v-for="warning in testResult.warnings" :key="warning" class="pigo-test-result__warning">
+              ⚠️ {{ warning }}
+            </div>
+            <div v-for="error in testResult.errors" :key="error" class="pigo-test-result__error">
+              ❌ {{ error }}
             </div>
           </div>
-        </div>
-      </section>
+        </pigo-accordion>
 
-      <section class="pigo-settings__section">
-        <div class="pigo-settings__section-title">
-          行为
-        </div>
+        <!-- 详细行为与上传规则 -->
+        <pigo-accordion
+          v-model:open="open.behavior"
+          title="详细行为与上传规则"
+          :summary="behaviorSummary"
+        >
+          <template #icon>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"></path>
+              <circle cx="16" cy="6" r="2"></circle>
+              <circle cx="8" cy="12" r="2"></circle>
+              <circle cx="14" cy="18" r="2"></circle>
+            </svg>
+          </template>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label">粘贴与链接</label>
-          <div class="pigo-form-row__control pigo-form-row__control--checks">
-            <label class="pigo-inline-check">
-              <input v-model="store.config.behavior.autoUploadOnPaste" type="checkbox">
-              粘贴图片时自动上传
-            </label>
-            <label class="pigo-inline-check">
-              <input v-model="store.config.behavior.replaceLink" type="checkbox">
-              上传后替换文档中的图片链接
-            </label>
-            <label class="pigo-inline-check">
+          <div class="pigo-settings__option">
+            <label class="pigo-check">
               <input v-model="store.config.behavior.allowPicAndText" type="checkbox">
               允许图片和文字混合粘贴时接管
             </label>
-            <div class="pigo-form-row__hint">
+            <p class="pigo-settings__option-hint">
               开启后，混合粘贴会由 Pigo 接管；当前实现只保留图片，混合的文字可能丢失。不确定时请保持关闭。
+            </p>
+          </div>
+
+          <div class="pigo-settings__group">
+            <span class="pigo-settings__group-title">批量扫描与上传选项</span>
+            <div class="pigo-settings__grid pigo-settings__grid--3">
+              <label class="pigo-check-card">
+                <input v-model="store.config.behavior.includeTitleImage" type="checkbox">
+                包含题头图
+              </label>
+              <label class="pigo-check-card">
+                <input v-model="store.config.behavior.includeRemoteImages" type="checkbox">
+                包含网络图片
+              </label>
+              <label class="pigo-check-card">
+                <input v-model="store.config.behavior.skipIfAlreadyS3" type="checkbox">
+                跳过已上传到 S3 的图片
+              </label>
             </div>
           </div>
-        </div>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label">扫描与上传</label>
-          <div class="pigo-form-row__control pigo-form-row__control--checks">
-            <label class="pigo-inline-check">
-              <input v-model="store.config.behavior.includeTitleImage" type="checkbox">
-              包含题头图
-            </label>
-            <label class="pigo-inline-check">
-              <input v-model="store.config.behavior.includeRemoteImages" type="checkbox">
-              包含网络图片
-            </label>
-            <label class="pigo-inline-check">
-              <input v-model="store.config.behavior.skipIfAlreadyS3" type="checkbox">
-              跳过已经上传到 S3 的图片
-            </label>
-          </div>
-        </div>
-
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label" for="pigo-concurrency">并发数</label>
-          <div class="pigo-form-row__control">
-            <input
-              id="pigo-concurrency"
-              v-model.number="store.config.behavior.concurrency"
-              class="b3-text-field fn__block"
-              type="number"
-              min="1"
-              max="10"
-              step="1"
-            >
-            <div class="pigo-form-row__hint">
-              1-10，默认 4。图片多时适当提高，但注意 S3 限流。
+          <div class="pigo-settings__group">
+            <div class="pigo-settings__group-head">
+              <span class="pigo-settings__group-title">上传并发数</span>
+              <span class="pigo-settings__group-value">{{ store.config.behavior.concurrency }}</span>
             </div>
-            <div v-if="issueMap['behavior.concurrency']" class="pigo-form-row__error">
+            <div class="pigo-settings__range-row">
+              <input
+                v-model.number="store.config.behavior.concurrency"
+                class="pigo-range"
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                aria-label="上传并发数"
+              >
+              <input
+                v-model.number="store.config.behavior.concurrency"
+                class="pigo-input pigo-input--mono pigo-settings__range-number"
+                type="number"
+                min="1"
+                max="10"
+                step="1"
+              >
+            </div>
+            <p class="pigo-settings__option-hint">
+              取值范围 1-10，默认 4。图片较多时可适当提高，但请留意云存储限流防刷。
+            </p>
+            <p v-if="issueMap['behavior.concurrency']" class="pigo-field__error">
               {{ issueMap['behavior.concurrency'] }}
+            </p>
+          </div>
+
+          <div class="pigo-divider"></div>
+
+          <label class="pigo-check">
+            <input v-model="store.config.behavior.debug" type="checkbox">
+            输出调试日志 (开启后会同步输出到开发者控制台)
+          </label>
+        </pigo-accordion>
+
+        <!-- 调试与运行日志 -->
+        <pigo-accordion
+          v-model:open="open.logs"
+          title="调试与运行日志"
+          :summary="`共 ${logState.entries.length} 条`"
+        >
+          <template #icon>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" x2="20" y1="19" y2="19"></line>
+            </svg>
+          </template>
+
+          <div class="pigo-logs__toolbar">
+            <span class="pigo-settings__option-hint">保留最近 200 条运行日志（不会记录与泄露密钥）。</span>
+            <div class="pigo-logs__actions">
+              <pigo-button variant="secondary" size="sm" :disabled="logState.entries.length === 0" @click="copyLogs">
+                复制日志
+              </pigo-button>
+              <pigo-button variant="ghost" size="sm" :disabled="logState.entries.length === 0" @click="clearLogs">
+                清空日志
+              </pigo-button>
             </div>
           </div>
-        </div>
 
-        <div class="pigo-form-row">
-          <label class="pigo-form-row__label">调试</label>
-          <div class="pigo-form-row__control pigo-form-row__control--checks">
-            <label class="pigo-inline-check">
-              <input v-model="store.config.behavior.debug" type="checkbox">
-              输出调试日志
-            </label>
+          <div v-if="recentLogs.length === 0" class="pigo-logs__empty">
+            暂无日志。
           </div>
-        </div>
-      </section>
-
-      <div class="pigo-settings__actions">
-        <button class="b3-button b3-button--text" type="button" :disabled="store.saving" @click="handleSave">
-          {{ store.saving ? '保存中…' : '保存配置' }}
-        </button>
-        <button class="b3-button b3-button--outline" type="button" :disabled="store.saving" @click="handleReset">
-          恢复默认
-        </button>
-        <button class="b3-button b3-button--outline" type="button" :disabled="store.saving" @click="handleImportLegacy">
-          导入旧 PicGo 配置
-        </button>
-        <button class="b3-button b3-button--outline" type="button" :disabled="store.saving || testing" @click="handleTestConnection">
-          {{ testing ? '测试中…' : '测试连接' }}
-        </button>
+          <div v-else class="pigo-logs">
+            <div v-for="entry in recentLogs" :key="entry.id" class="pigo-logs__row">
+              <span class="pigo-logs__time">[{{ formatTime(entry.time) }}]</span>
+              <span class="pigo-logs__level" :class="`pigo-logs__level--${entry.level}`">
+                [{{ entry.level.toUpperCase() }}]
+              </span>
+              <span class="pigo-logs__message">
+                {{ entry.message }}
+                <span v-if="entry.detail" class="pigo-logs__detail">{{ entry.detail }}</span>
+              </span>
+            </div>
+          </div>
+        </pigo-accordion>
       </div>
 
-      <div v-if="testResult" class="pigo-test-result">
-        <div
-          class="pigo-test-result__summary"
-          :class="testResult.ok ? 'pigo-test-result__summary--ok' : 'pigo-test-result__summary--error'"
-        >
-          连接{{ testResult.ok ? '成功' : '失败' }} · 耗时 {{ testResult.latencyMs }}ms
+      <footer class="pigo-settings__footer">
+        <span class="pigo-settings__footer-note">
+          配置保存在思源工作空间的 petal 存储中，会随思源同步到其他设备。请确保你的同步空间是可信的。
+        </span>
+        <div class="pigo-settings__footer-actions">
+          <pigo-button variant="outline" :disabled="store.saving" @click="handleReset">
+            恢复默认
+          </pigo-button>
+          <pigo-button variant="primary" :loading="store.saving" @click="handleSave">
+            保存配置
+          </pigo-button>
         </div>
-
-        <ul class="pigo-test-result__steps">
-          <li v-for="step in testResult.steps" :key="step.name" class="pigo-test-result__step">
-            <span class="pigo-test-result__icon">{{ step.ok ? '✅' : '❌' }}</span>
-            <span class="pigo-test-result__name">{{ step.name }}</span>
-            <span class="pigo-test-result__message">{{ step.message }}</span>
-            <span v-if="step.durationMs !== undefined" class="pigo-test-result__duration">{{ step.durationMs }}ms</span>
-          </li>
-        </ul>
-
-        <div v-for="warning in testResult.warnings" :key="warning" class="pigo-test-result__warning">
-          ⚠️ {{ warning }}
-        </div>
-        <div v-for="error in testResult.errors" :key="error" class="pigo-test-result__error">
-          ❌ {{ error }}
-        </div>
-      </div>
-
-      <section class="pigo-settings__section">
-        <div class="pigo-settings__section-title">
-          调试日志
-        </div>
-        <div class="pigo-settings__section-desc">
-          保留最近 200 条运行日志，不会记录密钥。开启“输出调试日志”后会同时输出到控制台。
-        </div>
-        <div class="pigo-settings__logs-actions">
-          <button class="b3-button b3-button--outline" type="button" :disabled="logState.entries.length === 0" @click="copyLogs">
-            复制日志
-          </button>
-          <button class="b3-button b3-button--text" type="button" :disabled="logState.entries.length === 0" @click="clearLogs">
-            清空日志
-          </button>
-          <span class="pigo-settings__hint">共 {{ logState.entries.length }} 条</span>
-        </div>
-        <pre v-if="logState.entries.length > 0" class="pigo-settings__logs">{{ logsText }}</pre>
-        <div v-else class="pigo-settings__hint">
-          暂无日志。
-        </div>
-      </section>
-
-      <div class="pigo-settings__footer">
-        配置保存在思源工作空间的 petal 存储中，会随思源同步到其他设备。请确认你的同步空间是可信的。
-      </div>
+      </footer>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
 import { ACL_OPTIONS, validateConfig, type ValidationIssue } from '@/core/config'
 import { toUserMessage } from '@/core/errors'
@@ -370,23 +447,61 @@ import {
   ensureConfigLoaded,
   readLegacyPicgoS3Config,
   resetPigoConfig,
+  saveBehaviorPatch,
   savePigoConfig,
   usePigoConfigStore,
 } from '@/core/configStore'
+import { describeStorage } from '@/core/s3/describe'
 import { testS3Connection, type TestConnectionResult } from '@/core/s3/client'
+import { pushToast } from '@/core/toastStore'
+import PigoAccordion from '@/components/ui/PigoAccordion.vue'
+import PigoButton from '@/components/ui/PigoButton.vue'
+import PigoChip from '@/components/ui/PigoChip.vue'
+import PigoField from '@/components/ui/PigoField.vue'
+import PigoSwitch from '@/components/ui/PigoSwitch.vue'
 
 const props = defineProps<{
   plugin: Plugin
 }>()
 
+const KEY_VARIABLES = [
+  '{year}',
+  '{month}',
+  '{day}',
+  '{timestamp}',
+  '{timestampMS}',
+  '{md5}',
+  '{sha256}',
+  '{ext}',
+  '{filename}',
+  '{fullName}',
+]
+
 const store = usePigoConfigStore()
 const showSecrets = ref(false)
 const issues = ref<ValidationIssue[]>([])
-const notice = ref<{ type: 'success' | 'error', text: string } | null>(null)
 const testing = ref(false)
 const testResult = ref<TestConnectionResult | null>(null)
 
-const logsText = computed(() => formatLogs([...getRecentLogs()].reverse()))
+const open = reactive({
+  s3: true,
+  behavior: false,
+  logs: false,
+})
+
+let lastConfigError = ''
+
+const storageLabel = computed(() => describeStorage(store.config.s3).label)
+
+const behaviorSummary = computed(() => {
+  const concurrency = store.config.behavior.concurrency
+  const filterRemote = store.config.behavior.includeRemoteImages ? '否' : '是'
+  return `并发: ${concurrency} | 过滤网络图: ${filterRemote}`
+})
+
+const recentLogs = computed(() => [...getRecentLogs()].reverse())
+
+const logsText = computed(() => formatLogs(recentLogs.value))
 
 const issueMap = computed<Record<string, string>>(() => {
   return Object.fromEntries(issues.value.map((issue) => [issue.field, issue.message]))
@@ -406,34 +521,54 @@ onMounted(async () => {
   await ensureConfigLoaded(props.plugin)
 })
 
-async function handleSave() {
-  notice.value = null
+watch(
+  () => store.error,
+  (message) => {
+    if (!message || message === lastConfigError) {
+      return
+    }
+    lastConfigError = message
+    pushToast('error', message, 6000)
+  }
+)
+
+async function toggleBehavior(
+  key: 'autoUploadOnPaste' | 'replaceLink',
+  value: boolean
+): Promise<void> {
+  store.config.behavior[key] = value
+  const result = await saveBehaviorPatch(props.plugin, { [key]: value })
+  if (!result.ok) {
+    pushToast('error', `开关保存失败：${result.error || '未知错误'}`)
+  }
+}
+
+async function handleSave(): Promise<void> {
   testResult.value = null
   const result = await savePigoConfig(props.plugin)
   issues.value = result.issues
   if (result.ok) {
-    notice.value = { type: 'success', text: '配置已保存。' }
+    pushToast('success', '配置已保存。')
   }
   else {
-    notice.value = { type: 'error', text: '配置未保存，请检查表单错误。' }
+    pushToast('error', '配置未保存，请检查表单错误。')
   }
 }
 
-function handleReset() {
+function handleReset(): void {
   if (!window.confirm('确定恢复默认配置吗？当前填写的内容会被清空。')) {
     return
   }
   resetPigoConfig()
   issues.value = []
   testResult.value = null
-  notice.value = { type: 'success', text: '已恢复默认值，请填写 S3 信息后保存。' }
+  pushToast('success', '已恢复默认值，请填写 S3 信息后保存。')
 }
 
-async function handleImportLegacy() {
-  notice.value = null
+async function handleImportLegacy(): Promise<void> {
   const imported = await readLegacyPicgoS3Config()
   if (!imported) {
-    notice.value = { type: 'error', text: '未找到旧 PicGo 配置，或读取失败。' }
+    pushToast('error', '未找到旧 PicGo 配置，或读取失败。')
     return
   }
 
@@ -445,33 +580,29 @@ async function handleImportLegacy() {
   logInfo(`已导入旧 PicGo 配置：${imported.source}`)
   issues.value = validateConfig(store.config)
   testResult.value = null
-  notice.value = {
-    type: 'success',
-    text: [
-      `已从旧配置（${imported.source}）导入 S3 设置，请检查后保存。`,
-      ...imported.warnings,
-    ].join(' '),
-  }
+  pushToast('success', [
+    `已从旧配置（${imported.source}）导入 S3 设置，请检查后保存。`,
+    ...imported.warnings,
+  ].join(' '), 6000)
 }
 
-async function copyLogs() {
+async function copyLogs(): Promise<void> {
   try {
     await navigator.clipboard.writeText(logsText.value)
-    notice.value = { type: 'success', text: '日志已复制。' }
+    pushToast('success', '日志已复制。')
   }
   catch {
-    notice.value = { type: 'error', text: '复制失败，请手动选择日志内容。' }
+    pushToast('error', '复制失败，请手动选择日志内容。')
   }
 }
 
-async function handleTestConnection() {
-  notice.value = null
+async function handleTestConnection(): Promise<void> {
   testResult.value = null
 
   const validationIssues = validateConfig(store.config)
   issues.value = validationIssues
   if (validationIssues.length > 0) {
-    notice.value = { type: 'error', text: '请先修正表单错误，再进行连接测试。' }
+    pushToast('error', '请先修正表单错误，再进行连接测试。')
     return
   }
 
@@ -480,11 +611,11 @@ async function handleTestConnection() {
     testResult.value = await testS3Connection(store.config.s3)
     if (testResult.value.ok) {
       logInfo('S3 连接测试通过', `耗时 ${testResult.value.latencyMs}ms`)
-      notice.value = { type: 'success', text: 'S3 连接测试通过。' }
+      pushToast('success', 'S3 连接测试通过。')
     }
     else {
       logError('S3 连接测试失败', testResult.value.errors.join('；'))
-      notice.value = { type: 'error', text: 'S3 连接测试失败，请查看下方步骤。' }
+      pushToast('error', 'S3 连接测试失败，请查看下方步骤。')
     }
   }
   catch (error) {
@@ -497,178 +628,358 @@ async function handleTestConnection() {
       errors: [message],
       latencyMs: 0,
     }
-    notice.value = { type: 'error', text: `连接测试失败：${message}` }
+    pushToast('error', `连接测试失败：${message}`)
   }
   finally {
     testing.value = false
   }
 }
+
+function formatTime(time: number): string {
+  return new Date(time).toLocaleString()
+}
 </script>
 
 <style scoped>
 .pigo-settings {
-  padding: 16px 18px 28px;
-  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
   box-sizing: border-box;
-  color: var(--b3-theme-on-background, #dfe0e1);
+}
+
+.pigo-settings__scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 20px;
 }
 
 .pigo-settings__state {
-  padding: 24px 0;
-  color: var(--b3-theme-on-surface-light, #999);
+  padding: 24px 18px;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-xs);
 }
 
-.pigo-settings__alert {
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1.6;
-}
+/* ---------- 高频开关 ---------- */
 
-.pigo-settings__alert--success {
-  color: var(--b3-theme-primary, #3573f0);
-  background: var(--b3-theme-primary-lightest, rgba(53, 115, 240, 0.12));
-}
-
-.pigo-settings__alert--error {
-  color: var(--b3-theme-error, #d23f31);
-  background: var(--b3-theme-error-lighter, rgba(210, 63, 49, 0.12));
-}
-
-.pigo-settings__section {
-  margin-bottom: 20px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
-}
-
-.pigo-settings__section-title {
-  margin-bottom: 4px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.pigo-settings__section-desc {
-  margin-bottom: 14px;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.pigo-form-row {
+.pigo-quick {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.pigo-form-row__label {
-  padding-top: 6px;
-  color: var(--b3-theme-on-surface, #c9c9c9);
-  font-size: 13px;
+.pigo-quick__card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-lg);
+  background: var(--pigo-card);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.pigo-form-row__control {
+.pigo-quick__card:hover {
+  border-color: var(--pigo-border-strong);
+}
+
+.pigo-quick__card--on {
+  border-color: rgba(249, 115, 22, 0.28);
+}
+
+.pigo-quick__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  border-radius: var(--pigo-radius-md);
+  color: var(--pigo-accent);
+  background: var(--pigo-accent-soft);
+}
+
+.pigo-quick__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pigo-quick__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
 
-.pigo-form-row__control--checks {
+.pigo-quick__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: var(--pigo-text);
+  font-size: var(--pigo-fs-xs);
+  font-weight: 500;
+}
+
+.pigo-quick__desc {
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+  line-height: 1.5;
+}
+
+.pigo-quick__card :deep(.pigo-switch) {
+  margin-top: 6px;
+}
+
+/* ---------- 表单布局 ---------- */
+
+.pigo-settings__grid {
+  display: grid;
+  gap: 12px;
+}
+
+.pigo-settings__grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pigo-settings__grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pigo-settings__col-2 {
+  min-width: 0;
+}
+
+.pigo-settings__grid--3 > .pigo-settings__col-2 {
+  grid-column: span 2;
+}
+
+.pigo-settings :deep(.pigo-accordion__body) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pigo-settings__hint-box {
+  padding: 8px 10px;
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  border-radius: var(--pigo-radius-md);
+  color: var(--pigo-amber);
+  background: rgba(245, 158, 11, 0.08);
+  font-size: var(--pigo-fs-2xs);
+  line-height: 1.6;
+}
+
+.pigo-settings__vars {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
-  padding-top: 5px;
+  gap: 4px;
+  margin: 2px 0 0;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
 }
 
-.pigo-form-row__control--checks .pigo-form-row__hint {
-  flex-basis: 100%;
+.pigo-settings__vars code {
+  padding: 0 3px;
+  border-radius: 3px;
+  color: var(--pigo-text-2);
+  background: var(--pigo-surface-strong);
+  font-family: var(--b3-font-family-code, ui-monospace, monospace);
 }
 
-.pigo-form-row__hint {
-  margin-top: 4px;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 12px;
-  line-height: 1.5;
+.pigo-settings__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
 }
 
-.pigo-form-row__error {
-  margin-top: 4px;
-  color: var(--b3-theme-error, #d23f31);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.pigo-inline-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  user-select: none;
+.pigo-settings__checks .pigo-check--accent {
+  color: var(--pigo-accent);
 }
 
 .pigo-settings__actions {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-top: 4px;
 }
 
-.pigo-settings__logs-actions {
+.pigo-settings__option {
+  padding: 10px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-md);
+  background: var(--pigo-surface);
+}
+
+.pigo-settings__option-hint {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+  line-height: 1.6;
+}
+
+.pigo-settings__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pigo-settings__group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pigo-settings__group-title {
+  color: var(--pigo-text-2);
+  font-size: var(--pigo-fs-2xs);
+  font-weight: 500;
+}
+
+.pigo-settings__group-value {
+  color: var(--pigo-accent);
+  font-family: var(--b3-font-family-code, ui-monospace, monospace);
+  font-size: var(--pigo-fs-xs);
+  font-weight: 600;
+}
+
+.pigo-settings__range-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pigo-settings__range-number {
+  width: 64px;
+  flex: 0 0 64px;
+  text-align: center;
+}
+
+.pigo-range {
+  width: 100%;
+  height: 4px;
+  accent-color: var(--pigo-accent);
+  cursor: pointer;
+}
+
+/* ---------- 日志 ---------- */
+
+.pigo-logs__toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
-.pigo-settings__logs {
-  max-height: 240px;
-  margin: 0;
-  padding: 10px;
+.pigo-logs__toolbar .pigo-settings__option-hint {
+  padding-left: 0;
+}
+
+.pigo-logs__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pigo-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
   overflow: auto;
-  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
-  border-radius: 6px;
-  color: var(--b3-theme-on-surface, #c9c9c9);
-  background: var(--b3-theme-background, #1f1f1f);
-  font-family: var(--b3-font-family-code, monospace);
-  font-size: 11px;
+  padding: 10px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-md);
+  background: var(--pigo-bg);
+  font-family: var(--b3-font-family-code, ui-monospace, monospace);
+  font-size: var(--pigo-fs-2xs);
   line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
-.pigo-settings__footer {
-  margin-top: 16px;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 12px;
-  line-height: 1.6;
+.pigo-logs__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
+
+.pigo-logs__time {
+  flex: 0 0 auto;
+  color: var(--pigo-muted);
+}
+
+.pigo-logs__level {
+  flex: 0 0 auto;
+}
+
+.pigo-logs__level--info {
+  color: #60a5fa;
+}
+
+.pigo-logs__level--warn {
+  color: var(--pigo-amber);
+}
+
+.pigo-logs__level--error {
+  color: var(--pigo-rose);
+}
+
+.pigo-logs__level--debug {
+  color: var(--pigo-muted);
+}
+
+.pigo-logs__message {
+  min-width: 0;
+  color: var(--pigo-text-2);
+  overflow-wrap: anywhere;
+}
+
+.pigo-logs__detail {
+  display: block;
+  color: var(--pigo-muted);
+  white-space: pre-wrap;
+}
+
+.pigo-logs__empty {
+  padding: 12px;
+  border: 1px dashed var(--pigo-border);
+  border-radius: var(--pigo-radius-md);
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+  text-align: center;
+}
+
+/* ---------- 测试结果 ---------- */
 
 .pigo-test-result {
-  margin-top: 14px;
   padding: 10px 12px;
-  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.08));
-  font-size: 12px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-md);
+  background: var(--pigo-surface);
+  font-size: var(--pigo-fs-2xs);
 }
 
 .pigo-test-result__summary {
   margin-bottom: 8px;
-  font-size: 13px;
+  font-size: var(--pigo-fs-xs);
   font-weight: 600;
 }
 
 .pigo-test-result__summary--ok {
-  color: var(--b3-theme-success, #67c23a);
+  color: var(--pigo-emerald);
 }
 
 .pigo-test-result__summary--error {
-  color: var(--b3-theme-error, #d23f31);
+  color: var(--pigo-rose);
 }
 
 .pigo-test-result__steps {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   padding: 0;
   list-style: none;
 }
@@ -678,7 +989,7 @@ async function handleTestConnection() {
   align-items: baseline;
   gap: 6px;
   padding: 3px 0;
-  border-bottom: 1px dashed var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px dashed var(--pigo-border);
 }
 
 .pigo-test-result__step:last-child {
@@ -686,43 +997,84 @@ async function handleTestConnection() {
 }
 
 .pigo-test-result__name {
-  flex: 0 0 100px;
-  color: var(--b3-theme-on-background, #dfe0e1);
+  flex: 0 0 90px;
+  color: var(--pigo-text);
 }
 
 .pigo-test-result__message {
   flex: 1 1 auto;
   min-width: 0;
+  color: var(--pigo-muted);
   overflow-wrap: anywhere;
-  color: var(--b3-theme-on-surface-light, #999);
 }
 
 .pigo-test-result__duration {
   flex: 0 0 auto;
-  color: var(--b3-theme-on-surface-light, #999);
+  color: var(--pigo-muted);
 }
 
 .pigo-test-result__warning {
   margin-top: 4px;
-  color: var(--b3-theme-warning, #e6a23c);
+  color: var(--pigo-amber);
   line-height: 1.6;
 }
 
 .pigo-test-result__error {
   margin-top: 4px;
-  color: var(--b3-theme-error, #d23f31);
+  color: var(--pigo-rose);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 640px) {
-  .pigo-form-row {
-    grid-template-columns: 1fr;
-    gap: 4px;
+/* ---------- 页脚 ---------- */
+
+.pigo-settings__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--pigo-border);
+  background: var(--pigo-panel);
+}
+
+.pigo-settings__footer-note {
+  flex: 1 1 320px;
+  min-width: 0;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+  line-height: 1.5;
+}
+
+.pigo-settings__footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 固定最小宽度：保存按钮出现 loading 圈时不改变宽度，避免页脚文字重排闪烁 */
+.pigo-settings__footer-actions :deep(.pigo-btn) {
+  min-width: 96px;
+  justify-content: center;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .pigo-quick,
+  .pigo-settings__grid--2,
+  .pigo-settings__grid--3 {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .pigo-form-row__label {
-    padding-top: 0;
+  .pigo-settings__grid--3 > .pigo-settings__col-2 {
+    grid-column: span 1;
+  }
+
+  .pigo-settings__scroll {
+    padding: 12px;
   }
 }
 </style>

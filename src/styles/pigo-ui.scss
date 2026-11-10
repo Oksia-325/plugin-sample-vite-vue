@@ -242,6 +242,125 @@
     transform: translateY(-1px);
   }
 
+  /* ---------- 表单零件（F1 起使用） ---------- */
+
+  .pigo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .pigo-field__label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--pigo-text-2);
+    font-size: var(--pigo-fs-2xs);
+    font-weight: 500;
+  }
+
+  .pigo-field__hint {
+    margin: 0;
+    color: var(--pigo-muted);
+    font-size: var(--pigo-fs-2xs);
+    line-height: 1.5;
+  }
+
+  .pigo-field__error {
+    margin: 0;
+    color: var(--pigo-rose);
+    font-size: var(--pigo-fs-2xs);
+    line-height: 1.5;
+  }
+
+  .pigo-input,
+  .pigo-select,
+  .pigo-textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--pigo-border-strong);
+    border-radius: var(--pigo-radius-md);
+    color: var(--pigo-text);
+    background: var(--pigo-bg);
+    font-family: inherit;
+    font-size: var(--pigo-fs-xs);
+    line-height: 1.6;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .pigo-input--mono,
+  .pigo-textarea--mono {
+    font-family: var(--b3-font-family-code, ui-monospace, monospace);
+    font-size: var(--pigo-fs-2xs);
+  }
+
+  .pigo-textarea {
+    min-height: 56px;
+    resize: vertical;
+  }
+
+  .pigo-input:focus,
+  .pigo-select:focus,
+  .pigo-textarea:focus {
+    border-color: var(--pigo-accent);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--pigo-accent-soft);
+  }
+
+  .pigo-input::placeholder,
+  .pigo-textarea::placeholder {
+    color: var(--pigo-muted);
+  }
+
+  .pigo-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--pigo-text-2);
+    cursor: pointer;
+    font-size: var(--pigo-fs-xs);
+    line-height: 1.6;
+    user-select: none;
+  }
+
+  .pigo-check input[type='checkbox'] {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 13px;
+    margin: 0;
+    accent-color: var(--pigo-accent);
+    cursor: pointer;
+  }
+
+  .pigo-check--sm {
+    font-size: var(--pigo-fs-2xs);
+  }
+
+  .pigo-check-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--pigo-border);
+    border-radius: var(--pigo-radius-md);
+    background: var(--pigo-surface);
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+
+  .pigo-check-card:hover {
+    border-color: var(--pigo-border-strong);
+  }
+
+  .pigo-divider {
+    height: 1px;
+    margin: 2px 0;
+    background: var(--pigo-border);
+  }
+
   @keyframes pigo-spin {
     to {
       transform: rotate(360deg);
