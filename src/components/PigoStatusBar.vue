@@ -9,6 +9,9 @@
       当前模式: {{ modeLabel }}
     </span>
     <span class="pigo-status-bar-row__spacer"></span>
+    <span v-if="uiState.cleanupCount !== null" class="pigo-status-bar-row__cleanup">
+      待清理: <b>{{ uiState.cleanupCount }}</b> 项
+    </span>
     <span class="pigo-status-bar-row__version">v{{ version }}</span>
   </footer>
 </template>
@@ -96,6 +99,17 @@ function fallbackMode(tab: string): string {
 
 .pigo-status-bar-row__spacer {
   flex: 1 1 auto;
+}
+
+.pigo-status-bar-row__cleanup {
+  color: var(--pigo-amber);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pigo-status-bar-row__cleanup b {
+  color: var(--pigo-amber);
+  font-weight: 600;
 }
 
 .pigo-status-bar-row__version {

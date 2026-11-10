@@ -8,7 +8,14 @@ import { createS3Client } from '../s3/client'
 import type { DeleteObjectsResult } from '../s3/client-core'
 import type { S3ObjectInfo } from '../s3/xml'
 import { getStaticPrefix } from '../upload/keyTemplate'
-import { buildSyncReport, type SyncEvidence, type SyncReport } from './report'
+import {
+  buildSyncReport,
+  isSafeCleanupKey,
+  type CleanupPlan,
+  type SyncEvidence,
+  type SyncReport,
+} from './report'
+import { runWithConcurrency } from '../upload/concurrency'
 
 export type SyncPhase = 'scanning' | 'listing' | 'comparing' | 'protecting' | 'deleting' | 'done'
 
@@ -116,6 +123,7 @@ export async function buildSyncSnapshot(
     uniqueRefs: scan.uniqueRefs,
     objects,
     prefix,
+    docCount: scan.docs.length,
     extraEvidence,
     basenameRefs,
   })
@@ -235,4 +243,79 @@ export async function cleanupSyncObjects(
     isCancelled: options.isCancelled,
     onProgress: options.onProgress,
   })
+}
+
+export type CleanupSkipReason = 'missing' | 'modified' | 'unsafe'
+
+export interface CleanupSkippedItem {
+  key: string
+  reason: CleanupSkipReason
+}
+
+export interface CleanupRevalidateResult {
+  keys: string[]
+  skipped: CleanupSkippedItem[]
+}
+
+export interface CleanupRevalidateOptions {
+  isCancelled?: () => boolean
+  onProgress?: (done: number, total: number) => void
+}
+
+/**
+ * 删除前复核：对计划中的每个 key 做 HEAD。
+ *
+ * - 对象不存在：跳过（可能已被其它客户端删除）；
+ * - ETag 与扫描时不一致：跳过（扫描后被覆盖过，不能按旧结论删除）；
+ * - 重新校验前缀与保护目录，防止计划被篡改。
+ */
+export async function revalidateCleanupPlan(
+  config: PigoConfig,
+  plan: CleanupPlan,
+  options: CleanupRevalidateOptions = {}
+): Promise<CleanupRevalidateResult> {
+  const client = createS3Client(config.s3)
+  const skipped: CleanupSkippedItem[] = []
+  const safeKeys: string[] = []
+  let done = 0
+  const total = plan.items.length
+
+  const tasks = plan.items.map((item) => async () => {
+    if (options.isCancelled?.()) {
+      return
+    }
+
+    done += 1
+    options.onProgress?.(done, total)
+
+    if (!isSafeCleanupKey(item.key, plan.prefix)) {
+      skipped.push({ key: item.key, reason: 'unsafe' })
+      return
+    }
+
+    try {
+      const head = await client.headObject(item.key)
+      if (!head.exists) {
+        skipped.push({ key: item.key, reason: 'missing' })
+        return
+      }
+      if (item.etag && head.etag && normalizeEtag(item.etag) !== normalizeEtag(head.etag)) {
+        skipped.push({ key: item.key, reason: 'modified' })
+        return
+      }
+      safeKeys.push(item.key)
+    }
+    catch {
+      // HEAD 失败（权限 / 网络）时宁可不删。
+      skipped.push({ key: item.key, reason: 'modified' })
+    }
+  })
+
+  await runWithConcurrency(tasks, 4, () => options.isCancelled?.() === true)
+
+  return { keys: safeKeys, skipped }
+}
+
+function normalizeEtag(value: string): string {
+  return value.trim().replace(/^"+|"+$/g, '')
 }

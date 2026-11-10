@@ -166,9 +166,8 @@
         </pigo-chip>
       </div>
       <label class="pigo-stats__search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
+          <path d="M974.848 975.872c-24.064 24.064-60.416 24.064-84.48 0L702.976 788.48c-163.328 120.832-387.072 114.688-538.112-24.064-169.472-157.184-181.248-435.2-17.92-604.16s435.2-175.104 604.672-6.144c151.04 151.04 163.328 386.56 36.352 549.888l187.392 187.392c24.064 24.064 24.064 59.904-0.512 84.48zM690.688 274.944c-120.832-168.96-368.64-168.96-489.984 0-78.848 102.912-78.848 253.952 0 356.352 120.832 168.96 368.64 168.96 489.984 0 78.848-108.544 78.848-253.952 0-356.352z"></path>
         </svg>
         <input
           v-model="searchText"
@@ -1292,7 +1291,7 @@ function sleep(ms: number): Promise<void> {
   background: var(--pigo-purple-soft);
 }
 
-.pigo-stats__export {
+.pigo-stats__toolbar-row .pigo-stats__export {
   width: 28px;
   padding: 2px 0 0;
 }
@@ -1523,10 +1522,10 @@ function sleep(ms: number): Promise<void> {
   pointer-events: none;
 }
 
-.pigo-stats__search-input {
+.pigo-stats__search .pigo-stats__search-input {
   height: 26px;
-  /* 补偿字体视觉基线，输入文字下移 1px */
-  padding: 2px 9px 0 26px;
+  /* 补偿字体视觉基线，输入文字下移 1px；左侧留给搜索图标 */
+  padding: 2px 9px 0 28px;
   font-size: var(--pigo-fs-xs);
 }
 

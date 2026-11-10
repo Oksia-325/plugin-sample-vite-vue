@@ -1219,3 +1219,94 @@
   - 上传页 `kbd` 快捷键：`padding: 2px 4px 0`。
 - 验证：`tests` 86 passed、`tsc` 通过、`vite build` 成功（工作区 14:17 更新）。
 - 备注：同步页仍是旧结构，F4 重构时统一套用以上规范。
+
+---
+
+## 2026-11-10 Phase F3 完成并提交
+
+- 提交：`d2cb18d feat(pigo): 重构统计页展示与健康状态（F3）`
+- 用户验收通过：统计页、图片大小角标、全局垂直居中均正常。
+
+---
+
+## 2026-11-10 Phase F4 — 同步页重构与清理确认弹窗（实现完成，待用户验收）
+
+- 阶段：前端重构 F4（S3 双向同步 + 清理）
+- 目标：分类卡片 + 双列列表 + 危险清理弹窗（勾选确认，无「预计释放空间」）。
+
+### 后端最小支撑
+
+1. `SyncSummary.docCount / totalObjects`：
+   - `buildSyncReport` 新增 `docCount` 选项，`totalObjects = objects.length`；
+   - 服务层传入 `scan.docs.length`。
+2. `buildCleanupPlan(report)`（`src/core/sync/report.ts`）：
+   - 仅「仅 S3 存在 + 前缀内 + 非 `_pigo_test/`」；
+   - 返回 `{ items(含 etag), keys, count, prefix, protectedPrefix: '_pigo_test/*' }`。
+3. `revalidateCleanupPlan(config, plan)`（`src/core/sync/service.ts`）：
+   - 删除前逐 key `HEAD`，并发 4；
+   - 对象不存在 / ETag 变化 / 前缀或保护目录复核失败 → 跳过，不删；
+   - 返回可删除 keys 与跳过原因。
+4. `uiStore.cleanupCount` + 页脚 `待清理: N 项`。
+
+### 新组件
+
+- `src/components/ui/PigoModal.vue`：遮罩 + 焦点陷阱 + Esc 关闭（不 Teleport，保证设计 token 生效）。
+- `src/components/sync/CleanupModal.vue`：
+  - 标题、红色不可逆提示、前缀、保护目录、待清理数量（**无预计释放空间**）；
+  - 勾选确认后才可点「确认彻底删除 (N)」；
+  - 删除中显示复核/删除进度文字。
+
+### 同步页重构 `src/components/sync/SyncTab.vue`
+
+- 操作栏：重新扫描、取消、CSV 图标导出、红色「清除 S3 多余图片 (N)」；
+- 固定安全说明条；
+- 元信息行：扫描时间 / 耗时 / 笔记数 / S3 对象数 / 上传前缀 + S3 健康点；
+- 5 张 KPI：双向匹配 / 仅 S3 / 仅思源 / 未上传 / 前缀外；
+- 5 个筛选 chip + 搜索（key / URL / 文档）；
+- 双列卡片：S3/来源徽章、扩展名、key、URL、`大小 · 修改时间`、状态（未被笔记引用 / N 篇文档 / 云端对象不存在 / 待上传 / 前缀外安全保留）、复制 key / 复制链接；
+- 加载更多 300；
+- 清理流程：弹窗勾选 → HEAD 复核 → 批量删除 → 删除后静默重扫；
+- 所有提示统一走底部 toast，不再插入会推挤布局的提示块。
+
+### 验证
+
+- `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ **87 passed**（新增 cleanupPlan / summary 字段用例）
+- `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+- `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 14:25 更新）
+
+### 待用户验收
+
+1. 同步页 5 个数字是否合理（双向匹配 + 仅S3 + 仅思源 + 未上传 + 前缀外）；
+2. 5 个筛选与搜索；
+3. 行内复制 key / 链接；
+4. 红色按钮弹窗：数量、前缀、`_pigo_test/*`，**不应出现预计释放空间**；
+5. 不勾选时确认按钮禁用；
+6. 删除 1–2 个测试对象后数量下降并自动重扫；
+7. 前缀为空时的红色强警告；
+8. 亮色 / 暗色主题与窄屏。
+
+- 下一步：用户验收通过后提交 `feat(pigo): 重构同步页与清理确认弹窗（F4）`，然后进入 F5。
+
+---
+
+## 2026-11-10 Phase F4 修订 1 — 新图标、查看图片、搜索框修复
+
+- 阶段：前端重构 F4（用户第一轮测试反馈）
+- 图标全部改为 `asset/` 中用户准备的版本（内联 path，`viewBox 0 0 1024 1024`，`fill: currentColor`）：
+  - 同步页「重新扫描」→ `扫描.svg`；「清除 S3 多余图片」→ `清理.svg`；
+  - 设置页「粘贴图片时自动上传」→ `上传.svg`；「上传后替换链接」→ `链接.svg`；
+  - 「S3 存储配置」→ `S3存储.svg`；「详细行为与上传规则」更名为 **「插件配置」** + `设置.svg`；
+  - 「调试与运行日志」→ `调试.svg`；
+  - 统计页 / 同步页搜索框 → `搜索.svg`。
+- 同步页卡片：
+  - 移除「复制 key」；
+  - 新增「查看图片」，复用 `PigoImagePreview` 全屏预览；
+  - 双向匹配 / 仅 S3 / 前缀外使用公开 URL，未上传使用本地资源/网络原图；
+  - 「仅思源存在」对象已丢失，不提供预览；
+  - 关闭面板时自动关闭预览。
+- 搜索框重叠根因：
+  - `index.scss` 在入口文件末尾才 import，导致全局 `.siyuan-plugin-pigo-app .pigo-input` 在组件 scoped 规则之后输出，同权重覆盖了搜索框的 `padding-left`；
+  - 修复：把 `import '@/index.scss'` 移到入口第一行，保证全局基础样式先于组件样式；
+  - 同时把搜索输入规则提升为 `.pigo-xxx__search .pigo-xxx__search-input`，左侧留白改为 28px。
+  - 该调整同时修正了修复按钮/卡片操作按钮等被全局按钮样式覆盖的隐患。
+- 验证：`tests` 87 passed、`tsc` 通过、`vite build` 成功（工作区 14:50）。

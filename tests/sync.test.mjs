@@ -4,6 +4,7 @@ import md5 from '../src/core/upload/vendor/md5.ts'
 import { createS3Core } from '../src/core/s3/client-core.ts'
 import { buildDeleteObjectsXml, parseDeleteObjectsErrors } from '../src/core/s3/xml.ts'
 import {
+  buildCleanupPlan,
   buildSyncReport,
   isSafeCleanupKey,
   isTestKey,
@@ -101,6 +102,8 @@ test('buildSyncReport classifies matched, orphan, missing, not uploaded and prot
   assert.equal(report.summary.notUploaded, 2)
   assert.equal(report.summary.outsidePrefix, 1)
   assert.equal(report.summary.ignored, 2)
+  assert.equal(report.summary.totalObjects, 5)
+  assert.equal(report.summary.docCount, 0)
 
   assert.equal(report.matched[0].key, 'siyuan/a.png')
   assert.equal(report.matched[0].refs.length, 2)
@@ -218,4 +221,30 @@ test('deleteObjectsBatched stops when a batch fails', async () => {
     /S3 500/
   )
   assert.equal(calls, 2)
+})
+
+test('buildCleanupPlan only includes safe prefixed orphan objects', () => {
+  const report = buildSyncReport({
+    refs: [],
+    uniqueRefs: [],
+    objects: [
+      { key: 'siyuan/orphan-a.png', size: 10, etag: '"etag-a"' },
+      { key: 'siyuan/orphan-b.png', size: 20 },
+      { key: 'siyuan/_pigo_test/test.png', size: 1 },
+      { key: 'other/keep.png', size: 5 },
+      { key: 'siyuan/folder/', size: 0 },
+    ],
+    prefix: 'siyuan/',
+    docCount: 12,
+  })
+
+  const plan = buildCleanupPlan(report)
+
+  assert.deepEqual(plan.keys, ['siyuan/orphan-a.png', 'siyuan/orphan-b.png'])
+  assert.equal(plan.count, 2)
+  assert.equal(plan.prefix, 'siyuan/')
+  assert.equal(plan.protectedPrefix, '_pigo_test/*')
+  assert.equal(plan.items[0].etag, '"etag-a"')
+  assert.equal(report.summary.docCount, 12)
+  assert.equal(report.summary.totalObjects, 5)
 })

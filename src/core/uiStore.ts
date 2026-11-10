@@ -9,6 +9,8 @@ interface PigoUiState {
   pinned: boolean
   /** 页脚展示的“当前模式”，由各 Tab 主动设置。 */
   modeLabel: string
+  /** 同步页的待清理数量；null 表示还没有同步报告。 */
+  cleanupCount: number | null
 }
 
 const PINNED_STORAGE_KEY = 'siyuan-plugin-pigo:pinned'
@@ -23,6 +25,7 @@ export const uiState = reactive<PigoUiState>({
   activeTab: 'upload',
   pinned: readPinned(),
   modeLabel: '',
+  cleanupCount: null,
 })
 
 export function showPigoPopup(tab: PigoTabId = 'upload'): void {

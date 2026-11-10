@@ -1,3 +1,4 @@
+import '@/index.scss'
 import { confirm, getFrontend, Plugin } from 'siyuan'
 import PluginInfoString from '@/../plugin.json'
 import { destroyPopup, initPopup } from '@/main'
@@ -13,7 +14,6 @@ import { uploadSingleRef } from '@/core/upload/pipeline'
 import { disposeStatusBar, initStatusBar, updateStatusBar } from '@/core/statusBar'
 import type { ImageRef } from '@/core/scan/types'
 import { showPigoPopup, togglePigoPopup } from '@/core/uiStore'
-import '@/index.scss'
 
 let PluginInfo = {
   version: '',

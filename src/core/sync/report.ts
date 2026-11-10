@@ -28,6 +28,23 @@ export interface SyncSummary {
   notUploaded: number
   outsidePrefix: number
   ignored: number
+  /** 参与对比的文档总数。 */
+  docCount: number
+  /** 存储桶中读取到的对象总数（含前缀外 / 测试对象 / 目录占位）。 */
+  totalObjects: number
+}
+
+export interface CleanupItem {
+  key: string
+  etag?: string
+}
+
+export interface CleanupPlan {
+  items: CleanupItem[]
+  keys: string[]
+  count: number
+  prefix: string
+  protectedPrefix: string
 }
 
 export interface SyncReport {
@@ -49,6 +66,8 @@ export interface BuildSyncReportOptions {
   uniqueRefs: ImageRef[]
   objects: S3ObjectInfo[]
   prefix: string
+  /** 参与对比的文档总数，仅用于展示。 */
+  docCount?: number
   /** fileMap / 原始链接等额外证据，避免把仍在使用的对象误判为孤儿。 */
   extraEvidence?: SyncEvidence[]
   /** 本地资源文件名 -> 引用，用于保护被旧笔记以本地链接使用的 S3 对象。 */
@@ -164,6 +183,8 @@ export function buildSyncReport(options: BuildSyncReportOptions): SyncReport {
       notUploaded: notUploaded.length,
       outsidePrefix: outsidePrefix.length,
       ignored: testObjects.length + folderMarkers.length,
+      docCount: Math.max(0, options.docCount ?? 0),
+      totalObjects: options.objects.length,
     },
     scannedAt: options.scannedAt ?? Date.now(),
   }
@@ -192,6 +213,31 @@ function addEvidence(
     seen.add(ref.id)
     entry.refs.push(ref)
   })
+}
+
+/**
+ * 清理计划：只包含「仅 S3 存在 + 前缀内 + 非保护目录」的对象。
+ * 删除前还会再做一次 HEAD 复核（见 service.revalidateCleanupPlan）。
+ */
+export function buildCleanupPlan(report: SyncReport): CleanupPlan {
+  const seen = new Set<string>()
+  const items: CleanupItem[] = []
+
+  report.cleanupCandidates.forEach((object) => {
+    if (!isSafeCleanupKey(object.key, report.prefix) || seen.has(object.key)) {
+      return
+    }
+    seen.add(object.key)
+    items.push({ key: object.key, etag: object.etag })
+  })
+
+  return {
+    items,
+    keys: items.map((item) => item.key),
+    count: items.length,
+    prefix: report.prefix,
+    protectedPrefix: '_pigo_test/*',
+  }
 }
 
 export function normalizePrefix(prefix: string): string {
