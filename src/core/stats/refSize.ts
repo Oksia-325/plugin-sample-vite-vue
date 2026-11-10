@@ -24,8 +24,8 @@ export async function resolveRefSize(
   }
 
   if (ref.sourceType === 's3' && ref.s3Key) {
-    const entry = findFileMapEntry(fileMap || {}, ref.url)
-    const localPath = entry?.originUrl || ''
+    // fileMap 的 originUrl 通常是本地 assets 路径：优先用它，避免额外 HEAD。
+    const localPath = findS3OriginPath(fileMap, ref.url)
     if (localPath.startsWith('assets/')) {
       const localSize = await getAssetSize(localPath)
       if (localSize !== undefined) {
@@ -61,6 +61,24 @@ export function formatSizeBadge(size: number | undefined): string {
     return `${Math.max(1, Math.round(size / 1024))}K`
   }
   return `${(size / 1024 / 1024).toFixed(1)}M`
+}
+
+function findS3OriginPath(
+  fileMap: Record<string, FileMapEntry> | undefined,
+  s3Url: string
+): string {
+  if (!fileMap) {
+    return ''
+  }
+
+  const direct = findFileMapEntry(fileMap, s3Url)?.originUrl
+  if (direct) {
+    return direct
+  }
+
+  // 图片已经替换成 S3 链接时，fileMap 的 originUrl 是本地路径，需要按上传后的 url 反查。
+  const match = Object.values(fileMap).find((entry) => entry.url === s3Url)
+  return match?.originUrl || ''
 }
 
 async function readRemoteSize(url: string): Promise<number | undefined> {

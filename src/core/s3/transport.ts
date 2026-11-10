@@ -54,7 +54,8 @@ async function fetchViaSiyuanProxy(request: Request, config: S3Config): Promise<
     ? base64ToArrayBuffer(rawBody)
     : new TextEncoder().encode(rawBody).buffer
 
-  const responseHeaders = normalizeProxyHeaders(data.headers || {})
+  // HEAD 响应需要保留 content-length，否则 S3 对象大小会被当成未知。
+  const responseHeaders = normalizeProxyHeaders(data.headers || {}, { keepContentLength: method === 'HEAD' })
   const noBody = method === 'HEAD' || status === 204 || status === 304
 
   return new Response(noBody ? null : body, {
@@ -75,12 +76,18 @@ function createTimeoutSignal(timeoutMs: number): AbortSignal {
   return controller.signal
 }
 
-function normalizeProxyHeaders(headers: Record<string, unknown>): Record<string, string> {
+function normalizeProxyHeaders(
+  headers: Record<string, unknown>,
+  options: { keepContentLength?: boolean } = {}
+): Record<string, string> {
   const normalized: Record<string, string> = {}
 
   Object.entries(headers).forEach(([name, value]) => {
     const lower = name.toLowerCase()
-    if (lower === 'content-length' || lower === 'content-encoding' || lower === 'transfer-encoding') {
+    if (lower === 'content-encoding' || lower === 'transfer-encoding') {
+      return
+    }
+    if (lower === 'content-length' && !options.keepContentLength) {
       return
     }
     if (Array.isArray(value)) {

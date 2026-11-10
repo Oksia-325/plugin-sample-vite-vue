@@ -225,7 +225,7 @@
       </div>
 
       <div v-else class="pigo-upload__grid">
-        <article v-for="ref in uniqueRefs" :key="ref.id" class="pigo-upload__item" tabindex="-1">
+        <article v-for="ref in pagedRefs" :key="ref.id" class="pigo-upload__item" tabindex="-1">
           <div
             class="pigo-upload__thumb"
             role="button"
@@ -320,6 +320,14 @@
           </div>
         </article>
       </div>
+
+      <pigo-pagination
+        v-if="uniqueRefs.length > PAGE_SIZE"
+        :total="uniqueRefs.length"
+        :page="safePage"
+        :page-size="PAGE_SIZE"
+        @update:page="page = $event"
+      />
     </section>
 
     <pigo-image-preview
@@ -364,6 +372,7 @@ import { uiState } from '@/core/uiStore'
 import PigoButton from '@/components/ui/PigoButton.vue'
 import PigoChip from '@/components/ui/PigoChip.vue'
 import PigoImagePreview from '@/components/ui/PigoImagePreview.vue'
+import PigoPagination from '@/components/ui/PigoPagination.vue'
 
 interface QueueItem {
   id: number
@@ -391,6 +400,8 @@ const runningKind = ref('')
 const singleRunningId = ref('')
 const error = ref('')
 const previewErrors = ref(new Set<string>())
+const PAGE_SIZE = 60
+const page = ref(1)
 const progress = ref<PipelineProgress | null>(null)
 const pendingCount = ref(0)
 const fileMap = ref<Record<string, FileMapEntry>>({})
@@ -416,6 +427,12 @@ let queueSequence = 0
 
 const uniqueRefs = computed(() => scanResult.value?.uniqueRefs ?? [])
 const refs = computed(() => scanResult.value?.refs ?? [])
+const totalPages = computed(() => Math.max(1, Math.ceil(uniqueRefs.value.length / PAGE_SIZE)))
+const safePage = computed(() => Math.min(Math.max(1, page.value), totalPages.value))
+const pagedRefs = computed(() => uniqueRefs.value.slice(
+  (safePage.value - 1) * PAGE_SIZE,
+  safePage.value * PAGE_SIZE
+))
 const stats = computed(() => scanResult.value?.stats ?? null)
 
 const docTitle = computed(() => scanResult.value?.doc.title || (currentDocId.value ? '正在读取文档…' : '未选择文档'))
@@ -555,11 +572,18 @@ watch(
   }
 )
 
+watch(pagedRefs, () => {
+  if (uiState.popupVisible && uiState.activeTab === 'upload') {
+    void resolveSizes()
+  }
+})
+
 watch(
   () => currentDocId.value,
   () => {
     clearQueue()
     invalidRefs.clear()
+    page.value = 1
   }
 )
 
@@ -706,8 +730,15 @@ async function loadDocState(docId: string, result: ScanDocResult): Promise<void>
   void resolveSizes()
 }
 
+let sizeResolving = false
+
 async function resolveSizes(): Promise<void> {
-  const targets = uniqueRefs.value.filter((ref) => (
+  if (sizeResolving) {
+    return
+  }
+
+  // 只读取当前页的 60 张，避免大文档一次性发起几百个 HEAD / Range 请求。
+  const targets = pagedRefs.value.filter((ref) => (
     !sizeMap.has(ref.id)
     && ref.sourceType !== 'data'
     && !previewErrors.value.has(ref.id)
@@ -716,6 +747,8 @@ async function resolveSizes(): Promise<void> {
     return
   }
 
+  sizeResolving = true
+  const sizeCountBefore = sizeMap.size
   try {
     const client = createS3Client(store.config.s3)
     await fillRefSizes(
@@ -728,6 +761,19 @@ async function resolveSizes(): Promise<void> {
   catch (error) {
     // 尺寸只是展示信息，失败不影响主流程。
     logWarn('读取图片大小失败', error)
+  }
+  finally {
+    sizeResolving = false
+  }
+
+  // 读取期间切换到新页时，补读新页尚未处理的图片。
+  const hasPending = sizeMap.size > sizeCountBefore && pagedRefs.value.some((ref) => (
+    !sizeMap.has(ref.id)
+    && ref.sourceType !== 'data'
+    && !previewErrors.value.has(ref.id)
+  ))
+  if (hasPending) {
+    void resolveSizes()
   }
 }
 

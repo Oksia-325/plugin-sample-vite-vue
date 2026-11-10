@@ -194,7 +194,7 @@
       </div>
 
       <section v-else class="pigo-stats__grid">
-        <article v-for="ref in visibleRefs" :key="ref.id" class="pigo-stats__item" tabindex="-1">
+        <article v-for="ref in pagedRefs" :key="ref.id" class="pigo-stats__item" tabindex="-1">
           <div class="pigo-stats__item-main">
             <button
               class="pigo-stats__thumb"
@@ -309,11 +309,13 @@
         </article>
       </section>
 
-      <div v-if="filteredRefs.length > visibleLimit" class="pigo-stats__more">
-        <pigo-button variant="outline" size="sm" @click="visibleLimit += 300">
-          加载更多（剩余 {{ filteredRefs.length - visibleLimit }}）
-        </pigo-button>
-      </div>
+      <pigo-pagination
+        v-if="filteredRefs.length > PAGE_SIZE"
+        :total="filteredRefs.length"
+        :page="safePage"
+        :page-size="PAGE_SIZE"
+        @update:page="page = $event"
+      />
     </template>
 
     <pigo-image-preview
@@ -332,6 +334,7 @@ import PigoButton from '@/components/ui/PigoButton.vue'
 import PigoChip from '@/components/ui/PigoChip.vue'
 import PigoHealthDot from '@/components/ui/PigoHealthDot.vue'
 import PigoImagePreview from '@/components/ui/PigoImagePreview.vue'
+import PigoPagination from '@/components/ui/PigoPagination.vue'
 import { getActiveDocId, subscribeActiveDoc } from '@/core/activeDoc'
 import { configState, ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
 import { toUserMessage } from '@/core/errors'
@@ -392,7 +395,8 @@ const running = ref(false)
 const progress = ref<StatsProgress | null>(null)
 const activeFilter = ref<FilterId>('all')
 const searchText = ref('')
-const visibleLimit = ref(300)
+const PAGE_SIZE = 60
+const page = ref(1)
 const singleRunningId = ref('')
 const previewRef = ref<ImageRef | null>(null)
 const previewErrors = ref(new Set<string>())
@@ -545,7 +549,12 @@ const filteredRefs = computed(() => {
   })
 })
 
-const visibleRefs = computed(() => filteredRefs.value.slice(0, visibleLimit.value))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRefs.value.length / PAGE_SIZE)))
+const safePage = computed(() => Math.min(Math.max(1, page.value), totalPages.value))
+const pagedRefs = computed(() => filteredRefs.value.slice(
+  (safePage.value - 1) * PAGE_SIZE,
+  safePage.value * PAGE_SIZE
+))
 
 // 配置保存后让旧快照失效：统计里的 S3 判定依赖 customUrl / 前缀等配置。
 watch(
@@ -556,6 +565,7 @@ watch(
     docSnapshotDocId.value = ''
     activeFilter.value = 'all'
     searchText.value = ''
+    page.value = 1
     void checkHealth(true)
     if (uiState.popupVisible && uiState.activeTab === 'stats') {
       void ensureStatsForCurrentTab()
@@ -605,10 +615,10 @@ watch(
 )
 
 watch([activeFilter, searchText], () => {
-  visibleLimit.value = 300
+  page.value = 1
 })
 
-watch(visibleRefs, () => {
+watch(pagedRefs, () => {
   if (uiState.popupVisible) {
     void resolveVisibleSizes()
   }
@@ -664,7 +674,7 @@ async function switchScope(next: StatsScope): Promise<void> {
   scope.value = next
   activeFilter.value = 'all'
   searchText.value = ''
-  visibleLimit.value = 300
+  page.value = 1
 
   if (next === 'doc') {
     refreshActiveDoc()
@@ -1111,7 +1121,7 @@ async function resolveVisibleSizes(): Promise<void> {
     return
   }
 
-  const targets = visibleRefs.value.filter((ref) => (
+  const targets = pagedRefs.value.filter((ref) => (
     !sizeMap.has(ref.id)
     && ref.sourceType !== 'data'
     && !previewErrors.value.has(ref.id)
@@ -1802,11 +1812,6 @@ function sleep(ms: number): Promise<void> {
   background: var(--pigo-accent-soft);
 }
 
-.pigo-stats__more {
-  display: flex;
-  justify-content: center;
-  padding: 10px 0 2px;
-}
 
 /* ---------- 响应式 ---------- */
 

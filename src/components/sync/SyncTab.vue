@@ -152,7 +152,7 @@
       </div>
 
       <section v-else class="pigo-sync__grid">
-        <article v-for="row in visibleRows" :key="row.id" class="pigo-sync__item" tabindex="-1">
+        <article v-for="row in pagedRows" :key="row.id" class="pigo-sync__item" tabindex="-1">
           <div class="pigo-sync__item-main">
             <div class="pigo-sync__item-info">
               <div class="pigo-sync__badges">
@@ -194,11 +194,13 @@
         </article>
       </section>
 
-      <div v-if="filteredRows.length > visibleLimit" class="pigo-sync__more">
-        <pigo-button variant="outline" size="sm" @click="visibleLimit += 300">
-          加载更多（剩余 {{ filteredRows.length - visibleLimit }}）
-        </pigo-button>
-      </div>
+      <pigo-pagination
+        v-if="filteredRows.length > PAGE_SIZE"
+        :total="filteredRows.length"
+        :page="safePage"
+        :page-size="PAGE_SIZE"
+        @update:page="page = $event"
+      />
     </template>
 
     <pigo-image-preview
@@ -227,6 +229,7 @@ import CleanupModal from '@/components/sync/CleanupModal.vue'
 import PigoButton from '@/components/ui/PigoButton.vue'
 import PigoChip from '@/components/ui/PigoChip.vue'
 import PigoHealthDot from '@/components/ui/PigoHealthDot.vue'
+import PigoPagination from '@/components/ui/PigoPagination.vue'
 import PigoImagePreview from '@/components/ui/PigoImagePreview.vue'
 import { configState, ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
 import { toUserMessage } from '@/core/errors'
@@ -286,7 +289,8 @@ const snapshot = ref<SyncSnapshot | null>(null)
 const running = ref(false)
 const activeCategory = ref<CategoryId>('onlyS3')
 const searchText = ref('')
-const visibleLimit = ref(300)
+const PAGE_SIZE = 60
+const page = ref(1)
 const cleanupOpen = ref(false)
 const cleaning = ref(false)
 const cleanupLoadingText = ref('正在删除…')
@@ -465,10 +469,15 @@ const filteredRows = computed(() => {
   ))
 })
 
-const visibleRows = computed(() => filteredRows.value.slice(0, visibleLimit.value))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / PAGE_SIZE)))
+const safePage = computed(() => Math.min(Math.max(1, page.value), totalPages.value))
+const pagedRows = computed(() => filteredRows.value.slice(
+  (safePage.value - 1) * PAGE_SIZE,
+  safePage.value * PAGE_SIZE
+))
 
 watch([activeCategory, searchText], () => {
-  visibleLimit.value = 300
+  page.value = 1
 })
 
 watch(cleanupPlan, (plan) => {
@@ -556,7 +565,7 @@ async function scan(silent = false): Promise<void> {
     stale.value = false
     activeCategory.value = next.report.summary.onlyS3 > 0 ? 'onlyS3' : 'matched'
     searchText.value = ''
-    visibleLimit.value = 300
+    page.value = 1
 
     if (!silent) {
       if (next.report.summary.onlySiyuan > 0) {
@@ -1279,11 +1288,6 @@ function sourceTone(sourceType: ImageRef['sourceType']): ChipTone {
   color: var(--pigo-muted);
 }
 
-.pigo-sync__more {
-  display: flex;
-  justify-content: center;
-  padding: 10px 0 2px;
-}
 
 /* ---------- 响应式 ---------- */
 
