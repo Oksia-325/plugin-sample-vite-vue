@@ -1,6 +1,7 @@
 import { fetchSyncPost } from 'siyuan'
 import type { ImageRef } from '../scan/types'
 import { extractFileName, hashString } from '../scan/parser.ts'
+import { base64ToBytes } from '../s3/base64.ts'
 import {
   detectImageContentType,
   extensionFromFileName,
@@ -280,18 +281,6 @@ function assertSize(buffer: Uint8Array): void {
   if (buffer.byteLength > MAX_IMAGE_BYTES) {
     throw new Error(`图片超过大小限制（${Math.round(buffer.byteLength / 1024 / 1024)}MB > 50MB）`)
   }
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  if (!base64) {
-    return new Uint8Array()
-  }
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index++) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes
 }
 
 function createTimeoutSignal(timeoutMs: number): AbortSignal {

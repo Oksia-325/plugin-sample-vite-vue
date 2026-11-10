@@ -11,7 +11,15 @@ import {
   type S3ObjectInfo,
 } from './xml.ts'
 
-export type S3Requester = (request: Request) => Promise<Response>
+export type S3RequestBody = Uint8Array | ArrayBuffer | Blob | string | undefined
+
+/**
+ * 发送 S3 请求。
+ *
+ * 第二个参数是原始请求体：代理模式不需要把 body 塞进 Request 再复制出来，
+ * 直接交给 transport 做 base64，能少一次大图内存拷贝。
+ */
+export type S3Requester = (request: Request, body?: S3RequestBody) => Promise<Response>
 
 export interface PutObjectResult {
   key: string
@@ -77,17 +85,20 @@ export function createS3Core(config: S3Config, requester: S3Requester): S3Client
     options: {
       query?: Record<string, string | number | undefined>
       headers?: Record<string, string>
-      body?: BodyInit
+      body?: S3RequestBody
     } = {}
   ): Promise<Response> {
     const url = buildObjectUrl(config, key, options.query)
     const headers = options.headers ?? {}
+    // S3 的普通请求使用 UNSIGNED-PAYLOAD，签名不需要 body；
+    // 走思源代理时让 Request 保持空 body，避免 aws4fetch 再复制一份大图。
+    const signBody = config.useSiyuanProxy ? undefined : options.body
     const request = await signer.sign(url, {
       method,
       headers,
-      body: options.body,
+      body: signBody,
     }) as Request
-    return requester(request)
+    return requester(request, options.body)
   }
 
   return {
@@ -237,11 +248,8 @@ export function createS3Core(config: S3Config, requester: S3Requester): S3Client
   }
 }
 
-function normalizeBody(body: Uint8Array | ArrayBuffer | Blob | string): BodyInit {
-  if (typeof body === 'string' || body instanceof Blob) {
-    return body
-  }
-  return body as BodyInit
+function normalizeBody(body: Uint8Array | ArrayBuffer | Blob | string): S3RequestBody {
+  return body
 }
 
 async function toS3Error(response: Response): Promise<Error> {

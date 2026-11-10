@@ -165,6 +165,35 @@ test('createS3Core signs and sends list/put/head/delete requests', async () => {
   assert.ok(deleteRequest.headers.get('x-amz-content-sha256'))
 })
 
+test('proxy requester receives the raw body and the signed Request is body-less', async () => {
+  const seen = []
+  const client = createS3Core({ ...baseS3, useSiyuanProxy: true }, async (request, body) => {
+    seen.push({ body, hasRequestBody: request.body !== null })
+    return new Response(null, { status: 200 })
+  })
+  const bytes = new Uint8Array([1, 2, 3, 4])
+  await client.putObject('siyuan/a.bin', bytes, 'image/png')
+
+  assert.equal(seen.length, 1)
+  assert.equal(seen[0].body, bytes)
+  assert.equal(seen[0].hasRequestBody, false)
+})
+
+test('direct mode keeps the body on the signed Request', async () => {
+  const seen = []
+  const client = createS3Core({ ...baseS3, useSiyuanProxy: false }, async (request, body) => {
+    const requestBytes = request.body ? new Uint8Array(await request.clone().arrayBuffer()) : new Uint8Array(0)
+    seen.push({ body, requestBytes, hasRequestBody: request.body !== null })
+    return new Response(null, { status: 200 })
+  })
+  const bytes = new Uint8Array([9, 8, 7])
+  await client.putObject('siyuan/b.bin', bytes, 'image/png')
+
+  assert.equal(seen.length, 1)
+  assert.equal(seen[0].hasRequestBody, true)
+  assert.deepEqual(Array.from(seen[0].requestBytes), [9, 8, 7])
+})
+
 test('createS3Core reports missing objects and S3 errors', async () => {
   const notFoundClient = createS3Core(baseS3, async () => new Response(null, { status: 404 }))
   assert.deepEqual(await notFoundClient.headObject('missing.jpg'), { exists: false })

@@ -250,6 +250,11 @@
             </label>
           </div>
 
+          <div class="pigo-settings__hint-box">
+            代理模式会把图片转成 Base64 交给思源内核转发，内核需要额外解码，上传大量图片时 CPU 会升高。
+            如果存储桶已配置 CORS（允许当前思源地址 PUT），关闭代理可显著降低 CPU 并提升速度。
+          </div>
+
           <div class="pigo-divider"></div>
 
           <div class="pigo-settings__actions">

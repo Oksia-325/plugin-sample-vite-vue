@@ -240,6 +240,7 @@
               :src="previewUrl(ref)"
               :alt="ref.alt"
               loading="lazy"
+              decoding="async"
               @error="markPreviewError(ref.id)"
             >
             <span v-else class="pigo-upload__thumb-fallback">预览失败</span>
@@ -415,6 +416,15 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const queue = ref<QueueItem[]>([])
 const queueRunning = ref(false)
 
+/**
+ * 已上传图片的本地预览地址缓存：S3 URL -> /assets/xxx。
+ * 上传完成后列表会立刻变成 S3 链接，如果不复用本地预览，
+ * 面板会重新下载并解码 60 张刚上传的图片，白白增加 CPU 与流量。
+ */
+const localPreviewByUrl = new Map<string, string>()
+const pendingSizes = new Map<string, number | null>()
+let sizeFlushHandle = 0
+
 let scanGeneration = 0
 let staleRetryTimer: number | undefined
 /** 刚被替换掉的旧链接：SQL 索引未更新前，禁止把它当成“本地图片”提交到界面。 */
@@ -553,6 +563,11 @@ onBeforeUnmount(() => {
   if (staleRetryTimer) {
     window.clearTimeout(staleRetryTimer)
   }
+  if (sizeFlushHandle) {
+    cancelAnimationFrame(sizeFlushHandle)
+    sizeFlushHandle = 0
+  }
+  pendingSizes.clear()
   queue.value.forEach((item) => {
     URL.revokeObjectURL(item.previewUrl)
   })
@@ -564,6 +579,7 @@ watch(
     if (!visible) {
       clearQueue()
       invalidRefs.clear()
+      localPreviewByUrl.clear()
       return
     }
     if (uiState.activeTab === 'upload' && !running.value) {
@@ -583,6 +599,7 @@ watch(
   () => {
     clearQueue()
     invalidRefs.clear()
+    localPreviewByUrl.clear()
     page.value = 1
   }
 )
@@ -755,7 +772,7 @@ async function resolveSizes(): Promise<void> {
       targets,
       client,
       () => fileMap.value,
-      (id, size) => sizeMap.set(id, size ?? null)
+      (id, size) => queueSize(id, size)
     )
   }
   catch (error) {
@@ -765,6 +782,8 @@ async function resolveSizes(): Promise<void> {
   finally {
     sizeResolving = false
   }
+
+  flushSizes()
 
   // 读取期间切换到新页时，补读新页尚未处理的图片。
   const hasPending = sizeMap.size > sizeCountBefore && pagedRefs.value.some((ref) => (
@@ -777,6 +796,25 @@ async function resolveSizes(): Promise<void> {
   }
 }
 
+
+function queueSize(id: string, size: number | undefined): void {
+  pendingSizes.set(id, size ?? null)
+  if (sizeFlushHandle) {
+    return
+  }
+  sizeFlushHandle = window.requestAnimationFrame(() => {
+    sizeFlushHandle = 0
+    flushSizes()
+  })
+}
+
+function flushSizes(): void {
+  if (pendingSizes.size === 0) {
+    return
+  }
+  pendingSizes.forEach((value, key) => sizeMap.set(key, value))
+  pendingSizes.clear()
+}
 
 function scheduleRefresh(docId: string): void {
   if (refreshTimer) {
@@ -980,6 +1018,9 @@ function applyOptimisticUpload(result: PipelineResult): void {
   result.upload.results.forEach((item) => {
     if (item.ok && item.url && !item.skipped) {
       urlMap.set(item.ref.normalizedUrl, item.url)
+      if (item.ref.sourceType === 'local' && item.ref.assetPath && !localPreviewByUrl.has(item.url)) {
+        localPreviewByUrl.set(item.url, encodeURI(`/${item.ref.assetPath}`))
+      }
     }
   })
   if (urlMap.size === 0) {
@@ -1213,6 +1254,10 @@ function openPreview(ref: ImageRef): void {
 function previewUrl(ref: ImageRef): string {
   if (ref.sourceType === 'local' && ref.assetPath) {
     return encodeURI(`/${ref.assetPath}`)
+  }
+  const cached = localPreviewByUrl.get(ref.url)
+  if (cached) {
+    return cached
   }
   return ref.url
 }

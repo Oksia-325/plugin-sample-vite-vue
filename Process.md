@@ -1501,3 +1501,74 @@
   - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
   - `node_modules/.bin/vite build` —— ✅ 构建成功并重新生成 `package.zip`
 - 覆盖安装：工作区插件目录已更新为 0.2.1，配置 / fileMap 不变。
+
+---
+
+## 2026-11-10 性能排查与优化 — 80 图批量上传 CPU 偏高
+
+### 1. 复现与量化（真实工作空间）
+
+- 环境：SiYuan 3.8.9 / Electron 44.10（Chromium 152）；12 核；`useSiyuanProxy=true`、`concurrency=4`、路径模板 `siyuan/{year}/{month}/{md5}.{ext}`。
+- 找到 80 图左右的真实文档（`20230513163056-zc3a4mp`：80 个 fileMap 条目 / 9.0 MB；`20230513171438-fr0eje2`：81 条 / 16.1 MB）。
+- 用 80 张真实 assets（16.2 MB，平均 208 KB）复刻上传热路径，分别采样 Node(JS) 与 SiYuan-Kernel 的 CPU：
+
+| 路径 | wall | 插件 JS CPU | 内核 CPU | 吞吐 |
+| --- | --- | --- | --- | --- |
+| 直连 S3 ×4 | 139 ms | 172 ms | 30 ms | 117 MB/s |
+| 思源代理 ×4（旧 Base64） | 1011 ms | 1069 ms | 1020 ms | 16 MB/s |
+| 思源代理 ×4（新 Base64，Node 回退实现） | 622 ms | 720 ms | 1080 ms | 26 MB/s |
+| 代理单请求固定开销（1 KB ×80） | 233 ms | — | 60 ms | 0.75 ms/请求 |
+| 代理按体积开销（200 KB ×80） | 1148 ms | — | 880 ms | 11 ms/请求 |
+
+- 结论：
+  1. 代理模式下每字节要走两遍 Base64：渲染进程编码（旧实现 23 MB/s）+ 内核解码（约 18 MB/s）。
+  2. 旧 `arrayBufferToBase64` 用 `String.fromCharCode(...32KB)` + 巨型字符串拼接，是插件侧最大的 CPU 热点。
+  3. `putObject` 之前还会 `request.clone().arrayBuffer()`，把整张图再复制一次。
+  4. 每张图上传完成都回调一次进度 → 整页（60 张卡片）重渲染 80 次。
+  5. 替换链接时逐块 `getBlockByID` + `updateBlock`，80 张图 = 80 次读取 + 80 次内核事务 / 索引 / 编辑器重绘。
+  6. 上传后列表把 60 个缩略图换成 S3 URL，浏览器重新下载并解码刚上传的图片。
+
+### 2. 本次改动
+
+- 新增 `src/core/s3/base64.ts`：
+  - 优先调用 Chromium 133+ 原生 `Uint8Array.prototype.toBase64()` / `Uint8Array.fromBase64()`；
+  - 旧环境回退为查表编码（实测 73.6 MB/s，旧实现 23.8 MB/s）；
+  - 统一 `bytesToBase64` / `base64ToBytes`，`source.ts` 删除重复实现。
+- `src/core/s3/transport.ts`：
+  - 新增 `body` 参数，代理模式直接对原始 `Uint8Array` 编码，删除 `request.clone().arrayBuffer()` 全量复制；
+  - 响应解码走统一工具。
+- `src/core/s3/client-core.ts` + `client.ts`：
+  - `S3Requester` 增加第二个 `body` 参数；
+  - 代理模式下签名不再把 body 放回 Request（S3 使用 `UNSIGNED-PAYLOAD`，签名结果不变）；
+  - 已用真实腾讯云 COS 桶验证：PUT / HEAD / GET / DELETE 全部成功（`siyuan/_pigo_perf_check/...` 测试对象已删除）。
+- `src/core/upload/uploader.ts`：
+  - 上传进度回调节流至 100 ms（尾随补发 + 结束时强制刷新），80 次重渲染降为约 10 次。
+- `src/core/upload/replacer.ts` + `src/api.ts`：
+  - 新增 `getBlocksMarkdown()`：一条 SQL 取回全部待替换块的 markdown（按 200 个 id 分批），替代逐块 `getBlockByID`（仍然是最新内容，不用过期扫描快照）；
+  - 新增 `batchUpdateBlock()`：所有块合并为一次内核事务；批量失败时自动回退逐块 `updateBlock`，保持部分成功语义；
+  - 计数/错误统计保持不变。
+- `src/components/upload/UploadTab.vue`：
+  - 新增 `localPreviewByUrl`：上传后用“S3 URL -> 本地 assets”缓存缩略图，避免重新下载/解码 60 张图；
+  - 尺寸回填改为 `requestAnimationFrame` 合并，60 次 `setSize` 降为每帧一次；
+  - 缩略图增加 `decoding="async"`；
+  - 切换文档 / 关闭面板时清理缓存。
+- `src/components/settings/SettingsTab.vue`：
+  - 代理开关下增加说明：代理要把图片 Base64 交给内核，内核额外解码会增加 CPU；桶配置了 CORS 时关闭代理更快。
+
+### 3. 验证
+
+- `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+- `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 95 passed（新增 `tests/base64.test.mjs` 4 条、`tests/s3.test.mjs` 2 条）
+- `node_modules/.bin/vite build` —— ✅ 成功，`package.zip` 已重新生成
+- 真实 COS 签名验证（代理模式、Request 不再携带 body）：PUT 200 / HEAD 41B / GET 内容一致 / DELETE 后 404 ✅
+- `/api/block/batchUpdateBlock` 在 3.8.9 上实测可用（`{blocks:[{id,dataType,data}]}`，no-op 更新后内容不变）✅
+
+### 4. 部署与遗留
+
+- 已覆盖工作区插件目录 `/home/goserank/文档/Siyuan/data/plugins/siyuan-plugin-pigo`（`index.js` / `index.css` / `plugin.json`），版本仍为 0.2.1，待用户验收后再升 0.2.2。
+- 需要用户在 SiYuan 中重新加载插件后验证：
+  1. 80 图文档执行「上传本地图片」，观察 CPU 与总耗时；
+  2. 替换后的列表缩略图应继续使用本地预览（不重新下载）；
+  3. 题头图 / GIF / 右键上传 / 粘贴上传回归。
+- 无法继续压缩的部分：思源 `forwardProxy` 在内核侧仍需 Base64 解码（实测约 18 MB/s）；若存储桶配置 CORS 并关闭代理，可同时省掉渲染进程编码与内核解码。
+- 下一步：用户验收通过后提交 `fix(pigo): 降低批量上传 CPU 占用` 并升级 0.2.2。

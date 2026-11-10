@@ -224,6 +224,19 @@ export async function updateBlock(
   return request(url, payload);
 }
 
+/**
+ * 批量更新块（一次内核事务）。
+ *
+ * 上传 80 张图片时逐块 updateBlock 会触发 80 次事务、80 次索引与 80 次前端重绘，
+ * 内核和渲染进程都会明显发热；这里合并成一次调用。
+ */
+export async function batchUpdateBlock(
+  blocks: Array<{ id: BlockId; dataType: DataType; data: string }>
+): Promise<IResdoOperations[]> {
+  let url = "/api/block/batchUpdateBlock";
+  return request(url, { blocks: blocks });
+}
+
 export async function deleteBlock(id: BlockId): Promise<IResdoOperations[]> {
   let data = {
     id: id,
@@ -317,6 +330,32 @@ export async function getBlockByID(blockId: string): Promise<Block> {
   let sqlScript = `select * from blocks where id ='${blockId}'`;
   let data = await sql(sqlScript);
   return data[0];
+}
+
+/**
+ * 一次查询取回多个块的 markdown（用于上传后的批量链接替换）。
+ *
+ * 逐块 getBlockByID 在 80 张图片的文档里会多出 80 次 SQL 请求，
+ * 这里按 200 个 id 分批，既保持内容是新的，也避免落入过期扫描快照。
+ */
+export async function getBlocksMarkdown(
+  blockIds: BlockId[]
+): Promise<{ [id: string]: string }> {
+  const result: { [id: string]: string } = {};
+  const unique = [...new Set(blockIds.filter(Boolean))];
+
+  for (let index = 0; index < unique.length; index += 200) {
+    const batch = unique.slice(index, index + 200);
+    const list = batch
+      .map((id) => `'${String(id).replace(/'/g, "''")}'`)
+      .join(",");
+    const rows = await sql(`select id, markdown from blocks where id in (${list})`);
+    (Array.isArray(rows) ? rows : []).forEach((row: any) => {
+      result[row.id] = typeof row.markdown === "string" ? row.markdown : "";
+    });
+  }
+
+  return result;
 }
 
 // **************************************** Template ****************************************

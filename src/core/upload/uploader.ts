@@ -10,6 +10,8 @@ import { runWithConcurrency } from './concurrency.ts'
 import { readImageSource } from './source.ts'
 import type { UploadBatchResult, UploadOptions, UploadProgress, UploadResult } from './types.ts'
 
+const PROGRESS_INTERVAL_MS = 100
+
 export async function uploadRefs(
   refs: ImageRef[],
   config: PigoConfig,
@@ -28,7 +30,17 @@ export async function uploadRefs(
   let failed = 0
   let cancelled = false
 
-  const report = (phase: UploadProgress['phase'], current?: string) => {
+  /**
+   * 进度回调节流：80 张图逐张回调会触发 80 次整页重新渲染，
+   * 这是上传期间渲染进程 CPU 偏高的重要原因之一。
+   * 这里把「上传中」的进度合并到约 10 次/秒，保证数字仍然实时。
+   */
+  let lastProgressAt = 0
+  let progressTimer: ReturnType<typeof setTimeout> | undefined
+  let pendingCurrent: string | undefined
+
+  const emit = (phase: UploadProgress['phase'], current?: string) => {
+    lastProgressAt = Date.now()
     options.onProgress?.({
       phase,
       done,
@@ -39,6 +51,30 @@ export async function uploadRefs(
       failed,
       current,
     })
+  }
+
+  const report = (phase: UploadProgress['phase'], current?: string) => {
+    if (phase !== 'uploading') {
+      if (progressTimer) {
+        clearTimeout(progressTimer)
+        progressTimer = undefined
+      }
+      emit(phase, current)
+      return
+    }
+
+    pendingCurrent = current
+    const elapsed = Date.now() - lastProgressAt
+    if (elapsed >= PROGRESS_INTERVAL_MS) {
+      emit(phase, current)
+      return
+    }
+    if (!progressTimer) {
+      progressTimer = setTimeout(() => {
+        progressTimer = undefined
+        emit('uploading', pendingCurrent)
+      }, PROGRESS_INTERVAL_MS - elapsed)
+    }
   }
 
   report('preparing')

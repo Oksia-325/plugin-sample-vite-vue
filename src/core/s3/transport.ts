@@ -1,9 +1,13 @@
 import { fetchSyncPost } from 'siyuan'
 import type { S3Config } from '../config'
+import { base64ToBytes, bytesToBase64 } from './base64.ts'
 
-export async function s3Fetch(request: Request, config: S3Config): Promise<Response> {
+/** 请求体：直连时交给 fetch，代理时直接做 base64，避免再从 Request 里复制一份。 */
+export type S3RequestBody = Uint8Array | ArrayBuffer | Blob | string | undefined
+
+export async function s3Fetch(request: Request, config: S3Config, body?: S3RequestBody): Promise<Response> {
   if (config.useSiyuanProxy) {
-    return await fetchViaSiyuanProxy(request, config)
+    return await fetchViaSiyuanProxy(request, config, body)
   }
 
   try {
@@ -15,7 +19,11 @@ export async function s3Fetch(request: Request, config: S3Config): Promise<Respo
   }
 }
 
-async function fetchViaSiyuanProxy(request: Request, config: S3Config): Promise<Response> {
+async function fetchViaSiyuanProxy(
+  request: Request,
+  config: S3Config,
+  body: S3RequestBody
+): Promise<Response> {
   const headers: Record<string, string> = {}
   request.headers.forEach((value, name) => {
     const lower = name.toLowerCase()
@@ -27,8 +35,8 @@ async function fetchViaSiyuanProxy(request: Request, config: S3Config): Promise<
 
   const method = request.method.toUpperCase()
   const hasBody = method !== 'GET' && method !== 'HEAD'
-  const bodyBuffer = hasBody ? await request.clone().arrayBuffer() : new ArrayBuffer(0)
-  const payload = bodyBuffer.byteLength > 0 ? arrayBufferToBase64(bodyBuffer) : ''
+  const bodyBytes = hasBody ? await toBytes(body) : new Uint8Array(0)
+  const payload = bodyBytes.byteLength > 0 ? bytesToBase64(bodyBytes) : ''
   const contentType = headers['content-type'] || headers['Content-Type'] || 'application/octet-stream'
 
   const response = await fetchSyncPost('/api/network/forwardProxy', {
@@ -50,19 +58,35 @@ async function fetchViaSiyuanProxy(request: Request, config: S3Config): Promise<
   const status = Number(data.status || 0)
   const bodyEncoding = String(data.bodyEncoding || '')
   const rawBody = String(data.body || '')
-  const body = bodyEncoding === 'base64'
-    ? base64ToArrayBuffer(rawBody)
-    : new TextEncoder().encode(rawBody).buffer
+  const responseBytes = bodyEncoding === 'base64'
+    ? base64ToBytes(rawBody)
+    : new TextEncoder().encode(rawBody)
 
   // HEAD 响应需要保留 content-length，否则 S3 对象大小会被当成未知。
   const responseHeaders = normalizeProxyHeaders(data.headers || {}, { keepContentLength: method === 'HEAD' })
   const noBody = method === 'HEAD' || status === 204 || status === 304
 
-  return new Response(noBody ? null : body, {
+  return new Response(noBody ? null : (responseBytes.buffer as ArrayBuffer), {
     status: status || 500,
     statusText: String(data.statusText || ''),
     headers: responseHeaders,
   })
+}
+
+async function toBytes(body: S3RequestBody): Promise<Uint8Array> {
+  if (!body) {
+    return new Uint8Array(0)
+  }
+  if (typeof body === 'string') {
+    return new TextEncoder().encode(body)
+  }
+  if (body instanceof Uint8Array) {
+    return body
+  }
+  if (body instanceof ArrayBuffer) {
+    return new Uint8Array(body)
+  }
+  return new Uint8Array(await body.arrayBuffer())
 }
 
 function createTimeoutSignal(timeoutMs: number): AbortSignal {
@@ -99,30 +123,4 @@ function normalizeProxyHeaders(
   })
 
   return normalized
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer)
-  const chunkSize = 0x8000
-  let binary = ''
-
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.subarray(index, index + chunkSize)
-    binary += String.fromCharCode(...chunk)
-  }
-
-  return btoa(binary)
-}
-
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  if (!base64) {
-    return new ArrayBuffer(0)
-  }
-
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index++) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes.buffer
 }

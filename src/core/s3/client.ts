@@ -19,7 +19,7 @@ export interface TestConnectionResult {
 }
 
 export function createS3Client(config: S3Config): S3ClientCore {
-  return createS3Core(config, (request) => s3Fetch(request, config))
+  return createS3Core(config, (request, body) => s3Fetch(request, config, body))
 }
 
 export async function testS3Connection(config: S3Config): Promise<TestConnectionResult> {

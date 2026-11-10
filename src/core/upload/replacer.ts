@@ -1,4 +1,4 @@
-import { getBlockAttrs, getBlockByID, setBlockAttrs, updateBlock } from '@/api'
+import { batchUpdateBlock, getBlockAttrs, getBlockByID, getBlocksMarkdown, setBlockAttrs, updateBlock } from '@/api'
 import type { ImageRef } from '../scan/types'
 import { replaceImageUrlsInMarkdown, replaceTitleImageUrl } from '../scan/parser.ts'
 import {
@@ -130,6 +130,16 @@ export async function applyUploadResults(
       refsByBlock.set(ref.blockId, refs)
     })
 
+    const pendingUpdates: Array<{ id: string; dataType: 'markdown'; data: string; refCount: number }> = []
+    // 一次 SQL 取回所有待替换块的 markdown，避免逐块 getBlockByID。
+    let markdownByBlock: Record<string, string> | null = null
+    try {
+      markdownByBlock = await getBlocksMarkdown([...refsByBlock.keys()])
+    }
+    catch (error) {
+      result.errors.push(`读取图片块失败，回退逐块读取：${errorMessage(error)}`)
+    }
+
     for (const [blockId, blockRefs] of refsByBlock) {
       if (options.isCancelled?.()) {
         result.cancelled = true
@@ -137,8 +147,10 @@ export async function applyUploadResults(
       }
 
       try {
-        const block = await getBlockByID(blockId)
-        if (!block || !block.markdown) {
+        const markdown = markdownByBlock
+          ? (markdownByBlock[blockId] || null)
+          : await readBlockMarkdown(blockId)
+        if (!markdown) {
           result.notReplaced += blockRefs.length
           result.errors.push(`图片块不存在或没有 Markdown（${blockId}）`)
           continue
@@ -152,19 +164,22 @@ export async function applyUploadResults(
           }
         })
 
-        const newMarkdown = replaceImageUrlsInMarkdown(block.markdown, replacements)
-        if (newMarkdown === block.markdown) {
+        const newMarkdown = replaceImageUrlsInMarkdown(markdown, replacements)
+        if (newMarkdown === markdown) {
           result.notReplaced += blockRefs.length
           continue
         }
 
-        await updateBlock('markdown', newMarkdown, blockId)
-        result.replacedBlocks++
+        pendingUpdates.push({ id: blockId, dataType: 'markdown', data: newMarkdown, refCount: blockRefs.length })
       }
       catch (error) {
         result.notReplaced += blockRefs.length
         result.errors.push(`替换图片块失败（${blockId}）：${errorMessage(error)}`)
       }
+    }
+
+    if (pendingUpdates.length > 0 && !result.cancelled) {
+      await applyBlockUpdates(pendingUpdates, result)
     }
 
     const titleRef = docRefs.find((ref) => ref.kind === 'title' && urlByNormalized.has(ref.normalizedUrl))
@@ -203,4 +218,37 @@ export async function applyUploadResults(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+async function readBlockMarkdown(blockId: string): Promise<string | null> {
+  const block = await getBlockByID(blockId)
+  return block?.markdown || null
+}
+
+/**
+ * 优先一次性批量更新（一次事务）；失败时回退为逐块更新，保证部分成功。
+ */
+async function applyBlockUpdates(
+  updates: Array<{ id: string; dataType: 'markdown'; data: string; refCount: number }>,
+  result: ReplaceResult
+): Promise<void> {
+  try {
+    await batchUpdateBlock(updates.map(({ id, dataType, data }) => ({ id, dataType, data })))
+    result.replacedBlocks += updates.length
+    return
+  }
+  catch (error) {
+    result.errors.push(`批量替换失败，回退逐块更新：${errorMessage(error)}`)
+  }
+
+  for (const item of updates) {
+    try {
+      await updateBlock('markdown', item.data, item.id)
+      result.replacedBlocks++
+    }
+    catch (error) {
+      result.notReplaced += item.refCount
+      result.errors.push(`替换图片块失败（${item.id}）：${errorMessage(error)}`)
+    }
+  }
 }
