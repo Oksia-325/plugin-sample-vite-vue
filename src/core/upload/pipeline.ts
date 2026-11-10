@@ -1,8 +1,9 @@
 import type { PigoConfig } from '../config'
 import { logInfo, logWarn } from '../log.ts'
 import { scanAll, scanDoc } from '../scan/scanner.ts'
-import type { ImageRef, ScanAllResult, ScanDocResult } from '../scan/types'
+import type { ImageRef, ImageSourceType, ScanAllResult, ScanDocResult } from '../scan/types'
 import { applyUploadResults, type ReplaceResult } from './replacer.ts'
+import { selectRefs } from './select.ts'
 import { uploadRefs } from './uploader.ts'
 import type { UploadBatchResult } from './types.ts'
 
@@ -27,6 +28,10 @@ export interface PipelineOptions {
   concurrency?: number
   includeTitleImage?: boolean
   includeRemoteImages?: boolean
+  /** 显式限定来源类型，例如「上传本地图片」使用 ['local']。 */
+  sourceTypes?: ImageSourceType[]
+  /** 是否替换文档中的图片链接，默认跟随设置项。 */
+  replaceLink?: boolean
   onProgress?: (progress: PipelineProgress) => void
   isCancelled?: () => boolean
 }
@@ -44,7 +49,7 @@ export async function uploadCurrentDoc(
   config: PigoConfig,
   options: PipelineOptions = {}
 ): Promise<PipelineResult> {
-  const selected = filterRefs(scan.uniqueRefs, config, options)
+  const selected = selectRefs(scan.uniqueRefs, config, options)
   return await execute(scan, selected, config, options)
 }
 
@@ -70,7 +75,7 @@ export async function uploadAllNotes(
     },
   })
 
-  const selected = filterRefs(scan.uniqueRefs, config, options)
+  const selected = selectRefs(scan.uniqueRefs, config, options)
   return await execute(scan, selected, config, options)
 }
 
@@ -80,7 +85,7 @@ export async function uploadSingleRef(
   options: PipelineOptions = {}
 ): Promise<PipelineResult> {
   const scan = await scanDoc(ref.docId, config)
-  const selected = filterRefs([ref], config, {
+  const selected = selectRefs([ref], config, {
     ...options,
     force: options.force ?? true,
   })
@@ -136,6 +141,7 @@ async function execute(
   })
 
   const replace = await applyUploadResults(scan.refs, upload.results, {
+    replace: options.replaceLink ?? config.behavior.replaceLink,
     isCancelled: options.isCancelled,
     onProgress: (progress) => {
       report({
@@ -171,25 +177,4 @@ async function execute(
     selected: selected.length,
     elapsedMs: Date.now() - startedAt,
   }
-}
-
-function filterRefs(refs: ImageRef[], config: PigoConfig, options: PipelineOptions): ImageRef[] {
-  const includeTitle = options.includeTitleImage ?? config.behavior.includeTitleImage
-  const includeRemote = options.includeRemoteImages ?? config.behavior.includeRemoteImages
-
-  return refs.filter((ref) => {
-    if (ref.kind === 'title' && !includeTitle && !options.force) {
-      return false
-    }
-    if (ref.sourceType === 'remote' && !includeRemote && !options.force) {
-      return false
-    }
-    if (ref.sourceType === 's3' && !options.force) {
-      return false
-    }
-    if (options.repairOnly && ref.sourceType === 's3') {
-      return false
-    }
-    return true
-  })
 }

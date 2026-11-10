@@ -801,3 +801,222 @@
   - `保存配置` 仍会整体校验 S3 字段（原有行为），只改行为开关时建议用顶部快捷开关；
   - 设置页字段较多，保存后摘要与页脚存储名依赖实时配置，未保存时会显示“预览值”。
 - 下一步：用户验证 F1 → 提交 `feat(pigo): 重构设置页为手风琴布局（F1）` → 开始 F2 上传页。
+
+---
+
+## 2026-11-10 Phase F2 — 上传页重构（独立上传 + 粘贴路由）
+
+- 阶段：前端重构 F2
+- 分支：`pigo`
+- 后端支撑（同批实现）：
+  - 新增 `src/core/upload/select.ts`：纯函数 `selectRefs()`，把「题头图/网络图/S3 跳过/仅修链接」的筛选从 pipeline 抽出来，并新增 `sourceTypes` 显式范围。
+  - `src/core/upload/pipeline.ts`：`PipelineOptions.sourceTypes`，改用 `selectRefs`。
+  - 新增 `src/core/upload/standalone.ts`：
+    - `uploadFilesToS3()`：面板内独立上传，复用 S3 client / key 模板 / 并发控制；
+    - 不写 fileMap、不修改文档；
+    - `uploadSingleFile()`、`isImageFile()`、`filterImageFiles()`。
+  - 新增 `src/core/stats/assetMeta.ts`：
+    - 实测 `assets` 表无 size 字段，改为 `Range: bytes=0-0` 读 `Content-Range` 总大小；
+    - `parseContentRange()` / `extensionOf()` / `getAssetSize()`（带缓存、失败不重试）。
+  - 新增 `src/core/paste/panelPaste.ts`：`isPigoPanelElement()` / `isPigoPanelPaste()` / `isPigoPanelFocused()`。
+  - `src/index.ts`：文档粘贴接管前先判断焦点是否在 Pigo 面板，面板内粘贴交给面板自己的队列。
+  - `src/core/paste/PasteUploadTransaction.ts`：上传统一走 `uploadFilesToS3()`，删除重复的并发/上传代码。
+- 前端改动（重写 `src/components/upload/UploadTab.vue`）：
+  - 顶部文档卡：笔记本/ID/扫描时间、文档标题 +「已就绪/待处理」、刷新文档按钮；
+  - chips：本地 / S3 已同步 / 网络外链 / 总数 / 唯一图片 / 扫描耗时 + `同步进度 X / Y (Z%)` + 进度条；
+  - 「快速添加图片」：点击选择、拖拽、面板内 Ctrl+V，进入待上传队列（缩略图、大小、状态、取消、开始上传、复制链接）；
+  - 「当前页面批量操作」：上传本地图片（`sourceTypes:['local']`）、强制重新上传、替换为S3链接 (N)、停止；
+  - 「已解析图片列表」：双列卡片（缩略图 + 扩展名角标、来源/题头图、状态、文件名、key/路径、块 ID、大小、操作）；
+  - 通知统一走底部浮层；保留任务结果摘要与失败明细。
+  - 额外：面板 body 与图片卡片加 `tabindex="-1"`，点击面板后 Ctrl+V 可稳定进入队列。
+- 测试：
+  - 新增 `tests/select.test.mjs`（5 条）、`tests/asset-meta.test.mjs`（4 条）、`tests/paste-route.test.mjs`（3 条）。
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ `dist/index.js` 241.79 kB，`dist/index.css` 46.87 kB；`package.zip` 已生成
+- 待用户手动验证（F2 清单）：
+  1. 文档卡与 chips 数字、扫描耗时、同步进度百分比；
+  2. 图片卡片：缩略图/扩展名/来源/状态/文件名/key/块 ID/大小；
+  3. 拖拽多图 → 队列 → 开始上传 → 拿到链接，**文档不变化**；
+  4. 点击 dropzone 选择文件上传；
+  5. 点击面板（空白或卡片）后 Ctrl+V → 进入队列；在编辑器内粘贴仍走自动上传并插入正文；
+  6. 队列取消、上传中停止、复制链接；
+  7. 「上传本地图片」只传本地，不传网络图；
+  8. 「替换为S3链接 (N)」计数正确，点击后归零；
+  9. 单卡「立即上传 / 转存至S3 / 重新上传」；
+  10. 切换文档自动刷新，无旧数据残留；窄屏单列。
+- 已知限制/风险：
+  - 面板内粘贴需要焦点在面板（点击面板任意位置即可）；
+  - 队列在上传页内保留，切换文档不会清空，但关闭插件后丢失；
+  - 尺寸为“尽力而为”：本地用 Range 1 字节，S3 优先反查原图，失败回退 HEAD，仍失败显示 `—`。
+- 下一步：用户验证 F2 → 提交 `feat(pigo): 重构上传页并支持面板内独立上传（F2）` → 开始 F3 统计页。
+
+---
+
+## 2026-11-10 Phase F2 修订 — 上传页交互与替换逻辑修复
+
+- 阶段：前端重构 F2（用户第一轮测试反馈）
+- 分支：`pigo`
+- 关键实测结论：
+  - 通过内核 API 验证：`block/updateBlock` 之后 **SQL 索引有短暂延迟**（实测 100ms 内查 `blocks.markdown` 仍是旧值，约 1s 后更新）；
+  - 这解释了“上传后列表仍显示本地链接 / 上传后状态不刷新”的主要现象；
+  - 处理方式：替换成功后延迟 350ms 再扫描，并二次校验（再等 450ms 重扫）；未替换时延迟 150ms。
+- 修复内容：
+  1. 按钮统一：`height: 28px/24px` + `inline-flex` 居中 + `line-height: 1`，`sm` 字号从 11px 提到 12px；所有变体（含 ghost）都加可见边框，边框色改用 `--b3-border-color`。
+  2. `behavior.replaceLink` 真正生效：
+     - `applyUploadResults` 新增 `replace` 选项；关闭时只写 fileMap、不改文档；
+     - `PipelineOptions.replaceLink`，`execute` 默认取 `config.behavior.replaceLink`。
+  3. 批量操作前强制重新扫描（`await refresh()`），避免用旧快照导致“少传/需要点第二次”。
+  4. 刷新文档改为图标按钮（保留 loading 态与 tooltip）。
+  5. 删除页面中部的大进度条：
+     - 顶部同步进度条保留并始终显示，0% 时也能看到轨道；
+     - 批量按钮内部用 `::before` 填充进度（`--pigo-progress`），按钮尺寸不变；
+     - 运行中把「停止」按钮常驻（禁用/启用切换），避免布局跳动。
+  6. 删除顶栏「自动监控」开关、删除上传页「开启右上角自动监控」文案（设置页开关保留）。
+  7. 置顶语义修正：
+     - 默认点面板外部关闭；置顶后常驻（外部点击 / Esc 都不关闭）；
+     - 点击顶栏图标时先触发外部关闭，用 300ms 保护避免同一次点击又打开。
+  8. 快速添加队列按“当前笔记 + 当前面板会话”管理：
+     - 切换文档、关闭面板都会清空队列并回收 objectURL；
+     - 新增「复制MD」「×」「清空列表」。
+  9. 同步进度文案：`0%` 用灰色、上传中橙色、`100%` 才显示 ✓ 与绿色；进度条轨道始终渲染。
+  10. 列表加载态改为 `loading && !scanResult`，刷新时保留旧列表，减少闪烁。
+- 测试：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed / 0 failed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ `dist/index.js` 243.07 kB，`dist/index.css` 46.81 kB
+- 待用户复测：按钮居中/边框、批量上传替换、第二次点击问题、单卡上传替换、队列清理、外部点击关闭、同步进度颜色、窄屏。
+- 下一步：复测通过后提交 F2，进入 F3 统计页。
+
+---
+
+## 2026-11-10 Phase F2 修订 2 — 亮色主题配色与按钮层级
+
+- 阶段：前端重构 F2（用户第二轮测试反馈）
+- 根因：用户当前使用亮色主题，`--b3-theme-surface-lighter` 在 daylight 下是 `#e0e0e0`，
+  被同时用作卡片背景和边框色 → **卡片、按钮、边框全部同色**，看起来“没有边框”。
+- 修复：
+  - `pigo-tokens.scss` 背景/卡片/边框全部改为 `color-mix(b3-background, b3-on-background)`：
+    - card 94% + 6%、surface 90% + 10%、surface-strong 86% + 14%；
+    - border 16% label 色、border-strong 28%；
+    - 保留纯 rgba 作为不支持 `color-mix` 时的回退；
+    - 亮/暗主题自动适配，不再依赖 `--b3-theme-surface-lighter`。
+  - 批量操作栏删除「停止」按钮，只保留 `上传本地图片 / 强制重新上传 / 替换为S3链接`。
+  - 按钮层级：批量主操作保持橙色 primary；图片卡片上的
+    `立即上传 / 转存至S3 / 重新上传` 改为 `outline`（淡），复制类保持 `ghost`。
+  - 「刷新文档」图标替换为用户提供的 `刷新.svg`（内联 path，`fill: currentColor`，16px）。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功
+- 待用户复测：亮色主题下按钮边框、按钮层级、批量栏 3 个按钮、刷新图标。
+- 下一步：复测通过后提交 F2。
+
+---
+
+## 2026-11-10 Phase F2 修订 3 — 进度卡 50%、置顶图标、按钮字体居中
+
+- 阶段：前端重构 F2（用户第三轮测试反馈）
+- 问题 1：本地图片上传后一直停在 50%，手动刷新页面才 100%
+  - 原因：仍然依赖 SQL 索引；固定 350ms/450ms 两次延迟无法覆盖索引延迟波动；
+  - 处理：
+    - 新增 **乐观更新** `applyOptimisticUpload()`：上传成功且 replaceLink 开启时，直接把 `scanResult.refs` 中对应 ref 重写为 S3（`createParsedImage`），并用 `computeRefStats` 重算 stats，进度立即 100%；
+    - `refresh()` 新增 `guardUrls`：扫描结果里若仍存在刚替换掉的旧链接（且不是 S3），判定为索引未更新，**不提交该次扫描**，每 320ms 重试，最多 6 次；
+    - `runPipeline` 结束后用 guardUrls 刷新，避免“回退到 50%”。
+- 问题 2：「置顶面板」图标换成用户提供的 `置顶.svg`（内联 2 个 path，`viewBox 0 0 1024 1024`，`fill: currentColor`）。
+- 问题 3：按钮文字偏上 / 字体
+  - 面板根节点显式使用 `font-family: var(--b3-font-family)`（与思源编辑器同一变量）；
+  - `.pigo-btn` 改为 `font: inherit` + `box-sizing: border-box` + `line-height: 1.4`，保留固定高度与 `align-items/justify-content: center`，消除按钮继承 UA 字体导致的基线偏移。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 10:28 更新）
+- 待用户复测：本地图片批量上传后进度直接 100%、置顶图标、按钮文字居中与字体。
+- 下一步：复测通过后提交 F2。
+
+---
+
+## 2026-11-10 Phase F2 修订 4 — 图片缩略图预览
+
+- 阶段：前端重构 F2（新增功能）
+- 变更：
+  - 新增 `src/components/ui/PigoImagePreview.vue`：
+    - 全屏半透明遮罩 + 居中放大图片（`max-width: 92vw / max-height: 92vh`，`object-fit: contain`）；
+    - 点击遮罩关闭、点击图片不关闭、`Esc` 关闭；
+    - `Esc` 用捕获阶段 + `stopPropagation`，避免同时触发面板的 Esc 关闭。
+  - `UploadTab.vue`：
+    - 「已解析图片列表」缩略图支持点击/回车打开预览，hover 有强调描边与轻微缩放；
+    - 预览组件挂在面板内部，点击遮罩不会触发“点击面板外部关闭面板”的逻辑。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功（工作区已更新）
+- 下一步：复测通过后提交 F2。
+
+---
+
+## 2026-11-10 Phase F2 修订 5 — 上传后进度停在 50% 的二次修复
+
+- 阶段：前端重构 F2（用户第四轮测试反馈：3 张本地图上传后进度不走到 100%）
+- 现象：新文档 3 张本地图 → 上传后进度停在 50% 左右，手动刷新才 100%；6 张图的文档正常。
+- 分析：
+  - SQL 索引延迟与文档/事务大小相关，3 张图集中在少量 block 时 `updateBlock` 事务更大，索引延迟可能超过上一版 6×320ms（约 1.9s）的等待；
+  - 上一版在重试用尽后仍会**提交最后一次（可能仍是旧的）扫描结果**，把乐观更新覆盖回去，所以看起来“卡住”，手动刷新时索引已更新才变 100%。
+- 修复：
+  - 新增 `pendingRemovals`：记录“刚被替换掉、但索引还没确认消失”的旧 URL；
+  - `refresh()` 的重试次数提升到 10 次（约 3s），且**只要仍命中 pending 旧链接就绝不提交**；超时后保留乐观结果并 `scheduleStaleRetry()` 每 1.2s 后台重试；
+  - pending 条目 20s 后过期，避免替换真的失败时永久拦截刷新；
+  - 任何来源的刷新（切页签、外部触发）都会受 pending 保护，不会用旧数据覆盖乐观结果；
+  - 守卫型后台刷新不再设置 `loading`，不会让按钮长时间禁用；
+  - 日志新增：`已乐观更新 N 张图片为 S3，等待索引确认` / `扫描结果仍包含刚替换的旧链接，稍后重试`。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 10:40 更新）
+- 下一步：复测 3 张图的新文档；若仍异常，请打开 设置 → 调试与运行日志，把 `任务完成：替换块 …` 与 `已乐观更新 …` 两条发我。
+
+---
+
+## 2026-11-10 Phase F2 修订 6 — 删除任务结果统计条
+
+- 阶段：前端重构 F2（用户第五轮测试反馈）
+- 变更：
+  - 删除上传页的「上传 3 · 复用 0 · 跳过 0 · 失败 0 · 替换块 7 · 题头图 0 · 耗时 1629ms」结果条；
+  - 同时移除 `lastPipeline` 状态与 `pipelineErrors` 计算、相关样式，避免它跨笔记残留、打乱布局；
+  - 上传结果仍通过底部浮层提示（成功 / 失败条数），失败详情写日志。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 10:44 更新）
+- 下一步：复测通过后提交 F2。
+
+---
+
+## 2026-11-10 Phase F2 修订 8 — 去掉单图重复上传的二次确认
+
+- 阶段：前端重构 F2（用户反馈）
+- 变更：`handleUploadRef()` 删除 `window.confirm('该图片已经是网络/已上传图片，是否重新上传？')`。
+  - 「重新上传 / 转存至S3」本身就是用户明确点击的动作，不再二次确认；
+  - 批量「强制重新上传」仍保留确认（影响整篇笔记，风险不同）。
+- 验证：`tests` 84 passed、`tsc` 通过、`vite build` 成功（工作区 10:54）。
+- 下一步：复测通过后提交 F2。
+
+---
+
+## 2026-11-10 Phase F2 修订 7 — 失效网络图片的重试与失败态
+
+- 阶段：前端重构 F2（用户反馈：失效外链「转存至S3」一直转圈）
+- 变更：
+  - `src/core/upload/source.ts` 的 `readRemoteImage()`：
+    - 每次尝试最多 **1.5s**（直连 + 思源代理共享同一时间预算）；
+    - 最多 **3 次**尝试，间隔 200ms；
+    - 失败信息统一为「网络图片读取失败（可能已失效）」并附带最近错误；
+  - `UploadTab.vue`：
+    - 新增会话级 `invalidRefs`（不落盘）：单个网络图片失败后按钮变为「图片失效」、禁用并显示玫红色；
+    - `runPipeline()` 返回结果，单图上传由 `handleUploadRef()` 负责提示；
+    - 失效状态在切换笔记、关闭面板、重载插件后自动清除。
+- 验证：
+  - `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ 84 passed
+  - `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+  - `node_modules/.bin/vite build` —— ✅ 构建成功（工作区 10:51 更新）
+- 下一步：复测通过后提交 F2。

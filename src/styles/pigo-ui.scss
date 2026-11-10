@@ -8,15 +8,18 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 6px 12px;
-    border: 1px solid transparent;
+    box-sizing: border-box;
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid var(--pigo-border);
     border-radius: var(--pigo-radius-md);
     color: var(--pigo-text-2);
     background: transparent;
     cursor: pointer;
-    font-family: inherit;
+    font: inherit;
     font-size: var(--pigo-fs-xs);
-    line-height: 1.5;
+    line-height: 1.4;
+    text-align: center;
     white-space: nowrap;
     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 
@@ -36,8 +39,10 @@
   }
 
   .pigo-btn--sm {
-    padding: 4px 9px;
-    font-size: var(--pigo-fs-2xs);
+    height: 24px;
+    padding: 0 10px;
+    font-size: var(--pigo-fs-xs);
+    line-height: 1.4;
     border-radius: var(--pigo-radius-sm);
   }
 
@@ -55,7 +60,7 @@
   .pigo-btn--secondary {
     color: var(--pigo-text);
     background: var(--pigo-card);
-    border-color: var(--pigo-border);
+    border-color: var(--pigo-border-strong);
 
     &:hover:not(:disabled) {
       border-color: var(--pigo-border-strong);
@@ -71,15 +76,19 @@
     &:hover:not(:disabled) {
       color: var(--pigo-text);
       background: var(--pigo-card);
+      border-color: var(--pigo-accent);
     }
   }
 
   .pigo-btn--ghost {
     color: var(--pigo-muted);
+    background: transparent;
+    border-color: var(--pigo-border);
 
     &:hover:not(:disabled) {
       color: var(--pigo-text);
       background: var(--pigo-card);
+      border-color: var(--pigo-border-strong);
     }
   }
 

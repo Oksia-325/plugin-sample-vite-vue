@@ -27,21 +27,6 @@
 
       <div class="pigo-panel__spacer"></div>
 
-      <div class="pigo-panel__auto">
-        <button
-          class="pigo-panel__auto-label"
-          type="button"
-          @click="toggleAutoMonitor"
-        >
-          自动监控
-        </button>
-        <pigo-switch
-          v-model="autoMonitor"
-          label="粘贴图片时自动上传"
-          title="与设置页「粘贴图片时自动上传」为同一开关"
-          :disabled="!configState.loaded"
-        />
-      </div>
 
       <div class="pigo-panel__actions">
         <slot name="actions"></slot>
@@ -55,7 +40,7 @@
       </button>
     </div>
 
-    <div class="pigo-panel__body">
+    <div class="pigo-panel__body" tabindex="-1">
       <upload-tab v-show="uiState.activeTab === 'upload'" :plugin="props.plugin" />
 
       <stats-tab v-show="uiState.activeTab === 'stats'" :plugin="props.plugin" />
@@ -72,16 +57,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onErrorCaptured, onMounted, ref, watch } from 'vue'
+import { onErrorCaptured, onMounted, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
 import PigoStatusBar from '@/components/PigoStatusBar.vue'
 import SettingsTab from '@/components/settings/SettingsTab.vue'
 import StatsTab from '@/components/stats/StatsTab.vue'
 import SyncTab from '@/components/sync/SyncTab.vue'
 import UploadTab from '@/components/upload/UploadTab.vue'
-import PigoSwitch from '@/components/ui/PigoSwitch.vue'
 import PigoToast from '@/components/ui/PigoToast.vue'
-import { configState, ensureConfigLoaded, saveBehaviorPatch } from '@/core/configStore'
+import { ensureConfigLoaded } from '@/core/configStore'
 import { setPigoMode, uiState, type PigoTabId } from '@/core/uiStore'
 
 const props = defineProps<{
@@ -108,19 +92,7 @@ const MODE_BY_TAB: Record<PigoTabId, string> = {
   settings: '配置管理',
 }
 
-const autoMonitor = computed({
-  get: () => configState.config.behavior.autoUploadOnPaste,
-  set: (value: boolean) => {
-    void saveBehaviorPatch(props.plugin, { autoUploadOnPaste: value })
-  },
-})
 
-function toggleAutoMonitor(): void {
-  if (!configState.loaded) {
-    return
-  }
-  autoMonitor.value = !autoMonitor.value
-}
 
 /**
  * 顶栏空白区域可以拖动窗口，交互元素（页签、开关、按钮）不触发。
@@ -257,30 +229,8 @@ onErrorCaptured((error) => {
   min-width: 4px;
 }
 
-.pigo-panel__auto {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  cursor: pointer;
-  user-select: none;
-}
 
-.pigo-panel__auto-label {
-  padding: 0;
-  border: 0;
-  color: var(--pigo-muted);
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--pigo-fs-2xs);
-  line-height: 1.5;
-  white-space: nowrap;
-}
 
-.pigo-panel__auto-label:hover {
-  color: var(--pigo-text);
-}
 
 .pigo-panel__actions {
   display: inline-flex;
@@ -307,13 +257,8 @@ onErrorCaptured((error) => {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  outline: none;
   scrollbar-gutter: stable;
-}
-
-@media (max-width: 820px) {
-  .pigo-panel__auto-label {
-    display: none;
-  }
 }
 
 @media (max-width: 640px) {

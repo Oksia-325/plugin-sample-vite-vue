@@ -4,13 +4,23 @@
  * 所有变量只在插件容器内生效，避免污染思源自身样式。
  */
 .siyuan-plugin-pigo-app {
+  font-family: var(--b3-font-family, inherit);
+
+  /* 用 label 色与背景色做 mix，亮/暗主题自动适配，且不会出现“卡片和边框同色” */
   --pigo-bg: var(--b3-theme-background, #141417);
-  --pigo-panel: var(--b3-theme-surface, #19191d);
-  --pigo-card: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.05));
-  --pigo-surface: var(--b3-theme-surface, #25252b);
-  --pigo-surface-strong: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.1));
-  --pigo-border: var(--b3-border-color, rgba(255, 255, 255, 0.08));
-  --pigo-border-strong: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.16));
+  --pigo-panel: rgba(127, 127, 127, 0.04);
+  --pigo-panel: color-mix(in srgb, var(--b3-theme-background, #141417) 97%, var(--b3-theme-on-background, #e6e6e9) 3%);
+  --pigo-card: rgba(127, 127, 127, 0.08);
+  --pigo-card: color-mix(in srgb, var(--b3-theme-background, #141417) 94%, var(--b3-theme-on-background, #e6e6e9) 6%);
+  --pigo-surface: rgba(127, 127, 127, 0.12);
+  --pigo-surface: color-mix(in srgb, var(--b3-theme-background, #141417) 90%, var(--b3-theme-on-background, #e6e6e9) 10%);
+  --pigo-surface-strong: rgba(127, 127, 127, 0.18);
+  --pigo-surface-strong: color-mix(in srgb, var(--b3-theme-background, #141417) 86%, var(--b3-theme-on-background, #e6e6e9) 14%);
+
+  --pigo-border: rgba(127, 127, 127, 0.28);
+  --pigo-border: color-mix(in srgb, var(--b3-theme-on-background, #e6e6e9) 16%, transparent);
+  --pigo-border-strong: rgba(127, 127, 127, 0.42);
+  --pigo-border-strong: color-mix(in srgb, var(--b3-theme-on-background, #e6e6e9) 28%, transparent);
 
   --pigo-text: var(--b3-theme-on-background, #e6e6e9);
   --pigo-text-2: var(--b3-theme-on-surface, #c9c9cf);

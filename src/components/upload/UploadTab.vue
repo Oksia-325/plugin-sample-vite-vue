@@ -1,100 +1,227 @@
 <template>
   <div class="pigo-upload">
-    <div class="pigo-upload__toolbar">
-      <div class="pigo-upload__doc">
-        <div class="pigo-upload__doc-title">
-          {{ scanResult?.doc.title || (currentDocId ? '正在读取文档…' : '未选择文档') }}
+    <!-- 文档概览 -->
+    <section class="pigo-upload__summary">
+      <div class="pigo-upload__head">
+        <div class="pigo-upload__doc">
+          <div class="pigo-upload__crumbs">
+            <span v-if="notebookName">{{ notebookName }}</span>
+            <span v-if="notebookName" class="pigo-upload__dot">•</span>
+            <span>ID: {{ currentDocId || '—' }}</span>
+            <span class="pigo-upload__dot">•</span>
+            <span>扫描于 {{ scanTimeText || '—' }}</span>
+          </div>
+          <div class="pigo-upload__title-row">
+            <span class="pigo-upload__title">{{ docTitle }}</span>
+            <pigo-chip :tone="readyTone">{{ readyText }}</pigo-chip>
+          </div>
         </div>
-        <div class="pigo-upload__doc-meta">
-          <span v-if="scanResult?.doc.path">{{ scanResult.doc.path }}</span>
-          <span v-if="currentDocId">ID: {{ currentDocId }}</span>
-          <span v-if="lastScanAt">扫描于 {{ scanTimeText }}</span>
+        <pigo-button
+          variant="ghost"
+          size="sm"
+          class="pigo-upload__refresh"
+          :loading="loading"
+          :disabled="running"
+          title="刷新文档"
+          aria-label="刷新文档"
+          @click="refresh()"
+        >
+          <svg v-if="!loading" viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
+            <path d="M696.6592 780.8896a320.064 320.064 0 0 1-217.4976 58.048c-3.6032-0.3392-7.136-0.9536-10.8096-1.4272-6.9312-0.9536-13.8624-1.8368-20.5888-3.2a234.368 234.368 0 0 1-12.3712-2.848 277.5872 277.5872 0 0 1-19.648-5.1008c-3.0528-0.9472-6.112-2.0352-9.2416-3.1232a316.6592 316.6592 0 0 1-26.848-10.336 310.6112 310.6112 0 0 1-24.8064-12.16l-1.088-0.544a331.072 331.072 0 0 1-94.6816-79.0528c-1.2864-1.5616-2.5152-3.328-3.8016-4.96A330.464 330.464 0 0 1 183.84 510.72h75.584a5.44 5.44 0 0 0 4.8192-2.9248 5.2992 5.2992 0 0 0-0.2688-5.568l-126.8992-192.896a5.44 5.44 0 0 0-9.1712 0L0.9344 502.2272a5.2928 5.2928 0 0 0-0.2688 5.568c1.024 1.8368 2.8544 2.9248 4.8256 2.9248h75.584a434.8928 434.8928 0 0 0 75.8464 245.9072c0.6144 1.024 1.024 2.0416 1.632 2.9888 4.96 7.136 10.4704 13.7984 15.7696 20.5952 1.9712 2.5152 3.872 5.1648 5.9136 7.68 7.8144 9.6512 16.1088 18.56 24.672 27.456l2.3808 2.4512a422.56 422.56 0 0 0 130.3616 90.0608l7.8848 3.5328c9.0368 3.808 18.4192 7.136 27.7312 10.3296 4.416 1.4976 8.768 3.0592 13.248 4.416 8.2304 2.4512 16.5888 4.4864 25.0176 6.528 5.6384 1.3568 11.1488 2.784 16.9216 3.872 2.3104 0.544 4.5568 1.2288 6.9376 1.568 7.9488 1.4272 15.904 2.24 23.9232 3.1936l8.5632 1.216a421.7408 421.7408 0 0 0 287.9168-76.3904 52.4736 52.4736 0 0 0 12.64-72.4544 51.0464 51.0464 0 0 0-71.776-12.7808M938.56 510.72v-0.0128a435.264 435.264 0 0 0-75.52-245.3632c-0.7488-1.2224-1.2224-2.4448-1.9008-3.4624a455.5328 455.5328 0 0 0-18.7584-24.4736l-2.24-2.9184a424.4608 424.4608 0 0 0-160-121.728c-1.7152-0.768-3.4176-1.5616-5.1008-2.3872a534.1696 534.1696 0 0 0-30.112-11.2128c-3.872-1.2224-7.4752-2.5792-11.2832-3.6672a401.2928 401.2928 0 0 0-26.912-7.072c-4.96-1.152-9.9904-2.4448-15.0912-3.4624-2.5152-0.48-4.8256-1.2288-7.3408-1.7024-6.7968-1.2224-13.5936-1.696-20.3904-2.5792-4.6208-0.6144-9.312-1.3632-13.9968-1.8368a439.2064 439.2064 0 0 0-33.984-1.7024c-2.0416 0-4.0832-0.3392-6.1888-0.3392a421.952 421.952 0 0 0-245.8432 78.5024 52.4736 52.4736 0 0 0-12.704 72.5248 51.1104 51.1104 0 0 0 71.7696 12.7104 321.216 321.216 0 0 1 217.8432-58.048l8.6272 1.2288c7.8208 0.8832 15.5008 2.0352 23.04 3.5328 3.328 0.608 6.6624 1.4912 9.9264 2.24 7.4112 1.7024 14.8864 3.5328 22.0928 5.7088l6.7968 2.3808c8.288 2.72 16.3776 5.6384 24.3968 9.0368l2.5152 1.1584a327.456 327.456 0 0 1 122.816 93.248l0.6144 0.8192A330.3232 330.3232 0 0 1 835.648 510.784h-75.5136a5.44 5.44 0 0 0-4.5504 8.4992l127.0336 192.8256a5.44 5.44 0 0 0 9.1072 0l126.8928-192.832a5.44 5.44 0 1 0-4.5504-8.4928h-75.5136v-0.064z"></path>
+          </svg>
+        </pigo-button>
+      </div>
+
+      <div class="pigo-upload__chips">
+        <pigo-chip tone="local" :count="stats?.local ?? 0">本地</pigo-chip>
+        <pigo-chip tone="s3" :count="stats?.s3 ?? 0">S3 已同步</pigo-chip>
+        <pigo-chip tone="remote" :count="stats?.remote ?? 0">网络外链</pigo-chip>
+        <span class="pigo-upload__sep"></span>
+        <span class="pigo-upload__meta">总数: <b>{{ stats?.totalRefs ?? 0 }}</b></span>
+        <span class="pigo-upload__meta">唯一图片: <b>{{ stats?.uniqueRefs ?? 0 }}</b></span>
+        <span class="pigo-upload__meta">扫描耗时: <b>{{ scanDuration }}ms</b></span>
+        <span class="pigo-upload__spacer"></span>
+        <span class="pigo-upload__sync" :class="syncClass">
+          <template v-if="syncPercent >= 100">✓ </template>
+          同步进度 {{ syncDone }} / {{ syncTotal }} ({{ syncPercent }}%)
+        </span>
+      </div>
+
+      <div class="pigo-upload__bar">
+        <div class="pigo-upload__bar-fill" :style="{ width: `${syncPercent}%` }"></div>
+      </div>
+    </section>
+
+    <!-- 快速添加图片 -->
+    <section class="pigo-upload__quick">
+      <div class="pigo-upload__section-head">
+        <span class="pigo-upload__section-title">+ 快速添加图片</span>
+        <span class="pigo-upload__section-hint">支持批量拖放与剪贴板极速上传</span>
+      </div>
+
+      <div
+        class="pigo-upload__dropzone"
+        :class="{ 'pigo-upload__dropzone--active': dropActive }"
+        tabindex="0"
+        role="button"
+        @click="openFilePicker"
+        @dragover.prevent="onDragOver"
+        @dragleave.prevent="onDragLeave"
+        @drop.prevent="onDrop"
+      >
+        <input
+          ref="fileInput"
+          class="pigo-upload__file-input"
+          type="file"
+          accept="image/*"
+          multiple
+          @change="onFileChange"
+        >
+        <span class="pigo-upload__drop-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 16V4m0 0L8 8m4-4l4 4"></path>
+            <path d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1"></path>
+          </svg>
+        </span>
+        <span class="pigo-upload__drop-text">
+          点击上传、拖拽图片，或直接 <kbd>Ctrl</kbd> + <kbd>V</kbd> 粘贴
+        </span>
+      </div>
+
+      <div v-if="queue.length > 0" class="pigo-upload__queue">
+        <div v-for="item in queue" :key="item.id" class="pigo-upload__queue-item">
+          <img class="pigo-upload__queue-thumb" :src="item.previewUrl" alt="">
+          <div class="pigo-upload__queue-info">
+            <div class="pigo-upload__queue-name" :title="item.name">{{ item.name }}</div>
+            <div class="pigo-upload__queue-meta">
+              <span>{{ formatSize(item.size) }}</span>
+              <span>·</span>
+              <span v-if="item.status === 'pending'">待上传到 S3</span>
+              <span v-else-if="item.status === 'uploading'">上传中…</span>
+              <span v-else-if="item.status === 'done'" class="pigo-upload__ok">已上传</span>
+              <span v-else class="pigo-upload__bad">{{ item.error || '上传失败' }}</span>
+            </div>
+            <div v-if="item.status === 'done' && item.url" class="pigo-upload__queue-url" :title="item.url">
+              {{ item.url }}
+            </div>
+          </div>
+          <div class="pigo-upload__queue-actions">
+            <template v-if="item.status === 'done' && item.url">
+              <pigo-button variant="ghost" size="sm" @click="copyText(item.url)">
+                复制
+              </pigo-button>
+              <pigo-button variant="ghost" size="sm" @click="copyQueueMarkdown(item)">
+                复制MD
+              </pigo-button>
+            </template>
+            <pigo-button
+              v-else
+              variant="ghost"
+              size="sm"
+              :disabled="queueRunning"
+              @click="removeQueueItem(item.id)"
+            >
+              取消
+            </pigo-button>
+            <pigo-button variant="ghost" size="sm" @click="removeQueueItem(item.id)">
+              ×
+            </pigo-button>
+          </div>
+        </div>
+
+        <div class="pigo-upload__queue-footer">
+          <span class="pigo-upload__queue-summary">{{ queueSummary }}</span>
+          <div class="pigo-upload__queue-buttons">
+            <pigo-button variant="ghost" size="sm" :disabled="queueRunning" @click="clearQueue">
+              清空列表
+            </pigo-button>
+            <pigo-button v-if="queueRunning" variant="outline" size="sm" @click="cancelQueue">
+              停止
+            </pigo-button>
+            <pigo-button
+              v-else
+              variant="primary"
+              size="sm"
+              :disabled="!hasPendingQueue"
+              @click="startQueue"
+            >
+              开始上传
+            </pigo-button>
+          </div>
         </div>
       </div>
-      <div class="pigo-upload__actions">
-        <button class="b3-button b3-button--text" type="button" :disabled="loading || running" @click="refresh()">
-          {{ loading ? '扫描中…' : '刷新' }}
-        </button>
-        <button class="b3-button b3-button--outline" type="button" :disabled="loading || running || !scanResult" @click="handleUploadAll(false)">
-          上传未上传图片
-        </button>
-        <button class="b3-button b3-button--outline" type="button" :disabled="loading || running || !scanResult" @click="handleUploadAll(true)">
-          强制重新上传
-        </button>
-        <button class="b3-button b3-button--outline" type="button" :disabled="loading || running || !scanResult" @click="handleRepair">
-          修复未替换链接
-        </button>
-        <button class="b3-button b3-button--outline" type="button" :disabled="loading || running" @click="handleUploadAllNotes">
-          上传全部笔记
-        </button>
-        <button v-if="running" class="b3-button b3-button--outline" type="button" @click="cancelUpload">
-          停止
-        </button>
-      </div>
-    </div>
+    </section>
 
-    <div v-if="progress" class="pigo-upload__progress">
-      <div class="pigo-upload__progress-head">
-        <span>{{ phaseLabel }}</span>
-        <span>{{ progress.done }} / {{ progress.total }}</span>
-      </div>
-      <div class="pigo-upload__progress-bar">
-        <div class="pigo-upload__progress-fill" :style="{ width: `${progressPercent}%` }"></div>
-      </div>
-      <div class="pigo-upload__progress-meta">
-        <span>上传 {{ progress.uploaded }}</span>
-        <span>复用 {{ progress.reused }}</span>
-        <span>跳过 {{ progress.skipped }}</span>
-        <span>失败 {{ progress.failed }}</span>
-      </div>
-      <div v-if="progress.current" class="pigo-upload__progress-current">
-        {{ displayText(progress.current) }}
-      </div>
-    </div>
+    <!-- 批量操作 -->
+    <section class="pigo-upload__batch">
+      <span class="pigo-upload__batch-label">当前页面批量操作:</span>
+      <span class="pigo-upload__spacer"></span>
+      <pigo-button
+        variant="primary"
+        size="sm"
+        class="pigo-upload__btn"
+        :class="{ 'pigo-upload__btn--progress': runningKind === 'local' }"
+        :style="progressStyle('local')"
+        :disabled="running || loading || !scanResult"
+        @click="handleUploadLocal"
+      >
+        上传本地图片
+      </pigo-button>
+      <pigo-button
+        variant="secondary"
+        size="sm"
+        class="pigo-upload__btn"
+        :class="{ 'pigo-upload__btn--progress': runningKind === 'force' }"
+        :style="progressStyle('force')"
+        :disabled="running || loading || !scanResult"
+        @click="handleForceReupload"
+      >
+        强制重新上传
+      </pigo-button>
+      <pigo-button
+        variant="outline"
+        size="sm"
+        class="pigo-upload__btn"
+        :class="{ 'pigo-upload__btn--progress': runningKind === 'repair' }"
+        :style="progressStyle('repair')"
+        :disabled="running || loading || !scanResult || pendingCount === 0"
+        @click="handleRepair"
+      >
+        替换为S3链接<span v-if="pendingCount > 0"> ({{ pendingCount }})</span>
+      </pigo-button>
+    </section>
 
-    <div v-if="lastPipeline && !running" class="pigo-upload__result">
-      <div class="pigo-upload__result-summary">
-        上传 {{ lastPipeline.upload.uploaded }} · 复用 {{ lastPipeline.upload.reused }} · 跳过 {{ lastPipeline.upload.skipped }} · 失败 {{ lastPipeline.upload.failed }}
-        · 替换块 {{ lastPipeline.replace.replacedBlocks }} · 题头图 {{ lastPipeline.replace.replacedTitleImages }} · 未替换 {{ lastPipeline.replace.notReplaced }} · 耗时 {{ lastPipeline.elapsedMs }}ms
-      </div>
-      <div v-if="lastPipeline.upload.cancelled || lastPipeline.replace.cancelled" class="pigo-upload__result-warning">
-        任务已停止，已完成的部分已保留。
-      </div>
-      <details v-if="pipelineErrors.length > 0" class="pigo-upload__result-errors">
-        <summary>失败/错误 {{ pipelineErrors.length }} 条</summary>
-        <ul>
-          <li v-for="item in pipelineErrors" :key="item">{{ item }}</li>
-        </ul>
-      </details>
-    </div>
-
-    <div v-if="loading" class="pigo-upload__state">
-      正在扫描当前文档…
-    </div>
-    <div v-else-if="error" class="pigo-upload__state pigo-upload__state--error">
-      {{ error }}
-    </div>
-    <div v-else-if="!currentDocId" class="pigo-upload__state">
-      请先打开一篇笔记。
-    </div>
-    <div v-else-if="uniqueRefs.length === 0" class="pigo-upload__state">
-      本文档没有识别到图片。
-    </div>
-
-    <template v-else>
-      <div class="pigo-upload__stats">
-        <span class="pigo-upload__stat">总数 <b>{{ stats?.totalRefs ?? 0 }}</b></span>
-        <span class="pigo-upload__stat">唯一 <b>{{ stats?.uniqueRefs ?? 0 }}</b></span>
-        <span class="pigo-upload__stat pigo-upload__stat--local">本地 <b>{{ stats?.local ?? 0 }}</b></span>
-        <span class="pigo-upload__stat pigo-upload__stat--s3">S3 <b>{{ stats?.s3 ?? 0 }}</b></span>
-        <span class="pigo-upload__stat pigo-upload__stat--remote">网络 <b>{{ stats?.remote ?? 0 }}</b></span>
-        <span class="pigo-upload__stat" v-if="stats?.data">Data <b>{{ stats.data }}</b></span>
-        <span class="pigo-upload__stat" v-if="stats?.title">题头图 <b>{{ stats.title }}</b></span>
+    <!-- 已解析图片 -->
+    <section class="pigo-upload__list-section">
+      <div class="pigo-upload__section-head">
+        <span class="pigo-upload__section-title">已解析图片列表</span>
+        <span class="pigo-upload__section-hint">{{ uniqueRefs.length }} 张唯一图片</span>
       </div>
 
-      <div class="pigo-upload__list">
-        <div v-for="ref in uniqueRefs" :key="ref.id" class="pigo-upload__item">
-          <div class="pigo-upload__thumb">
+      <div v-if="loading && !scanResult" class="pigo-upload__state">
+        正在扫描当前文档…
+      </div>
+      <div v-else-if="error" class="pigo-upload__state pigo-upload__state--error">
+        {{ error }}
+      </div>
+      <div v-else-if="!currentDocId" class="pigo-upload__state">
+        请先打开一篇笔记。
+      </div>
+      <div v-else-if="uniqueRefs.length === 0" class="pigo-upload__state">
+        本文档没有识别到图片。
+      </div>
+
+      <div v-else class="pigo-upload__grid">
+        <article v-for="ref in uniqueRefs" :key="ref.id" class="pigo-upload__item" tabindex="-1">
+          <div
+            class="pigo-upload__thumb"
+            role="button"
+            tabindex="0"
+            title="点击预览"
+            aria-label="点击预览图片"
+            @click="openPreview(ref)"
+            @keydown.enter.prevent="openPreview(ref)"
+          >
             <img
               v-if="!previewErrors.has(ref.id)"
               :src="previewUrl(ref)"
@@ -102,77 +229,137 @@
               loading="lazy"
               @error="markPreviewError(ref.id)"
             >
-            <div v-else class="pigo-upload__thumb-fallback">
-              预览失败
-            </div>
+            <span v-else class="pigo-upload__thumb-fallback">预览失败</span>
+            <span v-if="extOf(ref)" class="pigo-upload__ext">{{ extOf(ref) }}</span>
           </div>
 
-          <div class="pigo-upload__info">
-            <div class="pigo-upload__line">
-              <span
-                v-for="badge in badges(ref)"
-                :key="badge.text"
-                class="pigo-upload__badge"
-                :class="badge.className"
-              >
-                {{ badge.text }}
-              </span>
-              <span class="pigo-upload__alt">{{ ref.alt || '（无描述）' }}</span>
+          <div class="pigo-upload__item-body">
+            <div class="pigo-upload__item-head">
+              <pigo-chip :tone="sourceTone(ref)">{{ sourceLabel(ref) }}</pigo-chip>
+              <pigo-chip v-if="ref.kind === 'title'" tone="title">题头图</pigo-chip>
+              <span class="pigo-upload__item-name" :title="fileName(ref)">{{ fileName(ref) }}</span>
+              <span class="pigo-upload__spacer"></span>
+              <pigo-chip :tone="statusTone(ref)">{{ statusText(ref) }}</pigo-chip>
             </div>
 
-            <div class="pigo-upload__url" :title="ref.sourceType === 'data' ? 'Data URI' : ref.url">
-              {{ displayUrl(ref) }}
+            <div class="pigo-upload__item-path" :title="ref.sourceType === 'data' ? 'Data URI' : ref.url">
+              {{ displayPath(ref) }}
             </div>
 
-            <div class="pigo-upload__meta">
-              <span>块 {{ ref.blockId }}</span>
-              <span v-if="ref.assetPath">文件 {{ ref.assetPath }}</span>
-              <span v-if="ref.s3Key">Key {{ ref.s3Key }}</span>
-              <span v-if="occurrenceCount(ref) > 1">引用 {{ occurrenceCount(ref) }} 次</span>
+            <div class="pigo-upload__item-meta">
+              <span>块: {{ ref.blockId }}</span>
+              <span v-if="sizeOf(ref)">· {{ formatSize(sizeOf(ref) || 0) }}</span>
+              <span v-if="occurrenceCount(ref) > 1">· 引用 {{ occurrenceCount(ref) }} 次</span>
             </div>
 
             <div class="pigo-upload__item-actions">
-              <button class="b3-button b3-button--text" type="button" @click="copyUrl(ref)">
-                复制链接
-              </button>
-              <button
-                class="b3-button b3-button--outline"
-                type="button"
+              <pigo-button
+                v-if="ref.sourceType === 'local' || ref.sourceType === 'data'"
+                variant="outline"
+                size="sm"
+                :loading="singleRunningId === ref.id"
                 :disabled="running"
-                @click="handleUploadRef(ref, ref.sourceType === 's3' || ref.sourceType === 'remote')"
+                @click="handleUploadRef(ref, false)"
               >
-                {{ uploadButtonLabel(ref) }}
-              </button>
+                立即上传
+              </pigo-button>
+              <pigo-button
+                v-else-if="ref.sourceType === 'remote'"
+                variant="outline"
+                size="sm"
+                class="pigo-upload__action"
+                :class="{ 'pigo-upload__action-invalid': invalidRefs.has(ref.id) }"
+                :loading="singleRunningId === ref.id"
+                :disabled="running || invalidRefs.has(ref.id)"
+                @click="handleUploadRef(ref, true)"
+              >
+                {{ invalidRefs.has(ref.id) ? '图片失效' : '转存至S3' }}
+              </pigo-button>
+              <pigo-button
+                v-else
+                variant="outline"
+                size="sm"
+                :loading="singleRunningId === ref.id"
+                :disabled="running"
+                @click="handleUploadRef(ref, true)"
+              >
+                重新上传
+              </pigo-button>
+
+              <pigo-button variant="ghost" size="sm" @click="copyText(ref.url)">
+                复制链接
+              </pigo-button>
+              <pigo-button variant="ghost" size="sm" @click="copyMarkdown(ref)">
+                复制MD链接
+              </pigo-button>
+              <pigo-button
+                v-if="ref.sourceType === 'local' && ref.assetPath"
+                variant="ghost"
+                size="sm"
+                @click="copyPath(ref)"
+              >
+                复制路径
+              </pigo-button>
             </div>
           </div>
-        </div>
+        </article>
       </div>
-    </template>
+    </section>
 
-    <div v-if="notice" class="pigo-upload__notice">
-      {{ notice }}
-    </div>
+    <pigo-image-preview
+      v-if="previewRef"
+      :url="previewUrl(previewRef)"
+      :label="fileName(previewRef)"
+      @close="previewRef = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
 import { getActiveDocId, subscribeActiveDoc } from '@/core/activeDoc'
 import { ensureConfigLoaded, ensureConfigReady, usePigoConfigStore } from '@/core/configStore'
 import { toUserMessage } from '@/core/errors'
-import { logError } from '@/core/log'
+import { logError, logInfo, logWarn } from '@/core/log'
+import { isPigoPanelPaste } from '@/core/paste/panelPaste'
+import { createParsedImage } from '@/core/scan/parser'
 import { scanDoc } from '@/core/scan/scanner'
-import type { ImageRef, ScanDocResult, ScanStats } from '@/core/scan/types'
+import type { ImageRef, ScanDocResult } from '@/core/scan/types'
+import { createS3Client } from '@/core/s3/client'
+import type { S3ClientCore } from '@/core/s3/client-core'
+import { computeRefStats, countUploadedButNotReplaced } from '@/core/stats/aggregate'
+import { extensionOf, getAssetSize } from '@/core/stats/assetMeta'
+import { updateStatusBar } from '@/core/statusBar'
+import { pushToast } from '@/core/toastStore'
+import { runWithConcurrency } from '@/core/upload/concurrency'
+import { findFileMapEntry, loadFileMap, type FileMapEntry } from '@/core/upload/fileMap'
 import {
-  uploadAllNotes,
   uploadCurrentDoc,
   uploadSingleRef,
   type PipelineProgress,
   type PipelineResult,
 } from '@/core/upload/pipeline'
-import { updateStatusBar } from '@/core/statusBar'
+import {
+  filterImageFiles,
+  isImageFile,
+  uploadFilesToS3,
+} from '@/core/upload/standalone'
 import { uiState } from '@/core/uiStore'
+import PigoButton from '@/components/ui/PigoButton.vue'
+import PigoChip from '@/components/ui/PigoChip.vue'
+import PigoImagePreview from '@/components/ui/PigoImagePreview.vue'
+
+interface QueueItem {
+  id: number
+  file: File
+  name: string
+  size: number
+  previewUrl: string
+  status: 'pending' | 'uploading' | 'done' | 'error'
+  url?: string
+  error?: string
+}
 
 const props = defineProps<{
   plugin: Plugin
@@ -185,27 +372,84 @@ const scanResult = ref<ScanDocResult | null>(null)
 const lastScanAt = ref<number | null>(null)
 const loading = ref(false)
 const running = ref(false)
+const runningKind = ref('')
+const singleRunningId = ref('')
 const error = ref('')
-const notice = ref('')
 const previewErrors = ref(new Set<string>())
 const progress = ref<PipelineProgress | null>(null)
-const lastPipeline = ref<PipelineResult | null>(null)
+const pendingCount = ref(0)
+const fileMap = ref<Record<string, FileMapEntry>>({})
+const sizeMap = reactive(new Map<string, number>())
+const dropActive = ref(false)
+const previewRef = ref<ImageRef | null>(null)
+/** 本次会话内加载失败的网络图片（不持久化，重开面板/刷新即重置）。 */
+const invalidRefs = reactive(new Set<string>())
+const fileInput = ref<HTMLInputElement | null>(null)
+
+const queue = ref<QueueItem[]>([])
+const queueRunning = ref(false)
 
 let scanGeneration = 0
+let staleRetryTimer: number | undefined
+/** 刚被替换掉的旧链接：SQL 索引未更新前，禁止把它当成“本地图片”提交到界面。 */
+const pendingRemovals = new Map<string, number>()
 let refreshTimer: number | undefined
 let unsubscribeActiveDoc: (() => void) | null = null
-let noticeTimer: number | undefined
 let cancelRequested = false
+let queueCancelRequested = false
+let queueSequence = 0
 
 const uniqueRefs = computed(() => scanResult.value?.uniqueRefs ?? [])
 const refs = computed(() => scanResult.value?.refs ?? [])
-const stats = computed<ScanStats | null>(() => scanResult.value?.stats ?? null)
+const stats = computed(() => scanResult.value?.stats ?? null)
+
+const docTitle = computed(() => scanResult.value?.doc.title || (currentDocId.value ? '正在读取文档…' : '未选择文档'))
+
+const notebookName = computed(() => {
+  const path = scanResult.value?.doc.path || ''
+  const parts = path.split('/').filter(Boolean)
+  return parts.length > 1 ? parts[0] : ''
+})
 
 const scanTimeText = computed(() => {
   if (!lastScanAt.value) {
     return ''
   }
   return new Date(lastScanAt.value).toLocaleTimeString()
+})
+
+const scanDuration = computed(() => scanResult.value?.durationMs ?? 0)
+
+const readyTone = computed(() => (
+  (stats.value?.local ?? 0) === 0 && pendingCount.value === 0 ? 'success' : 'warning'
+))
+
+const readyText = computed(() => (
+  (stats.value?.local ?? 0) === 0 && pendingCount.value === 0 ? '已就绪' : '待处理'
+))
+
+const syncTotal = computed(() => {
+  const unique = stats.value?.uniqueRefs ?? 0
+  const data = stats.value?.data ?? 0
+  return Math.max(0, unique - data)
+})
+
+const syncDone = computed(() => {
+  if (running.value && progress.value && progress.value.total > 0) {
+    return progress.value.done
+  }
+  return stats.value?.s3 ?? 0
+})
+
+const syncPercent = computed(() => {
+  if (running.value && progress.value && progress.value.total > 0) {
+    return Math.min(100, Math.round((progress.value.done / progress.value.total) * 100))
+  }
+  const total = syncTotal.value
+  if (total <= 0) {
+    return 100
+  }
+  return Math.min(100, Math.round(((stats.value?.s3 ?? 0) / total) * 100))
 })
 
 const occurrenceCounts = computed(() => {
@@ -216,20 +460,6 @@ const occurrenceCounts = computed(() => {
   return counts
 })
 
-const phaseLabel = computed(() => {
-  switch (progress.value?.phase) {
-    case 'scanning':
-      return '扫描全部笔记'
-    case 'uploading':
-      return '上传图片'
-    case 'replacing':
-      return '替换文档链接'
-    case 'done':
-      return '完成'
-    default:
-      return ''
-  }
-})
 
 const progressPercent = computed(() => {
   if (!progress.value || progress.value.total <= 0) {
@@ -238,19 +468,30 @@ const progressPercent = computed(() => {
   return Math.min(100, Math.round((progress.value.done / progress.value.total) * 100))
 })
 
-const pipelineErrors = computed(() => {
-  if (!lastPipeline.value) {
-    return []
+const syncClass = computed(() => {
+  if (running.value) {
+    return 'pigo-upload__sync--running'
   }
+  return syncPercent.value >= 100 ? 'pigo-upload__sync--done' : 'pigo-upload__sync--idle'
+})
 
-  const errors: string[] = []
-  lastPipeline.value.upload.results.forEach((result) => {
-    if (!result.ok && result.error) {
-      errors.push(`${displayText(result.ref.url)}：${result.error}`)
-    }
+function progressStyle(kind: string): Record<string, string> {
+  const percent = runningKind.value === kind && progress.value ? progressPercent.value : 0
+  return { '--pigo-progress': `${percent}%` }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
   })
-  errors.push(...lastPipeline.value.replace.errors)
-  return errors
+}
+
+
+const hasPendingQueue = computed(() => queue.value.some((item) => item.status === 'pending' || item.status === 'error'))
+
+const queueSummary = computed(() => {
+  const done = queue.value.filter((item) => item.status === 'done').length
+  return `${done}/${queue.value.length} 已上传`
 })
 
 onMounted(async () => {
@@ -262,6 +503,8 @@ onMounted(async () => {
     }
   })
 
+  document.addEventListener('paste', onDocumentPaste, true)
+
   await ensureConfigLoaded(props.plugin)
   if (uiState.popupVisible && uiState.activeTab === 'upload' && !running.value) {
     await refresh()
@@ -271,20 +514,37 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   unsubscribeActiveDoc?.()
   unsubscribeActiveDoc = null
+  document.removeEventListener('paste', onDocumentPaste, true)
   if (refreshTimer) {
     window.clearTimeout(refreshTimer)
   }
-  if (noticeTimer) {
-    window.clearTimeout(noticeTimer)
+  if (staleRetryTimer) {
+    window.clearTimeout(staleRetryTimer)
   }
+  queue.value.forEach((item) => {
+    URL.revokeObjectURL(item.previewUrl)
+  })
 })
 
 watch(
   () => uiState.popupVisible,
   (visible) => {
-    if (visible && uiState.activeTab === 'upload' && !running.value) {
+    if (!visible) {
+      clearQueue()
+      invalidRefs.clear()
+      return
+    }
+    if (uiState.activeTab === 'upload' && !running.value) {
       scheduleRefresh(getActiveDocId())
     }
+  }
+)
+
+watch(
+  () => currentDocId.value,
+  () => {
+    clearQueue()
+    invalidRefs.clear()
   }
 )
 
@@ -297,7 +557,12 @@ watch(
   }
 )
 
-async function refresh(docId: string = getActiveDocId()): Promise<void> {
+interface RefreshOptions {
+  /** 这些旧链接必须已经从扫描结果里消失，否则视为 SQL 索引尚未更新，继续等待。 */
+  guardUrls?: string[]
+}
+
+async function refresh(docId: string = getActiveDocId(), options: RefreshOptions = {}): Promise<void> {
   if (running.value) {
     return
   }
@@ -310,8 +575,11 @@ async function refresh(docId: string = getActiveDocId()): Promise<void> {
   }
 
   const generation = ++scanGeneration
+  const showLoading = guardUrlsLength(options) === 0 && pendingRemovals.size === 0
   currentDocId.value = docId
-  loading.value = true
+  if (showLoading) {
+    loading.value = true
+  }
   error.value = ''
   previewErrors.value.clear()
 
@@ -319,14 +587,38 @@ async function refresh(docId: string = getActiveDocId()): Promise<void> {
     scanResult.value = null
   }
 
+  const guardUrls = options.guardUrls ?? []
+  prunePendingRemovals()
+  const guarding = guardUrls.length > 0 || pendingRemovals.size > 0
+  const attempts = guarding ? 10 : 1
+
   try {
     await ensureConfigLoaded(props.plugin)
-    const result = await scanDoc(docId, store.config)
-    if (generation !== scanGeneration) {
-      return
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const result = await scanDoc(docId, store.config)
+      if (generation !== scanGeneration) {
+        return
+      }
+
+      const stale = hasStaleRefs(result, guardUrls) || hasPendingStaleRefs(result)
+      if (stale) {
+        if (attempt < attempts - 1) {
+          await sleep(300)
+          continue
+        }
+
+        // 索引迟迟没更新：保留乐观结果，稍后再试，绝不把旧数据提交到界面。
+        logWarn(`扫描结果仍包含刚替换的旧链接，稍后重试（${pendingRemovals.size} 条待确认）`)
+        scheduleStaleRetry()
+        return
+      }
+
+      pendingRemovals.clear()
+      scanResult.value = result
+      lastScanAt.value = result.scannedAt
+      await loadDocState(docId, result)
+      break
     }
-    scanResult.value = result
-    lastScanAt.value = result.scannedAt
   }
   catch (scanError) {
     if (generation !== scanGeneration) {
@@ -335,15 +627,121 @@ async function refresh(docId: string = getActiveDocId()): Promise<void> {
     error.value = toUserMessage(scanError)
   }
   finally {
-    if (generation === scanGeneration) {
+    if (showLoading && generation === scanGeneration) {
       loading.value = false
     }
   }
 }
 
+function guardUrlsLength(options: RefreshOptions): number {
+  return options.guardUrls?.length ?? 0
+}
+
+function hasStaleRefs(result: ScanDocResult, guardUrls: string[]): boolean {
+  return result.refs.some((ref) => ref.sourceType !== 's3' && guardUrls.includes(ref.url))
+}
+
+function markPendingRemovals(urls: string[]): void {
+  const now = Date.now()
+  urls.forEach((url) => {
+    if (url) {
+      pendingRemovals.set(url, now)
+    }
+  })
+}
+
+function hasPendingStaleRefs(result: ScanDocResult): boolean {
+  if (pendingRemovals.size === 0) {
+    return false
+  }
+  return result.refs.some((ref) => ref.sourceType !== 's3' && pendingRemovals.has(ref.url))
+}
+
+function prunePendingRemovals(): void {
+  // 20 秒还没确认，说明替换确实没成功，不再继续拦截刷新。
+  const cutoff = Date.now() - 20000
+  pendingRemovals.forEach((createdAt, url) => {
+    if (createdAt < cutoff) {
+      pendingRemovals.delete(url)
+    }
+  })
+}
+
+function scheduleStaleRetry(): void {
+  if (staleRetryTimer) {
+    return
+  }
+  staleRetryTimer = window.setTimeout(() => {
+    staleRetryTimer = undefined
+    void refresh(getActiveDocId())
+  }, 1200)
+}
+
+async function loadDocState(docId: string, result: ScanDocResult): Promise<void> {
+  try {
+    const map = await loadFileMap(docId)
+    fileMap.value = map
+    pendingCount.value = countUploadedButNotReplaced(result.uniqueRefs, new Map([[docId, map]]))
+  }
+  catch {
+    fileMap.value = {}
+    pendingCount.value = 0
+  }
+
+  void resolveSizes()
+}
+
+async function resolveSizes(): Promise<void> {
+  const targets = uniqueRefs.value.filter((ref) => !sizeMap.has(ref.id) && ref.sourceType !== 'data')
+  if (targets.length === 0) {
+    return
+  }
+
+  const client = createS3Client(store.config.s3)
+  await runWithConcurrency(
+    targets.map((ref) => async () => {
+      const size = await resolveSize(ref, client)
+      if (size !== undefined) {
+        sizeMap.set(ref.id, size)
+      }
+    }),
+    4
+  )
+}
+
+async function resolveSize(ref: ImageRef, client: S3ClientCore): Promise<number | undefined> {
+  if (ref.sourceType === 'local' && ref.assetPath) {
+    return await getAssetSize(ref.assetPath)
+  }
+
+  if (ref.sourceType === 's3' && ref.s3Key) {
+    const entry = findFileMapEntry(fileMap.value, ref.url)
+    const localPath = entry?.originUrl || ''
+    if (localPath.startsWith('assets/')) {
+      const localSize = await getAssetSize(localPath)
+      if (localSize !== undefined) {
+        return localSize
+      }
+    }
+
+    try {
+      const head = await client.headObject(ref.s3Key)
+      return head.exists && 'contentLength' in head ? head.contentLength : undefined
+    }
+    catch {
+      return undefined
+    }
+  }
+
+  return undefined
+}
+
 function scheduleRefresh(docId: string): void {
   if (refreshTimer) {
     window.clearTimeout(refreshTimer)
+  }
+  if (staleRetryTimer) {
+    window.clearTimeout(staleRetryTimer)
   }
   refreshTimer = window.setTimeout(() => {
     void refresh(docId)
@@ -355,7 +753,47 @@ async function handleUploadRef(ref: ImageRef, force: boolean): Promise<void> {
     return
   }
 
-  if (force && !window.confirm('该图片已经是网络/已上传图片，是否重新上传？')) {
+  if (!(await ensureReady())) {
+    return
+  }
+
+  singleRunningId.value = ref.id
+  const outcome = await runPipeline('single', () => uploadSingleRef(ref, store.config, {
+    force,
+    onProgress: (value) => {
+      progress.value = value
+    },
+    isCancelled: () => cancelRequested,
+  }))
+
+  if (!outcome) {
+    return
+  }
+
+  const failed = outcome.upload.results.find((item) => !item.ok)
+  if (failed) {
+    if (ref.sourceType === 'remote') {
+      invalidRefs.add(ref.id)
+      pushToast('error', '图片加载失败，可能已失效。')
+    }
+    else {
+      pushToast('error', '上传失败，请查看日志。')
+    }
+    return
+  }
+
+  pushToast('success', '上传完成。')
+}
+
+async function handleUploadLocal(): Promise<void> {
+  if (running.value) {
+    return
+  }
+
+  await ensureConfigLoaded(props.plugin)
+  await refresh()
+  const currentScan = scanResult.value
+  if (!currentScan) {
     return
   }
 
@@ -363,8 +801,8 @@ async function handleUploadRef(ref: ImageRef, force: boolean): Promise<void> {
     return
   }
 
-  await runPipeline(() => uploadSingleRef(ref, store.config, {
-    force,
+  await runPipeline('local', () => uploadCurrentDoc(currentScan, store.config, {
+    sourceTypes: ['local'],
     onProgress: (value) => {
       progress.value = value
     },
@@ -372,24 +810,19 @@ async function handleUploadRef(ref: ImageRef, force: boolean): Promise<void> {
   }))
 }
 
-async function handleUploadAll(force: boolean): Promise<void> {
+async function handleForceReupload(): Promise<void> {
   if (running.value) {
     return
   }
 
   await ensureConfigLoaded(props.plugin)
-  if (!scanResult.value) {
-    await refresh()
-  }
+  await refresh()
   const currentScan = scanResult.value
   if (!currentScan) {
     return
   }
 
-  const message = force
-    ? '将强制重新上传本文档所有图片（包括已上传 S3），会生成新的对象，是否继续？'
-    : '将上传本文档中未上传的图片（本地/网络），并替换文档链接，是否继续？'
-  if (!window.confirm(message)) {
+  if (!window.confirm('将强制重新上传本文档所有图片（包括已上传 S3），会生成新的对象，是否继续？')) {
     return
   }
 
@@ -397,10 +830,8 @@ async function handleUploadAll(force: boolean): Promise<void> {
     return
   }
 
-  await runPipeline(() => uploadCurrentDoc(currentScan, store.config, {
-    force,
-    includeTitleImage: store.config.behavior.includeTitleImage,
-    includeRemoteImages: store.config.behavior.includeRemoteImages,
+  await runPipeline('force', () => uploadCurrentDoc(currentScan, store.config, {
+    force: true,
     onProgress: (value) => {
       progress.value = value
     },
@@ -414,9 +845,7 @@ async function handleRepair(): Promise<void> {
   }
 
   await ensureConfigLoaded(props.plugin)
-  if (!scanResult.value) {
-    await refresh()
-  }
+  await refresh()
   const currentScan = scanResult.value
   if (!currentScan) {
     return
@@ -426,7 +855,7 @@ async function handleRepair(): Promise<void> {
     return
   }
 
-  await runPipeline(() => uploadCurrentDoc(currentScan, store.config, {
+  await runPipeline('repair', () => uploadCurrentDoc(currentScan, store.config, {
     repairOnly: true,
     includeTitleImage: true,
     includeRemoteImages: true,
@@ -437,55 +866,99 @@ async function handleRepair(): Promise<void> {
   }))
 }
 
-async function handleUploadAllNotes(): Promise<void> {
-  if (running.value) {
-    return
-  }
-
-  await ensureConfigLoaded(props.plugin)
-  if (!window.confirm('将扫描全部笔记并上传未上传图片，可能耗时较长，是否继续？')) {
-    return
-  }
-
-  if (!(await ensureReady())) {
-    return
-  }
-
-  await runPipeline(() => uploadAllNotes(store.config, {
-    includeTitleImage: store.config.behavior.includeTitleImage,
-    includeRemoteImages: store.config.behavior.includeRemoteImages,
-    onProgress: (value) => {
-      progress.value = value
-    },
-    isCancelled: () => cancelRequested,
-  }))
-}
-
-async function runPipeline(task: () => Promise<PipelineResult>): Promise<void> {
+async function runPipeline(kind: string, task: () => Promise<PipelineResult>): Promise<PipelineResult | null> {
   running.value = true
+  runningKind.value = kind
   cancelRequested = false
   progress.value = null
-  lastPipeline.value = null
   error.value = ''
   updateStatusBar('正在处理图片…')
 
+  let replaced = 0
+  let replacedUrls: string[] = []
+  let outcome: PipelineResult | null = null
   try {
     await ensureConfigLoaded(props.plugin)
     const result = await task()
-    lastPipeline.value = result
-    const failed = result.upload.failed + result.replace.errors.length
-    showNotice(failed > 0 ? '上传完成，但有失败项，请查看结果。' : '上传完成。')
+    outcome = result
+    replaced = result.replace.replacedBlocks + result.replace.replacedTitleImages
+    replacedUrls = result.upload.results
+      .filter((item) => item.ok && item.url && !item.skipped)
+      .map((item) => item.ref.url)
+    if (replaced > 0) {
+      markPendingRemovals(replacedUrls)
+      applyOptimisticUpload(result)
+      logInfo(`已乐观更新 ${replacedUrls.length} 张图片为 S3，等待索引确认`)
+    }
+      const failed = result.upload.failed + result.replace.errors.length
+    if (kind !== 'single') {
+      if (failed > 0) {
+        pushToast('error', `上传完成，但有 ${failed} 条失败，请查看日志。`)
+      }
+      else {
+        pushToast('success', '上传完成。')
+      }
+    }
     updateStatusBar(failed > 0 ? '上传完成，有失败项' : '上传完成')
   }
   catch (pipelineError) {
     error.value = toUserMessage(pipelineError)
     logError('上传任务失败', pipelineError)
-    showNotice('上传失败。')
+    pushToast('error', '上传失败，请查看日志。')
     updateStatusBar('上传失败')
   }
   finally {
     running.value = false
-    await refresh()
+    runningKind.value = ''
+    singleRunningId.value = ''
+
+    // 思源的 SQL 索引在 updateBlock 之后有短暂延迟：替换后稍等再扫描，
+    // 否则列表会继续显示旧的本地链接。
+    await sleep(replaced > 0 ? 200 : 150)
+    await refresh(getActiveDocId(), { guardUrls: replaced > 0 ? replacedUrls : [] })
+  }
+
+  return outcome
+}
+
+/**
+ * 乐观更新：上传成功且已替换链接时，先把本地 ref 直接改成 S3，
+ * 避免思源 SQL 索引延迟导致页面停在 50%。
+ */
+function applyOptimisticUpload(result: PipelineResult): void {
+  const scan = scanResult.value
+  if (!scan) {
+    return
+  }
+
+  const urlMap = new Map<string, string>()
+  result.upload.results.forEach((item) => {
+    if (item.ok && item.url && !item.skipped) {
+      urlMap.set(item.ref.normalizedUrl, item.url)
+    }
+  })
+  if (urlMap.size === 0) {
+    return
+  }
+
+  let changed = false
+  scan.refs.forEach((ref) => {
+    const nextUrl = urlMap.get(ref.normalizedUrl)
+    if (!nextUrl || ref.sourceType === 's3') {
+      return
+    }
+    const parsed = createParsedImage(nextUrl, ref.alt, ref.title, ref.kind, store.config.s3)
+    ref.url = parsed.url
+    ref.sourceType = parsed.sourceType
+    ref.normalizedUrl = parsed.normalizedUrl
+    ref.s3Key = parsed.s3Key
+    ref.assetPath = parsed.assetPath
+    changed = true
+  })
+
+  if (changed) {
+    scan.stats = computeRefStats(scan.refs, scan.uniqueRefs)
+    pendingCount.value = 0
   }
 }
 
@@ -497,15 +970,199 @@ async function ensureReady(): Promise<boolean> {
 
   const message = ready.issues.map((issue) => issue.message).join('；')
   error.value = `配置不完整：${message}`
-  showNotice('请先在设置页补全 S3 配置后再上传。')
+  pushToast('error', '请先在设置页补全 S3 配置后再上传。')
   uiState.activeTab = 'settings'
   return false
 }
 
-function cancelUpload(): void {
-  cancelRequested = true
-  showNotice('正在停止…')
-  updateStatusBar('正在停止上传…')
+
+/* ---------- 快速添加图片 ---------- */
+
+function openFilePicker(): void {
+  fileInput.value?.click()
+}
+
+function onFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  addFiles(Array.from(input.files || []))
+  input.value = ''
+}
+
+function onDragOver(): void {
+  dropActive.value = true
+}
+
+function onDragLeave(): void {
+  dropActive.value = false
+}
+
+function onDrop(event: DragEvent): void {
+  dropActive.value = false
+  addFiles(Array.from(event.dataTransfer?.files || []))
+}
+
+function onDocumentPaste(event: ClipboardEvent): void {
+  if (!uiState.popupVisible || uiState.activeTab !== 'upload') {
+    return
+  }
+  if (!isPigoPanelPaste(event.target, document.activeElement)) {
+    return
+  }
+
+  const files = collectClipboardImages(event.clipboardData)
+  if (files.length === 0) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  addFiles(files)
+}
+
+function collectClipboardImages(data: DataTransfer | null): File[] {
+  if (!data) {
+    return []
+  }
+
+  const files: File[] = []
+  Array.from(data.items || []).forEach((item) => {
+    if (item.kind !== 'file') {
+      return
+    }
+    const file = item.getAsFile()
+    if (file && isImageFile(file)) {
+      files.push(file)
+    }
+  })
+
+  if (files.length === 0 && data.files) {
+    files.push(...filterImageFiles(Array.from(data.files)))
+  }
+
+  return files
+}
+
+function addFiles(files: File[]): void {
+  const images = filterImageFiles(files)
+  if (images.length === 0) {
+    pushToast('error', '没有识别到图片文件。')
+    return
+  }
+
+  images.forEach((file) => {
+    queue.value.push({
+      id: ++queueSequence,
+      file,
+      name: file.name || `screenshot-${queueSequence}.png`,
+      size: file.size,
+      previewUrl: URL.createObjectURL(file),
+      status: 'pending',
+    })
+  })
+
+  pushToast('info', `已加入 ${images.length} 张图片，点击「开始上传」上传到 S3。`)
+}
+
+function removeQueueItem(id: number): void {
+  const index = queue.value.findIndex((item) => item.id === id)
+  if (index < 0) {
+    return
+  }
+  URL.revokeObjectURL(queue.value[index].previewUrl)
+  queue.value.splice(index, 1)
+}
+
+async function startQueue(): Promise<void> {
+  const pending = queue.value.filter((item) => item.status === 'pending' || item.status === 'error')
+  if (pending.length === 0) {
+    return
+  }
+
+  if (!(await ensureReady())) {
+    return
+  }
+
+  queueRunning.value = true
+  queueCancelRequested = false
+  pending.forEach((item) => {
+    item.status = 'uploading'
+    item.error = undefined
+  })
+
+  try {
+    const result = await uploadFilesToS3(pending.map((item) => item.file), store.config, {
+      isCancelled: () => queueCancelRequested,
+      onFileDone: (uploaded, _file, index) => {
+        const item = pending[index]
+        if (!item) {
+          return
+        }
+        item.status = 'done'
+        item.url = uploaded.url
+      },
+      onFileError: (message, _file, index) => {
+        const item = pending[index]
+        if (!item) {
+          return
+        }
+        item.status = 'error'
+        item.error = message
+      },
+    })
+
+    if (result.cancelled) {
+      pending.forEach((item) => {
+        if (item.status === 'uploading') {
+          item.status = 'pending'
+        }
+      })
+      pushToast('info', '已停止上传。')
+    }
+    else if (result.errors.length > 0) {
+      pushToast('error', `上传完成，失败 ${result.errors.length} 张。`)
+    }
+    else {
+      pushToast('success', `已上传 ${result.results.length} 张图片到 S3。`)
+    }
+  }
+  catch (uploadError) {
+    pending.forEach((item) => {
+      if (item.status === 'uploading') {
+        item.status = 'error'
+        item.error = toUserMessage(uploadError)
+      }
+    })
+    pushToast('error', `上传失败：${toUserMessage(uploadError)}`)
+  }
+  finally {
+    queueRunning.value = false
+  }
+}
+
+function cancelQueue(): void {
+  queueCancelRequested = true
+  pushToast('info', '正在停止…')
+}
+
+function clearQueue(): void {
+  queue.value.forEach((item) => {
+    URL.revokeObjectURL(item.previewUrl)
+  })
+  queue.value.splice(0, queue.value.length)
+}
+
+async function copyQueueMarkdown(item: QueueItem): Promise<void> {
+  if (!item.url) {
+    return
+  }
+  const alt = (item.name || 'image').replace(/[[\]\r\n]/g, ' ')
+  await copyText(`![${alt}](${item.url})`)
+}
+
+/* ---------- 展示辅助 ---------- */
+
+function openPreview(ref: ImageRef): void {
+  previewRef.value = ref
 }
 
 function previewUrl(ref: ImageRef): string {
@@ -519,10 +1176,6 @@ function markPreviewError(id: string): void {
   previewErrors.value.add(id)
 }
 
-function displayUrl(ref: ImageRef): string {
-  return displayText(ref.url, ref.sourceType === 'data')
-}
-
 function displayText(value: string, isData = false): string {
   if (isData || value.startsWith('data:')) {
     return 'data:image/...'
@@ -530,372 +1183,637 @@ function displayText(value: string, isData = false): string {
   return value.length > 160 ? `${value.slice(0, 157)}...` : value
 }
 
-function badges(ref: ImageRef): Array<{ text: string, className: string }> {
-  const result: Array<{ text: string, className: string }> = []
-  if (ref.kind === 'title') {
-    result.push({ text: '题头图', className: 'pigo-upload__badge--title' })
+function displayPath(ref: ImageRef): string {
+  if (ref.sourceType === 's3' && ref.s3Key) {
+    return ref.s3Key
   }
-
-  switch (ref.sourceType) {
-    case 'local':
-      result.push({ text: '本地', className: 'pigo-upload__badge--local' })
-      break
-    case 's3':
-      result.push({ text: 'S3', className: 'pigo-upload__badge--s3' })
-      break
-    case 'data':
-      result.push({ text: 'Data URI', className: 'pigo-upload__badge--data' })
-      break
-    default:
-      result.push({ text: '网络', className: 'pigo-upload__badge--remote' })
+  if (ref.sourceType === 'local' && ref.assetPath) {
+    return ref.assetPath
   }
-
-  return result
+  return displayText(ref.url, ref.sourceType === 'data')
 }
 
-function uploadButtonLabel(ref: ImageRef): string {
-  if (ref.sourceType === 's3') {
-    return '重新上传'
+function fileName(ref: ImageRef): string {
+  const source = ref.s3Key || ref.assetPath || ref.url
+  const last = (source.split('?')[0].split('/').pop() || '').trim()
+  if (!last) {
+    return ref.alt || '未命名图片'
   }
-  if (ref.sourceType === 'remote') {
-    return '上传到 S3'
+  try {
+    return decodeURIComponent(last)
   }
-  return '上传'
+  catch {
+    return last
+  }
+}
+
+function extOf(ref: ImageRef): string {
+  return extensionOf(ref.assetPath || ref.s3Key || ref.url)
+}
+
+function sizeOf(ref: ImageRef): number | undefined {
+  return sizeMap.get(ref.id)
+}
+
+function sourceLabel(ref: ImageRef): string {
+  switch (ref.sourceType) {
+    case 'local':
+      return '本地'
+    case 's3':
+      return 'S3'
+    case 'data':
+      return 'Data URI'
+    default:
+      return '网络'
+  }
+}
+
+function sourceTone(ref: ImageRef): 'local' | 's3' | 'remote' | 'data' {
+  return ref.sourceType
+}
+
+function statusText(ref: ImageRef): string {
+  switch (ref.sourceType) {
+    case 's3':
+      return '已替换'
+    case 'remote':
+      return '外部网络图源'
+    case 'data':
+      return 'Data URI'
+    default:
+      return '未替换'
+  }
+}
+
+function statusTone(ref: ImageRef): 'success' | 'warning' | 'remote' | 'data' {
+  switch (ref.sourceType) {
+    case 's3':
+      return 'success'
+    case 'remote':
+      return 'remote'
+    case 'data':
+      return 'data'
+    default:
+      return 'warning'
+  }
 }
 
 function occurrenceCount(ref: ImageRef): number {
   return occurrenceCounts.value.get(ref.normalizedUrl) || 1
 }
 
-async function copyUrl(ref: ImageRef): Promise<void> {
+function formatSize(size: number): string {
+  if (!Number.isFinite(size) || size <= 0) {
+    return '—'
+  }
+  if (size < 1024) {
+    return `${size} B`
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+async function copyText(text: string | undefined): Promise<void> {
+  if (!text) {
+    return
+  }
   try {
-    await navigator.clipboard.writeText(ref.url)
-    showNotice('链接已复制')
+    await navigator.clipboard.writeText(text)
+    pushToast('success', '已复制。')
   }
   catch {
-    showNotice('复制失败，请手动复制')
+    pushToast('error', '复制失败，请手动复制。')
   }
 }
 
-function showNotice(message: string): void {
-  notice.value = message
-  if (noticeTimer) {
-    window.clearTimeout(noticeTimer)
-  }
-  noticeTimer = window.setTimeout(() => {
-    notice.value = ''
-  }, 1800)
+async function copyPath(ref: ImageRef): Promise<void> {
+  await copyText(ref.assetPath)
+}
+
+async function copyMarkdown(ref: ImageRef): Promise<void> {
+  const alt = (ref.alt || fileName(ref)).replace(/[[\]\r\n]/g, ' ')
+  await copyText(`![${alt}](${ref.url})`)
 }
 </script>
 
 <style scoped>
 .pigo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 14px 16px 24px;
   box-sizing: border-box;
 }
 
-.pigo-upload__toolbar {
+.pigo-upload__spacer {
+  flex: 1 1 auto;
+}
+
+.pigo-upload__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-lg);
+  background: var(--pigo-card);
+}
+
+.pigo-upload__head {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   justify-content: space-between;
-  margin-bottom: 12px;
 }
 
 .pigo-upload__doc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   min-width: 0;
 }
 
-.pigo-upload__doc-title {
+.pigo-upload__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__dot {
+  opacity: 0.6;
+}
+
+.pigo-upload__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pigo-upload__title {
   overflow: hidden;
-  color: var(--b3-theme-on-background, #dfe0e1);
-  font-size: 15px;
+  color: var(--pigo-text);
+  font-size: var(--pigo-fs-md);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pigo-upload__doc-meta {
+.pigo-upload__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 4px;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 12px;
-}
-
-.pigo-upload__actions {
-  display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
+  font-size: var(--pigo-fs-2xs);
 }
 
-.pigo-upload__state {
-  padding: 28px 8px;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 13px;
+.pigo-upload__sep {
+  width: 1px;
+  height: 12px;
+  background: var(--pigo-border-strong);
 }
 
-.pigo-upload__state--error {
-  color: var(--b3-theme-error, #d23f31);
+.pigo-upload__meta {
+  color: var(--pigo-muted);
 }
 
-.pigo-upload__stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.pigo-upload__stat {
-  padding: 2px 8px;
-  border-radius: 10px;
-  color: var(--b3-theme-on-surface, #c9c9c9);
-  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.12));
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.pigo-upload__stat b {
-  color: var(--b3-theme-on-background, #dfe0e1);
-}
-
-.pigo-upload__stat--local b {
-  color: var(--b3-theme-warning, #e6a23c);
-}
-
-.pigo-upload__stat--s3 b {
-  color: var(--b3-theme-primary, #3573f0);
-}
-
-.pigo-upload__stat--remote b {
-  color: var(--b3-theme-success, #67c23a);
-}
-
-.pigo-upload__progress {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.08));
-  font-size: 12px;
-}
-
-.pigo-upload__progress-head {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  color: var(--b3-theme-on-background, #dfe0e1);
+.pigo-upload__meta b {
+  color: var(--pigo-text-2);
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
 
-.pigo-upload__progress-bar {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
+.pigo-upload__sync {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.pigo-upload__progress-fill {
+.pigo-upload__sync--idle {
+  color: var(--pigo-muted);
+}
+
+.pigo-upload__sync--running {
+  color: var(--pigo-accent);
+}
+
+.pigo-upload__sync--done {
+  color: var(--pigo-emerald);
+}
+
+.pigo-upload__bar {
+  height: 4px;
+  overflow: hidden;
+  border: 1px solid var(--pigo-border);
+  border-radius: 999px;
+  background: var(--pigo-surface);
+}
+
+.pigo-upload__bar-fill {
   height: 100%;
-  border-radius: 3px;
-  background: var(--b3-theme-primary, #3573f0);
-  transition: width 0.2s ease;
+  min-width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--pigo-accent), var(--pigo-emerald));
+  transition: width 0.25s ease;
 }
 
-.pigo-upload__progress-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 6px;
-  color: var(--b3-theme-on-surface-light, #999);
-}
+/* ---------- 快速添加图片 ---------- */
 
-.pigo-upload__progress-current {
-  margin-top: 4px;
-  overflow: hidden;
-  color: var(--b3-theme-on-surface-light, #999);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pigo-upload__result {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.08));
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.pigo-upload__result-summary {
-  color: var(--b3-theme-on-background, #dfe0e1);
-}
-
-.pigo-upload__result-warning {
-  margin-top: 4px;
-  color: var(--b3-theme-warning, #e6a23c);
-}
-
-.pigo-upload__result-errors {
-  margin-top: 6px;
-  color: var(--b3-theme-error, #d23f31);
-}
-
-.pigo-upload__result-errors ul {
-  max-height: 180px;
-  margin: 4px 0 0;
-  padding-left: 18px;
-  overflow: auto;
-}
-
-.pigo-upload__result-errors li {
-  overflow-wrap: anywhere;
-}
-
-.pigo-upload__list {
+.pigo-upload__quick {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.pigo-upload__item {
+.pigo-upload__section-head {
   display: flex;
-  gap: 12px;
-  padding: 10px;
-  border: 1px solid var(--b3-theme-surface-lighter, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  background: var(--b3-theme-surface, rgba(0, 0, 0, 0.08));
+  align-items: baseline;
+  gap: 8px;
 }
 
-.pigo-upload__thumb {
-  flex: 0 0 132px;
-  width: 132px;
-  height: 92px;
+.pigo-upload__section-title {
+  color: var(--pigo-text);
+  font-size: var(--pigo-fs-sm);
+  font-weight: 600;
+}
+
+.pigo-upload__section-hint {
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__dropzone {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  border-radius: 6px;
-  background: var(--b3-theme-background, #1f1f1f);
+  gap: 6px;
+  padding: 22px 16px;
+  border: 1px dashed var(--pigo-border-strong);
+  border-radius: var(--pigo-radius-lg);
+  background: var(--pigo-card);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.pigo-upload__thumb img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+.pigo-upload__dropzone:hover,
+.pigo-upload__dropzone:focus-visible {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: var(--pigo-accent-soft);
+  outline: none;
 }
 
-.pigo-upload__thumb-fallback {
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 12px;
+.pigo-upload__dropzone--active {
+  border-color: var(--pigo-accent);
+  background: var(--pigo-accent-soft);
 }
 
-.pigo-upload__info {
-  min-width: 0;
-  flex: 1 1 auto;
+.pigo-upload__file-input {
+  display: none;
 }
 
-.pigo-upload__line {
-  display: flex;
-  flex-wrap: wrap;
+.pigo-upload__drop-icon {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--pigo-radius-md);
+  color: var(--pigo-accent);
+  background: var(--pigo-accent-soft);
+}
+
+.pigo-upload__drop-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.pigo-upload__drop-text {
+  color: var(--pigo-text-2);
+  font-size: var(--pigo-fs-xs);
+}
+
+.pigo-upload__drop-text kbd {
+  padding: 1px 4px;
+  border: 1px solid var(--pigo-border-strong);
+  border-radius: 4px;
+  background: var(--pigo-surface);
+  font-family: var(--b3-font-family-code, ui-monospace, monospace);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__drop-hint {
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-lg);
+  background: var(--pigo-card);
+}
+
+.pigo-upload__queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--pigo-radius-md);
+  background: var(--pigo-bg);
+}
+
+.pigo-upload__queue-thumb {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: var(--pigo-radius-sm);
+  object-fit: cover;
+  background: var(--pigo-surface);
+}
+
+.pigo-upload__queue-info {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pigo-upload__queue-name {
+  overflow: hidden;
+  color: var(--pigo-text);
+  font-size: var(--pigo-fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pigo-upload__queue-meta {
+  display: flex;
+  gap: 5px;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__queue-url {
+  overflow: hidden;
+  color: var(--pigo-blue);
+  font-size: var(--pigo-fs-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pigo-upload__ok {
+  color: var(--pigo-emerald);
+}
+
+.pigo-upload__bad {
+  color: var(--pigo-rose);
+}
+
+.pigo-upload__queue-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.pigo-upload__queue-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 0;
+}
+
+.pigo-upload__queue-summary {
+  flex: 1 1 auto;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__queue-buttons {
+  display: flex;
   gap: 6px;
 }
 
-.pigo-upload__badge {
-  padding: 1px 7px;
-  border-radius: 9px;
-  font-size: 11px;
-  line-height: 1.6;
-  white-space: nowrap;
-}
+/* ---------- 批量操作 ---------- */
 
-.pigo-upload__badge--local {
-  color: #a86b00;
-  background: rgba(230, 162, 60, 0.18);
-}
-
-.pigo-upload__badge--s3 {
-  color: #2f6fdc;
-  background: rgba(53, 115, 240, 0.16);
-}
-
-.pigo-upload__badge--remote {
-  color: #2f8f4e;
-  background: rgba(103, 194, 58, 0.16);
-}
-
-.pigo-upload__badge--data {
-  color: #8a5cd6;
-  background: rgba(138, 92, 214, 0.16);
-}
-
-.pigo-upload__badge--title {
-  color: #c0392b;
-  background: rgba(192, 57, 43, 0.16);
-}
-
-.pigo-upload__alt {
-  overflow: hidden;
-  color: var(--b3-theme-on-background, #dfe0e1);
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pigo-upload__url {
-  margin-top: 4px;
-  overflow: hidden;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pigo-upload__meta {
+.pigo-upload__batch {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 4px;
-  color: var(--b3-theme-on-surface-light, #999);
-  font-size: 11px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-lg);
+  background: var(--pigo-card);
+}
+
+.pigo-upload__batch-label {
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__btn--progress {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.pigo-upload__btn--progress::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: var(--pigo-progress, 0%);
+  background: rgba(249, 115, 22, 0.32);
+  transition: width 0.2s ease;
+}
+
+.pigo-upload__refresh :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+
+
+
+
+/* ---------- 图片列表 ---------- */
+
+.pigo-upload__list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pigo-upload__state {
+  padding: 20px;
+  border: 1px dashed var(--pigo-border);
+  border-radius: var(--pigo-radius-lg);
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-xs);
+  text-align: center;
+}
+
+.pigo-upload__state--error {
+  color: var(--pigo-rose);
+  border-color: rgba(244, 63, 94, 0.4);
+}
+
+.pigo-upload__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pigo-upload__item {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--pigo-border);
+  border-radius: var(--pigo-radius-lg);
+  background: var(--pigo-card);
+  transition: border-color 0.15s ease;
+}
+
+.pigo-upload__item:hover {
+  border-color: var(--pigo-border-strong);
+}
+
+.pigo-upload__item:focus {
+  outline: none;
+}
+
+.pigo-upload__thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  overflow: hidden;
+  border-radius: var(--pigo-radius-md);
+  background: var(--pigo-surface);
+  cursor: zoom-in;
+  transition: box-shadow 0.15s ease;
+}
+
+.pigo-upload__thumb:hover,
+.pigo-upload__thumb:focus-visible {
+  box-shadow: 0 0 0 2px var(--pigo-accent);
+  outline: none;
+}
+
+.pigo-upload__thumb:hover img {
+  transform: scale(1.04);
+}
+
+.pigo-upload__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.15s ease;
+}
+
+.pigo-upload__thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--pigo-muted);
+  font-size: 10px;
+}
+
+.pigo-upload__ext {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  padding: 0 4px;
+  border-radius: 3px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 9px;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.pigo-upload__item-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pigo-upload__item-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pigo-upload__item-name {
+  overflow: hidden;
+  color: var(--pigo-text);
+  font-size: var(--pigo-fs-xs);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pigo-upload__item-path {
+  overflow: hidden;
+  color: var(--pigo-muted);
+  font-family: var(--b3-font-family-code, ui-monospace, monospace);
+  font-size: var(--pigo-fs-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pigo-upload__item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--pigo-muted);
+  font-size: var(--pigo-fs-2xs);
+}
+
+.pigo-upload__item-actions .pigo-upload__action-invalid {
+  color: var(--pigo-rose);
+  border-color: rgba(244, 63, 94, 0.45);
 }
 
 .pigo-upload__item-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 2px;
+  margin-top: 2px;
 }
 
-.pigo-upload__notice {
-  position: sticky;
-  bottom: 0;
-  margin-top: 12px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: var(--b3-theme-primary, #3573f0);
-  background: var(--b3-theme-primary-lightest, rgba(53, 115, 240, 0.12));
-  font-size: 12px;
+@media (max-width: 820px) {
+  .pigo-upload__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
-  .pigo-upload__toolbar {
-    flex-direction: column;
+  .pigo-upload {
+    padding: 12px 12px 20px;
   }
 
-  .pigo-upload__item {
-    flex-direction: column;
+  .pigo-upload__chips {
+    gap: 4px;
   }
 
-  .pigo-upload__thumb {
-    width: 100%;
-    height: 160px;
-    flex-basis: auto;
+  .pigo-upload__sync {
+    flex-basis: 100%;
   }
 }
 </style>

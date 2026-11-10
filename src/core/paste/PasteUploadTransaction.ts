@@ -1,10 +1,7 @@
 import { insertBlock } from '@/api'
 import type { PigoConfig } from '../config'
-import { createS3Client } from '../s3/client.ts'
-import { detectImageContentType, extensionFromFileName, extensionFromMime } from '../upload/mime.ts'
-import { buildObjectKey } from '../upload/keyTemplate.ts'
 import { buildFileMapEntry, loadFileMap, mergeFileMap, saveFileMap } from '../upload/fileMap.ts'
-import { runWithConcurrency } from '../upload/concurrency.ts'
+import { uploadFilesToS3 } from '../upload/standalone.ts'
 import type { PasteInputSnapshot } from './PasteEventAdapter.ts'
 
 export interface PasteUploadOptions {
@@ -36,48 +33,23 @@ export async function executePasteUpload(
   config: PigoConfig,
   options: PasteUploadOptions = {}
 ): Promise<PasteUploadResult> {
-  const client = createS3Client(config.s3)
-  const results: PastedFileResult[] = []
-  const errors: string[] = []
-  let done = 0
+  options.onStatus?.(`正在上传粘贴图片 0/${snapshot.files.length}`)
 
-  const tasks = snapshot.files.map((file, index) => async () => {
-    if (options.isCancelled?.()) {
-      return
-    }
-
-    try {
-      const buffer = new Uint8Array(await file.arrayBuffer())
-      const contentType = normalizeImageType(file, buffer)
-      const ext = extensionFromFileName(file.name) || extensionFromMime(contentType) || 'png'
-      const fileName = file.name || `pasted-${Date.now()}-${index}.${ext}`
-      const key = await buildObjectKey(
-        {
-          fileName,
-          ext,
-          buffer,
-        },
-        config.s3.uploadPath
-      )
-      const put = await client.putObject(key, buffer, contentType)
-      results.push({
-        fileName,
-        key,
-        url: put.url,
-        contentType,
-        size: buffer.byteLength,
-      })
-    }
-    catch (error) {
-      errors.push(`${file.name || `图片 ${index + 1}`}：${error instanceof Error ? error.message : String(error)}`)
-    }
-    finally {
-      done++
-      options.onStatus?.(`正在上传粘贴图片 ${done}/${snapshot.files.length}`)
-    }
+  const upload = await uploadFilesToS3(snapshot.files, config, {
+    isCancelled: options.isCancelled,
+    onProgress: (done, total) => {
+      options.onStatus?.(`正在上传粘贴图片 ${done}/${total}`)
+    },
   })
 
-  await runWithConcurrency(tasks, clamp(config.behavior.concurrency, 1, 10), () => options.isCancelled?.() === true)
+  const results: PastedFileResult[] = upload.results.map((file) => ({
+    fileName: file.fileName,
+    key: file.key,
+    url: file.url,
+    contentType: file.contentType,
+    size: file.size,
+  }))
+  const errors = [...upload.errors]
 
   if (results.length === 0) {
     const message = errors.length > 0 ? errors.join('; ') : '没有可上传的图片'
@@ -149,19 +121,6 @@ export async function executePasteUpload(
   }
 }
 
-function normalizeImageType(file: File, buffer: Uint8Array): string {
-  const declared = (file.type || '').split(';')[0].trim().toLowerCase()
-  if (declared.startsWith('image/')) {
-    return declared === 'image/jpg' ? 'image/jpeg' : declared
-  }
-
-  const detected = detectImageContentType(buffer, file.name)
-  if (!detected.startsWith('image/')) {
-    throw new Error(`不是可识别的图片（${detected}）`)
-  }
-  return detected
-}
-
 function extractInsertedBlockId(response: any): string {
   const data = response?.data ?? response
   const operation = Array.isArray(data)
@@ -175,12 +134,4 @@ function escapeAlt(value: string): string {
     .replace(/[[\]\r\n]/g, ' ')
     .trim()
     .slice(0, 180) || 'image'
-}
-
-function clamp(value: number, min: number, max: number): number {
-  const numberValue = Number(value)
-  if (!Number.isFinite(numberValue)) {
-    return min
-  }
-  return Math.min(max, Math.max(min, Math.round(numberValue)))
 }

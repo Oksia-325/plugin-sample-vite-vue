@@ -10,6 +10,8 @@ import {
 import type { UploadProgress, UploadResult } from './types.ts'
 
 export interface ReplaceOptions {
+  /** 是否替换文档里的图片链接；关闭时只写 fileMap。 */
+  replace?: boolean
   onProgress?: (progress: UploadProgress) => void
   isCancelled?: () => boolean
 }
@@ -112,6 +114,12 @@ export async function applyUploadResults(
     }
     catch (error) {
       result.errors.push(`写入 fileMap 失败（${docId}）：${errorMessage(error)}`)
+    }
+
+    if (options.replace === false) {
+      done++
+      report(docId)
+      continue
     }
 
     const markdownRefs = docRefs.filter((ref) => ref.kind === 'markdown')

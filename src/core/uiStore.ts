@@ -16,6 +16,8 @@ const APP_ROOT_SELECTOR = '.siyuan-plugin-pigo-app'
 const BASE_Z_INDEX = '9999'
 const PINNED_Z_INDEX = '10001'
 
+let lastHiddenAt = 0
+
 export const uiState = reactive<PigoUiState>({
   popupVisible: false,
   activeTab: 'upload',
@@ -34,11 +36,16 @@ export function hidePigoPopup(force = false): void {
     return
   }
   uiState.popupVisible = false
+  lastHiddenAt = Date.now()
 }
 
 export function togglePigoPopup(tab: PigoTabId = 'upload'): void {
   if (uiState.popupVisible) {
     hidePigoPopup(true)
+    return
+  }
+  // 点击面板外部关闭时，紧接着的同一个点击（例如顶栏图标）不应立即重新打开。
+  if (Date.now() - lastHiddenAt < 300) {
     return
   }
   showPigoPopup(tab)

@@ -89,58 +89,95 @@ async function readLocalAsset(assetPath: string, originUrl: string): Promise<Sou
   throw new Error(`本地资源读取失败：${assetPath}（${errors.join('; ')}）`)
 }
 
+const REMOTE_ATTEMPT_TIMEOUT_MS = 1500
+const REMOTE_MAX_ATTEMPTS = 3
+const REMOTE_RETRY_DELAY_MS = 200
+
+/**
+ * 网络图片读取：每次尝试最多 1.5s，失败重试，最多 3 次。
+ * 直连和思源代理共享单次时间预算，避免失效图片长时间转圈。
+ */
 async function readRemoteImage(url: string): Promise<SourceResult> {
   const errors: string[] = []
 
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      cache: 'no-store',
-      signal: createTimeoutSignal(60000),
-    })
-    if (response.ok) {
-      const buffer = new Uint8Array(await response.arrayBuffer())
-      assertSize(buffer)
-      return buildSourceResult(buffer, url, url, response.headers.get('content-type') || '')
+  for (let attempt = 1; attempt <= REMOTE_MAX_ATTEMPTS; attempt++) {
+    const deadline = Date.now() + REMOTE_ATTEMPT_TIMEOUT_MS
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        cache: 'no-store',
+        signal: createTimeoutSignal(remainingMs(deadline)),
+      })
+      if (response.ok) {
+        const buffer = new Uint8Array(await response.arrayBuffer())
+        assertSize(buffer)
+        return buildSourceResult(buffer, url, url, response.headers.get('content-type') || '')
+      }
+      errors.push(`HTTP ${response.status}`)
     }
-    errors.push(`HTTP ${response.status}`)
-  }
-  catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error))
-  }
-
-  try {
-    const proxyResponse = await fetchSyncPost('/api/network/forwardProxy', {
-      url,
-      method: 'GET',
-      timeout: 60000,
-      contentType: 'application/json',
-      headers: [],
-      payload: '',
-      payloadEncoding: 'base64',
-      responseEncoding: 'base64',
-    })
-
-    if (!proxyResponse || proxyResponse.code !== 0) {
-      throw new Error(proxyResponse?.msg || '思源代理请求失败')
+    catch (error) {
+      errors.push(describeNetworkError(error))
     }
 
-    const data = proxyResponse.data || {}
-    const status = Number(data.status || 0)
-    if (status < 200 || status >= 300) {
-      throw new Error(`HTTP ${status}`)
+    const proxyBudget = remainingMs(deadline)
+    if (proxyBudget > 0) {
+      try {
+        const proxyResponse = await fetchSyncPost('/api/network/forwardProxy', {
+          url,
+          method: 'GET',
+          timeout: proxyBudget,
+          contentType: 'application/json',
+          headers: [],
+          payload: '',
+          payloadEncoding: 'base64',
+          responseEncoding: 'base64',
+        })
+
+        if (!proxyResponse || proxyResponse.code !== 0) {
+          throw new Error(proxyResponse?.msg || '思源代理请求失败')
+        }
+
+        const data = proxyResponse.data || {}
+        const status = Number(data.status || 0)
+        if (status < 200 || status >= 300) {
+          throw new Error(`HTTP ${status}`)
+        }
+
+        const buffer = base64ToBytes(String(data.body || ''))
+        assertSize(buffer)
+        return buildSourceResult(buffer, url, url, String(data.contentType || ''))
+      }
+      catch (error) {
+        errors.push(describeNetworkError(error))
+      }
     }
 
-    const buffer = base64ToBytes(String(data.body || ''))
-    assertSize(buffer)
-    return buildSourceResult(buffer, url, url, String(data.contentType || ''))
-  }
-  catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error))
+    if (attempt < REMOTE_MAX_ATTEMPTS) {
+      await delay(REMOTE_RETRY_DELAY_MS)
+    }
   }
 
-  throw new Error(`网络图片读取失败：${url}（${errors.join('; ')}）`)
+  const detail = [...new Set(errors)].slice(-3).join('; ')
+  throw new Error(`网络图片读取失败（可能已失效）：${url}${detail ? `（${detail}）` : ''}`)
+}
+
+function remainingMs(deadline: number): number {
+  return Math.max(0, deadline - Date.now())
+}
+
+function describeNetworkError(error: unknown): string {
+  if (error instanceof Error && (error.name === 'AbortError' || /abort|timeout/i.test(error.message))) {
+    return '请求超时（1.5s）'
+  }
+  return error instanceof Error ? error.message : String(error)
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
 }
 
 function readDataUri(dataUri: string): SourceResult {

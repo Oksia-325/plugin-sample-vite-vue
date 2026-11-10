@@ -20,8 +20,9 @@
             :aria-pressed="uiState.pinned"
             @click="togglePigoPinned"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M16 12l2-2m-8 8l2-2m-7 3l4-4 6 2 4-4-6-6-4 4 2 6-4 4zm8-11l3 3"></path>
+            <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
+              <path d="M829.31 607.6L548.07 234.1c-12.93-19.17-41.01-19.61-54.82-0.89L197.3 606.71c-16.05 22.28-0.45 53.49 27.19 53.49h139.06v173.38c0 26.3 21.39 48.14 48.14 48.14H612.7c26.29 0 48.13-21.39 48.13-48.14V660.2h140.4c27.19 0 43.24-30.31 28.08-52.6z"></path>
+              <path d="M226.72 218.06h570.5c20.95 0 37.89-16.94 37.89-37.88s-16.94-37.88-37.89-37.88h-570.5c-20.95 0-37.88 16.94-37.88 37.88s16.94 37.88 37.88 37.88z"></path>
             </svg>
           </button>
 
@@ -79,6 +80,7 @@ onMounted(() => {
   setPigoPinned(uiState.pinned)
   window.addEventListener('resize', clampPosition)
   window.addEventListener('keydown', handleKeydown)
+  document.addEventListener('pointerdown', handleOutsidePointer, true)
   if (uiState.popupVisible) {
     void nextTick(placeIfNeeded)
   }
@@ -98,6 +100,7 @@ watch(
 onBeforeUnmount(() => {
   window.removeEventListener('resize', clampPosition)
   window.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('pointerdown', handleOutsidePointer, true)
   stopDrag()
 })
 
@@ -220,6 +223,23 @@ function handleKeydown(event: KeyboardEvent) {
   if (uiState.pinned) {
     return
   }
+  hidePigoPopup()
+}
+
+/**
+ * 默认（未置顶）时，点击面板外部关闭；置顶后保持常驻。
+ */
+function handleOutsidePointer(event: PointerEvent) {
+  if (!uiState.popupVisible || uiState.pinned) {
+    return
+  }
+
+  const card = cardRef.value
+  const target = event.target
+  if (card && target instanceof Node && card.contains(target)) {
+    return
+  }
+
   hidePigoPopup()
 }
 </script>

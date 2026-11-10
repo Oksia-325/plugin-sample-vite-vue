@@ -7,6 +7,7 @@ import { toUserMessage } from '@/core/errors'
 import { logDebug, logError, logInfo, logWarn } from '@/core/log'
 import { createParsedImage } from '@/core/scan/parser'
 import { PasteEventAdapter } from '@/core/paste/PasteEventAdapter'
+import { isPigoPanelFocused } from '@/core/paste/panelPaste'
 import { executePasteUpload } from '@/core/paste/PasteUploadTransaction'
 import { uploadSingleRef } from '@/core/upload/pipeline'
 import { disposeStatusBar, initStatusBar, updateStatusBar } from '@/core/statusBar'
@@ -124,6 +125,12 @@ export default class PigoPlugin extends Plugin {
   }
 
   private readonly picturePasteEventListener = async (event: CustomEvent<any>) => {
+    // 焦点在 Pigo 面板内：交给面板自己的「快速添加图片」处理，不接管文档粘贴。
+    if (isPigoPanelFocused()) {
+      logDebug('粘贴未接管：焦点位于 Pigo 面板')
+      return
+    }
+
     if (!isConfigReady()) {
       logWarn('粘贴未接管：S3 配置尚未完成')
       void pushErrMsg('Pigo 尚未完成 S3 配置，已使用思源默认粘贴。请到 Pigo 设置页补全配置。', 5000).catch(() => undefined)
