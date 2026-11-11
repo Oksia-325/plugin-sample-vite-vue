@@ -25,6 +25,18 @@ export type ManifestData = Record<string, IconManifestEntry>
 
 export type DownloadFormat = "png" | "svg"
 
+export interface LastSyncCollectionResult {
+  status: "done" | "error"
+  downloaded: number
+  failed: number
+  remoteTotal: number
+  localTotal: number
+  error?: string
+  at: number
+}
+
+export type LastSyncResults = Record<string, LastSyncCollectionResult>
+
 export interface PluginSettings {
   authorization: string
   downloadSize: number
@@ -32,6 +44,7 @@ export interface PluginSettings {
   maxConcurrentDownloads: number
   lastSyncAt: number
   lastSyncFailed: number
+  lastSyncResults: LastSyncResults
 }
 
 export type CollectionStatus = "pending" | "syncing" | "done" | "error"
@@ -43,6 +56,9 @@ export interface CollectionOverview {
   remoteTotal: number
   localTotal: number
   pendingTotal: number
+  downloaded: number
+  failed: number
+  error?: string
   status: CollectionStatus
 }
 
@@ -79,6 +95,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   maxConcurrentDownloads: 4,
   lastSyncAt: 0,
   lastSyncFailed: 0,
+  lastSyncResults: {},
 }
 
 export const IGNORED_COLLECTIONS = new Set(["Favorites", "Downloaded"])

@@ -344,7 +344,7 @@
                       :size="13"
                       :spin="card.status === 'syncing'"
                     />
-                    {{ statusText(card.status) }}
+                    {{ statusText(card.status) }}<template v-if="card.status === 'syncing' && card.progressTotal > 0"> {{ progressPercent(card) }}%</template>
                   </span>
                 </div>
 
@@ -844,6 +844,7 @@
 import type { AutoLoginErrorCode } from '@/icons8/auto-login'
 import type {
   CollectionStatus,
+  LastSyncResults,
   PluginSettings,
   SyncOverview,
   SyncResult,
@@ -884,6 +885,7 @@ interface CollectionCard {
   pendingTotal: number
   downloaded: number
   failed: number
+  progressTotal: number
   status: CollectionStatus
   message: string
 }
@@ -966,7 +968,22 @@ const summary = ref('')
 const summaryError = ref(false)
 const summaryDismissed = ref(false)
 const lastSyncAt = ref(0)
-const lastSyncText = computed(() => (lastSyncAt.value ? new Date(lastSyncAt.value).toLocaleTimeString() : ''))
+const lastSyncText = computed(() => {
+  if (!lastSyncAt.value) {
+    return ''
+  }
+  const date = new Date(lastSyncAt.value)
+  const now = new Date()
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString()
+  }
+  return date.toLocaleString(undefined, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+})
 const filter = ref<FilterKey>('all')
 const search = ref('')
 const stopRequested = ref(false)
@@ -1083,17 +1100,18 @@ function applyOverview(data: SyncOverview) {
   cards.splice(0, cards.length)
   for (const item of data.collections) {
     const old = previous.get(item.id)
-    const keepError = old?.status === 'error'
+    const keepError = old?.status === 'error' && item.status !== 'error'
     cards.push(reactive({
       collectionId: item.id,
       name: item.name,
       remoteTotal: item.remoteTotal,
       localTotal: item.localTotal,
       pendingTotal: item.pendingTotal,
-      downloaded: old?.downloaded ?? 0,
-      failed: old?.failed ?? 0,
+      downloaded: keepError ? old.downloaded : item.downloaded,
+      failed: keepError ? old.failed : item.failed,
+      progressTotal: 0,
       status: keepError ? 'error' : item.status,
-      message: keepError ? old.message : '',
+      message: keepError ? old.message : (item.error ?? ''),
     }))
   }
   authorizedCount.value = data.totals.collections
@@ -1124,6 +1142,7 @@ async function loadOverview() {
       manifest: ctx.manifest,
       lastSyncAt: settings.lastSyncAt,
       lastSyncFailed: settings.lastSyncFailed,
+      lastSyncResults: settings.lastSyncResults,
     })
     if (requestId !== overviewRequestId || syncRunning.value) {
       return
@@ -1294,7 +1313,9 @@ function statusIcon(status: CollectionCard['status']): string {
 }
 
 function progressPercent(card: CollectionCard): number {
-  const expected = Math.max(1, card.remoteTotal - card.localTotal)
+  const expected = card.progressTotal > 0
+    ? card.progressTotal
+    : Math.max(1, card.remoteTotal - card.localTotal)
   return Math.min(100, Math.round(((card.downloaded + card.failed) / expected) * 100))
 }
 
@@ -1336,6 +1357,7 @@ function upsertCard(collectionId: string, name: string): CollectionCard {
       pendingTotal: 0,
       downloaded: 0,
       failed: 0,
+      progressTotal: 0,
       status: 'pending',
       message: '',
     })
@@ -1353,6 +1375,7 @@ async function startSync() {
     for (const card of cards) {
       card.downloaded = 0
       card.failed = 0
+      card.progressTotal = 0
       card.status = 'pending'
       card.message = ''
     }
@@ -1376,12 +1399,14 @@ async function startSync() {
         card.name = collection.name
         card.remoteTotal = collection.totalIcons
         card.pendingTotal = Math.max(0, collection.totalIcons - card.localTotal)
+        card.progressTotal = 0
         card.status = 'syncing'
       },
-      onCollectionProgress: (collectionId, downloaded, failed) => {
+      onCollectionProgress: (collectionId, downloaded, failed, total) => {
         const card = upsertCard(collectionId, '')
         card.downloaded = downloaded
         card.failed = failed
+        card.progressTotal = total
         card.status = 'syncing'
       },
       onCollectionDone: (result) => {
@@ -1416,7 +1441,7 @@ async function startSync() {
     const finishedAt = Date.now()
     lastSyncAt.value = finishedAt
     failedCount.value = totalFailed
-    void ctx.settings.saveLastSync(finishedAt, totalFailed).catch((err) => {
+    void ctx.settings.saveLastSync(finishedAt, totalFailed, buildSyncResults(finishedAt)).catch((err) => {
       console.error('[Icon8Sync] save last sync failed:', err)
     })
     const reloaded = await reloadEmoji()
@@ -1448,8 +1473,28 @@ function applyResult(result: SyncResult) {
   card.pendingTotal = Math.max(0, result.remoteTotal - result.localTotal)
   card.downloaded = result.downloaded
   card.failed = result.failed
+  card.progressTotal = Math.max(card.progressTotal, result.downloaded + result.failed)
   card.status = result.error ? 'error' : 'done'
   card.message = result.error ?? ''
+}
+
+function buildSyncResults(at: number): LastSyncResults {
+  const results: LastSyncResults = {}
+  for (const card of cards) {
+    if (card.status !== 'done' && card.status !== 'error') {
+      continue
+    }
+    results[card.collectionId] = {
+      status: card.status,
+      downloaded: card.downloaded,
+      failed: card.failed,
+      remoteTotal: card.remoteTotal,
+      localTotal: card.localTotal,
+      error: card.message || undefined,
+      at,
+    }
+  }
+  return results
 }
 
 function stopSync() {
@@ -1471,6 +1516,7 @@ async function retryCollection(card: CollectionCard) {
   overviewLoading.value = false
   card.downloaded = 0
   card.failed = 0
+  card.progressTotal = 0
   card.message = ''
   card.status = 'syncing'
   syncRunning.value = true
@@ -1481,13 +1527,15 @@ async function retryCollection(card: CollectionCard) {
         target.name = collection.name
         target.remoteTotal = collection.totalIcons
         target.pendingTotal = Math.max(0, collection.totalIcons - target.localTotal)
+        target.progressTotal = 0
         target.status = 'syncing'
       },
-      onCollectionProgress: (collectionId, downloaded, failed) => {
+      onCollectionProgress: (collectionId, downloaded, failed, total) => {
         const target = cards.find((item) => item.collectionId === collectionId)
         if (target) {
           target.downloaded = downloaded
           target.failed = failed
+          target.progressTotal = total
           target.status = 'syncing'
         }
       },
@@ -1523,7 +1571,7 @@ async function retryCollection(card: CollectionCard) {
     failedCount.value = totalFailed
     const finishedAt = Date.now()
     lastSyncAt.value = finishedAt
-    void ctx.settings.saveLastSync(finishedAt, totalFailed).catch((err) => {
+    void ctx.settings.saveLastSync(finishedAt, totalFailed, buildSyncResults(finishedAt)).catch((err) => {
       console.error('[Icon8Sync] save last sync failed:', err)
     })
     const reloaded = await reloadEmoji()

@@ -1,6 +1,7 @@
 import type { Plugin } from "siyuan"
 import type {
   DownloadFormat,
+  LastSyncResults,
   PluginSettings,
 } from "./types"
 import { DEFAULT_SETTINGS } from "./types"
@@ -30,6 +31,28 @@ function normalizeCount(value: unknown): number {
   return Number.isFinite(num) && num > 0 ? num : 0
 }
 
+function normalizeResults(value: unknown): LastSyncResults {
+  if (!value || typeof value !== "object") {
+    return {}
+  }
+  const results: LastSyncResults = {}
+  for (const [collectionId, raw] of Object.entries(value as Record<string, any>)) {
+    if (!raw || typeof raw !== "object" || !collectionId) {
+      continue
+    }
+    results[collectionId] = {
+      status: raw.status === "error" ? "error" : "done",
+      downloaded: normalizeCount(raw.downloaded),
+      failed: normalizeCount(raw.failed),
+      remoteTotal: normalizeCount(raw.remoteTotal),
+      localTotal: normalizeCount(raw.localTotal),
+      error: typeof raw.error === "string" && raw.error ? raw.error : undefined,
+      at: normalizeTimestamp(raw.at),
+    }
+  }
+  return results
+}
+
 export class SettingsManager {
   private cache: PluginSettings | null = null
   private loaded = false
@@ -51,6 +74,7 @@ export class SettingsManager {
     merged.maxConcurrentDownloads = clampConcurrency(merged.maxConcurrentDownloads)
     merged.lastSyncAt = normalizeTimestamp(merged.lastSyncAt)
     merged.lastSyncFailed = normalizeCount(merged.lastSyncFailed)
+    merged.lastSyncResults = normalizeResults(merged.lastSyncResults)
     this.cache = merged
     this.loaded = true
     return merged
@@ -72,18 +96,20 @@ export class SettingsManager {
       maxConcurrentDownloads: clampConcurrency(settings.maxConcurrentDownloads),
       lastSyncAt: normalizeTimestamp(settings.lastSyncAt),
       lastSyncFailed: normalizeCount(settings.lastSyncFailed),
+      lastSyncResults: normalizeResults(settings.lastSyncResults),
     }
     this.cache = normalized
     this.loaded = true
     await this.plugin.saveData(SETTINGS_FILE, normalized)
   }
 
-  async saveLastSync(at: number, failed: number): Promise<void> {
+  async saveLastSync(at: number, failed: number, results: LastSyncResults): Promise<void> {
     const current = this.cache ?? { ...DEFAULT_SETTINGS }
     const next: PluginSettings = {
       ...current,
       lastSyncAt: normalizeTimestamp(at),
       lastSyncFailed: normalizeCount(failed),
+      lastSyncResults: normalizeResults(results),
     }
     this.cache = next
     this.loaded = true

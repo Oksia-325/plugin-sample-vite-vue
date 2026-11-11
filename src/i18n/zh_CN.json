@@ -59,7 +59,7 @@
   "colLocal": "本地",
   "colDownloaded": "已下载",
   "colFailed": "失败",
-  "statusPending": "等待中",
+  "statusPending": "待同步",
   "statusSyncing": "同步中",
   "statusDone": "已完成",
   "statusError": "出错",

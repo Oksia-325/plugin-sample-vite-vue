@@ -2,6 +2,8 @@ import type { Icons8Client } from "./client"
 import type { ManifestManager } from "./manifest"
 import type {
   CollectionOverview,
+  CollectionStatus,
+  LastSyncResults,
   SyncOverview,
 } from "./types"
 import { IGNORED_COLLECTIONS } from "./types"
@@ -11,6 +13,7 @@ export interface OverviewOptions {
   manifest: ManifestManager
   lastSyncAt?: number
   lastSyncFailed?: number
+  lastSyncResults?: LastSyncResults
 }
 
 /**
@@ -30,6 +33,21 @@ export async function buildOverview(options: OverviewOptions): Promise<SyncOverv
   for (const collection of collections) {
     const localTotal = localCounts[collection.id] ?? 0
     const pendingTotal = Math.max(0, collection.totalIcons - localTotal)
+    const saved = options.lastSyncResults?.[collection.id]
+    let status: CollectionStatus = pendingTotal > 0 ? "pending" : "done"
+    let downloaded = 0
+    let failed = 0
+    let error: string | undefined
+    if (saved) {
+      downloaded = saved.downloaded
+      failed = saved.failed
+      error = saved.error
+      if (saved.status === "error") {
+        status = "error"
+      } else if (pendingTotal === 0) {
+        status = "done"
+      }
+    }
     local += localTotal
     remote += collection.totalIcons
     pending += pendingTotal
@@ -40,10 +58,14 @@ export async function buildOverview(options: OverviewOptions): Promise<SyncOverv
       remoteTotal: collection.totalIcons,
       localTotal,
       pendingTotal,
-      status: pendingTotal > 0 ? "pending" : "done",
+      downloaded,
+      failed,
+      error,
+      status,
     })
   }
 
+  const matchedFailed = items.reduce((sum, item) => sum + item.failed, 0)
   return {
     collections: items,
     totals: {
@@ -51,7 +73,7 @@ export async function buildOverview(options: OverviewOptions): Promise<SyncOverv
       local,
       remote,
       pending,
-      failed: Math.max(0, Math.floor(Number(options.lastSyncFailed) || 0)),
+      failed: Math.max(matchedFailed, Math.max(0, Math.floor(Number(options.lastSyncFailed) || 0))),
     },
     lastSyncAt: Math.max(0, Math.floor(Number(options.lastSyncAt) || 0)),
     loadedAt: Date.now(),

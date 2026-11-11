@@ -18,7 +18,7 @@ import { IGNORED_COLLECTIONS } from "./types"
 
 export interface SyncCallbacks {
   onCollectionStart?: (collection: CollectionInfo, index: number, total: number) => void
-  onCollectionProgress?: (collectionId: string, downloaded: number, failed: number) => void
+  onCollectionProgress?: (collectionId: string, downloaded: number, failed: number, total: number) => void
   onCollectionDone?: (result: SyncResult) => void
 }
 
@@ -125,6 +125,9 @@ export class SyncManager {
     // 并发下载（信号量限流），写入 /emojis/<收藏夹小写>/<名称>.<ext>
     let downloaded = 0
     let failed = 0
+    if (planned.length > 0) {
+      this.callbacks.onCollectionProgress?.(collection.id, 0, 0, planned.length)
+    }
     const tasks = planned.map((item) => async () => {
       if (this.cancelRequested) {
         return
@@ -142,7 +145,7 @@ export class SyncManager {
         failed++
         console.error(`[Icon8Sync] download failed ${item.icon.id} (${item.icon.name}):`, err)
       }
-      this.callbacks.onCollectionProgress?.(collection.id, downloaded, failed)
+      this.callbacks.onCollectionProgress?.(collection.id, downloaded, failed, planned.length)
     })
     await runPool(tasks, this.getSettings().maxConcurrentDownloads)
 
