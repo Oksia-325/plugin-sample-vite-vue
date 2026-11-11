@@ -41,24 +41,44 @@ export class SyncManager {
   }
 
   async syncAll(): Promise<SyncResult[]> {
-    return this.syncCollections()
+    this.cancelRequested = false
+    const collections = await this.loadCollections()
+    return this.runCollections(collections)
+  }
+
+  async syncIncremental(): Promise<SyncResult[]> {
+    this.cancelRequested = false
+    const collections = await this.loadCollections()
+    const localCounts = this.manifest.getCollectionCounts()
+    const changed = collections.filter((collection) => {
+      const localTotal = localCounts[collection.id] ?? 0
+      return collection.totalIcons > localTotal
+    })
+    return this.runCollections(changed)
   }
 
   async syncCollections(collectionIds?: string[]): Promise<SyncResult[]> {
     this.cancelRequested = false
-    const collections = (await this.client.getCollections())
-      .filter((collection) => collection.name && !IGNORED_COLLECTIONS.has(collection.name))
+    const collections = await this.loadCollections()
     const targetIds = collectionIds && collectionIds.length > 0 ? new Set(collectionIds) : null
     const selected = targetIds
       ? collections.filter((collection) => targetIds.has(collection.id))
       : collections
+    return this.runCollections(selected)
+  }
 
+  private async loadCollections(): Promise<CollectionInfo[]> {
+    return (await this.client.getCollections())
+      .filter((collection) => collection.name && !IGNORED_COLLECTIONS.has(collection.name))
+  }
+
+  private async runCollections(collections: CollectionInfo[]): Promise<SyncResult[]> {
     const results: SyncResult[] = []
-    for (let index = 0; index < selected.length; index++) {
+    for (let index = 0; index < collections.length; index++) {
       if (this.cancelRequested) {
         break
       }
-      const result = await this.syncCollection(selected[index], index, selected.length)
+      const result = await this.syncCollection(collections[index], index, collections.length)
       results.push(result)
       this.callbacks.onCollectionDone?.(result)
       if (result.downloaded > 0 || result.failed > 0) {
@@ -95,26 +115,36 @@ export class SyncManager {
     result.remoteTotal = remoteIcons.length
 
     // 增量差集：manifest 以 icon ID 为唯一标识
+    const settings = this.getSettings()
     const localEntries = this.manifest.getCollectionEntries(collection.id)
     result.localTotal = localEntries.length
     const localIds = new Set(localEntries.map((entry) => entry.iconId))
-    const newIcons = remoteIcons.filter((icon) => !localIds.has(icon.id))
+    const skipSynced = settings.skipSynced !== false
+    const newIcons = skipSynced
+      ? remoteIcons.filter((icon) => !localIds.has(icon.id))
+      : remoteIcons
     if (newIcons.length === 0) {
       result.skipped = remoteIcons.length
       return result
     }
 
     // 预生成唯一文件名（本批次内预留，防止并发撞名）
-    const extension = this.getSettings().downloadFormat
+    const extension = settings.downloadFormat
     const reservedFilenames = new Set<string>()
     const planned: Array<{ icon: IconInfo, filename: string }> = []
     for (const icon of newIcons) {
-      const filename = this.manifest.generateUniqueFilename(
-        collection.id,
-        sanitizeName(icon.name),
-        extension,
-        reservedFilenames,
-      )
+      const existing = this.manifest.getEntry(collection.id, icon.id)
+      const canReuse = !!existing
+        && existing.localFilename.toLowerCase().endsWith(`.${extension}`)
+        && !reservedFilenames.has(existing.localFilename)
+      const filename = canReuse
+        ? existing.localFilename
+        : this.manifest.generateUniqueFilename(
+            collection.id,
+            sanitizeName(icon.name),
+            extension,
+            reservedFilenames,
+          )
       reservedFilenames.add(filename)
       planned.push({
         icon,
@@ -125,6 +155,7 @@ export class SyncManager {
     // 并发下载（信号量限流），写入 /emojis/<收藏夹小写>/<名称>.<ext>
     let downloaded = 0
     let failed = 0
+    let added = 0
     if (planned.length > 0) {
       this.callbacks.onCollectionProgress?.(collection.id, 0, 0, planned.length)
     }
@@ -139,6 +170,9 @@ export class SyncManager {
         }
         await putFile(emojiFilePath(collection.name, item.filename), false, blob)
         this.manifest.addEntry(item.icon.id, collection.id, collection.name, item.icon.name, item.filename)
+        if (!localIds.has(item.icon.id)) {
+          added++
+        }
         downloaded++
         this.scheduleSave()
       } catch (err) {
@@ -147,11 +181,11 @@ export class SyncManager {
       }
       this.callbacks.onCollectionProgress?.(collection.id, downloaded, failed, planned.length)
     })
-    await runPool(tasks, this.getSettings().maxConcurrentDownloads)
+    await runPool(tasks, settings.maxConcurrentDownloads)
 
     result.downloaded = downloaded
     result.failed = failed
-    result.localTotal += downloaded
+    result.localTotal += added
     return result
   }
 

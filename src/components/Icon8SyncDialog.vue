@@ -3,10 +3,9 @@
     <header class="i8-header">
       <div class="i8-brand">
         <div class="i8-brand__mark">
-          <AppIcon
+          <AssetIcon
             name="sync"
             :size="20"
-            :stroke-width="2"
           />
         </div>
         <div class="i8-brand__text">
@@ -30,7 +29,7 @@
           type="button"
           @click="activeTab = 'sync'"
         >
-          <AppIcon
+          <AssetIcon
             name="sync"
             :size="16"
           />
@@ -42,8 +41,8 @@
           type="button"
           @click="activeTab = 'settings'"
         >
-          <AppIcon
-            name="tune"
+          <AssetIcon
+            name="settings"
             :size="16"
           />
           <span>{{ t('tabSettings') }}</span>
@@ -88,14 +87,28 @@
                     class="i8-btn i8-btn--primary"
                     type="button"
                     :disabled="syncRunning"
-                    @click="startSync"
+                    :title="t('incrementalHint')"
+                    @click="startSync('incremental')"
                   >
-                    <AppIcon
+                    <AssetIcon
                       name="sync"
                       :size="17"
                       :spin="syncRunning"
                     />
-                    <span>{{ syncRunning ? t('syncRunningBtn') : t('startSync') }}</span>
+                    <span>{{ syncRunning ? t('syncRunningBtn') : t('startIncremental') }}</span>
+                  </button>
+                  <button
+                    class="i8-btn i8-btn--soft"
+                    type="button"
+                    :disabled="syncRunning"
+                    :title="t('fullHint')"
+                    @click="startSync('full')"
+                  >
+                    <AssetIcon
+                      name="download"
+                      :size="16"
+                    />
+                    <span>{{ t('startFull') }}</span>
                   </button>
                   <button
                     class="i8-btn i8-btn--soft"
@@ -394,7 +407,7 @@
                       :title="copiedKey === `card:${card.collectionId}` ? t('copied') : t('copyPath')"
                       @click="copyCardPath(card)"
                     >
-                      <AppIcon
+                      <AssetIcon
                         :name="copiedKey === `card:${card.collectionId}` ? 'check' : 'copy'"
                         :size="15"
                       />
@@ -432,9 +445,9 @@
 
         <footer class="i8-sync-footer">
           <div class="i8-search">
-            <AppIcon
+            <AssetIcon
               name="search"
-              :size="16"
+              :size="15"
             />
             <input
               v-model="search"
@@ -467,8 +480,8 @@
         <div class="i8-scroll">
           <div class="i8-panel i8-service">
             <div class="i8-service__mark">
-              <AppIcon
-                name="hub"
+              <AssetIcon
+                name="sync"
                 :size="22"
               />
             </div>
@@ -503,7 +516,7 @@
           <section class="i8-panel">
             <div class="i8-panel__head">
               <div class="i8-panel__mark">
-                <AppIcon
+                <AssetIcon
                   name="key"
                   :size="17"
                 />
@@ -523,7 +536,7 @@
                 rel="noreferrer"
               >
                 <span>{{ t('visitIcons8') }}</span>
-                <AppIcon
+                <AssetIcon
                   name="external"
                   :size="13"
                 />
@@ -531,9 +544,9 @@
             </div>
 
             <div class="i8-token">
-              <AppIcon
+              <AssetIcon
                 class="i8-token__icon"
-                name="shield"
+                name="key"
                 :size="17"
               />
               <input
@@ -549,7 +562,7 @@
                 :title="showToken ? t('hideToken') : t('showToken')"
                 @click="showToken = !showToken"
               >
-                <AppIcon
+                <AssetIcon
                   :name="showToken ? 'eye-off' : 'eye'"
                   :size="16"
                 />
@@ -560,7 +573,7 @@
                 :title="copiedKey === 'token' ? t('tokenCopied') : t('copyToken')"
                 @click="copyToken"
               >
-                <AppIcon
+                <AssetIcon
                   :name="copiedKey === 'token' ? 'check' : 'copy'"
                   :size="16"
                 />
@@ -575,19 +588,25 @@
                 v-if="autoLoginSupported"
                 class="i8-btn i8-btn--soft i8-btn--sm"
                 type="button"
-                :disabled="autoLoginRunning || verifying || syncRunning"
+                :disabled="autoLoginRunning || verifying || testingConnection || syncRunning"
                 @click="runAutoLogin"
               >
-                <AppIcon
-                  name="sparkles"
+                <AssetIcon
+                  name="login"
                   :size="14"
                   :spin="autoLoginRunning"
                 />
                 <span>{{ autoLoginRunning ? t('autoLoginRunning') : t('autoLogin') }}</span>
               </button>
               <span class="i8-auto-login__hint">
+                <AssetIcon
+                  v-if="autoLoginSupported"
+                  name="hint"
+                  :size="13"
+                />
                 <AppIcon
-                  :name="autoLoginSupported ? 'bulb' : 'alert'"
+                  v-else
+                  name="alert"
                   :size="13"
                 />
                 {{ autoLoginSupported ? t('autoLoginHint') : autoLoginHint }}
@@ -595,8 +614,8 @@
             </div>
 
             <div class="i8-help">
-              <AppIcon
-                name="bulb"
+              <AssetIcon
+                name="hint"
                 :size="17"
               />
               <div>
@@ -614,7 +633,7 @@
             <section class="i8-panel">
               <div class="i8-panel__head">
                 <div class="i8-panel__mark">
-                  <AppIcon
+                  <AssetIcon
                     name="download"
                     :size="17"
                   />
@@ -631,9 +650,9 @@
 
               <div class="i8-row">
                 <div class="i8-row__main">
-                  <AppIcon
+                  <AssetIcon
                     class="i8-row__icon"
-                    name="image"
+                    name="format"
                     :size="17"
                   />
                   <div>
@@ -660,9 +679,9 @@
 
               <div class="i8-row">
                 <div class="i8-row__main">
-                  <AppIcon
+                  <AssetIcon
                     class="i8-row__icon"
-                    name="aspect"
+                    name="size"
                     :size="17"
                   />
                   <div>
@@ -696,9 +715,9 @@
 
               <div class="i8-row">
                 <div class="i8-row__main">
-                  <AppIcon
+                  <AssetIcon
                     class="i8-row__icon"
-                    name="bolt"
+                    name="concurrency"
                     :size="17"
                   />
                   <div>
@@ -741,7 +760,7 @@
             <section class="i8-panel">
               <div class="i8-panel__head">
                 <div class="i8-panel__mark">
-                  <AppIcon
+                  <AssetIcon
                     name="folder"
                     :size="17"
                   />
@@ -758,9 +777,9 @@
 
               <div class="i8-path">
                 <div class="i8-path__main">
-                  <AppIcon
+                  <AssetIcon
                     class="i8-row__icon"
-                    name="folder-open"
+                    name="folder"
                     :size="17"
                   />
                   <div class="i8-path__text">
@@ -776,7 +795,7 @@
                   :title="copiedKey === 'path' ? t('pathCopied') : t('copyPathAction')"
                   @click="copyEmojiRoot"
                 >
-                  <AppIcon
+                  <AssetIcon
                     :name="copiedKey === 'path' ? 'check' : 'copy'"
                     :size="14"
                   />
@@ -784,21 +803,88 @@
                 </button>
               </div>
 
-              <div class="i8-chips">
-                <span class="i8-chip i8-chip--ok">
-                  <AppIcon
-                    name="check"
-                    :size="12"
+              <div class="i8-row i8-row--toggle">
+                <div class="i8-row__main">
+                  <AssetIcon
+                    class="i8-row__icon"
+                    name="download"
+                    :size="16"
                   />
-                  {{ t('incrementalSync') }}
-                </span>
-                <span class="i8-chip i8-chip--ok">
-                  <AppIcon
-                    name="check"
-                    :size="12"
+                  <div>
+                    <div class="i8-row__title">
+                      {{ t('skipSynced') }}
+                    </div>
+                    <div class="i8-row__desc">
+                      {{ t('skipSyncedDesc') }}
+                    </div>
+                  </div>
+                </div>
+                <label class="i8-switch">
+                  <input
+                    v-model="skipSyncedInput"
+                    type="checkbox"
+                    :aria-label="t('skipSynced')"
+                  >
+                  <span class="i8-switch__track">
+                    <span class="i8-switch__thumb" />
+                  </span>
+                </label>
+              </div>
+
+              <div class="i8-row i8-row--toggle">
+                <div class="i8-row__main">
+                  <AssetIcon
+                    class="i8-row__icon"
+                    name="sync"
+                    :size="16"
                   />
-                  {{ t('autoRefresh') }}
-                </span>
+                  <div>
+                    <div class="i8-row__title">
+                      {{ t('autoReload') }}
+                    </div>
+                    <div class="i8-row__desc">
+                      {{ t('autoReloadDesc') }}
+                    </div>
+                  </div>
+                </div>
+                <label class="i8-switch">
+                  <input
+                    v-model="autoReloadInput"
+                    type="checkbox"
+                    :aria-label="t('autoReload')"
+                  >
+                  <span class="i8-switch__track">
+                    <span class="i8-switch__thumb" />
+                  </span>
+                </label>
+              </div>
+
+              <div class="i8-row i8-row--toggle">
+                <div class="i8-row__main">
+                  <AssetIcon
+                    class="i8-row__icon"
+                    name="external"
+                    :size="16"
+                  />
+                  <div>
+                    <div class="i8-row__title">
+                      {{ t('autoProxy') }}
+                    </div>
+                    <div class="i8-row__desc">
+                      {{ t('autoProxyDesc') }}
+                    </div>
+                  </div>
+                </div>
+                <label class="i8-switch">
+                  <input
+                    v-model="autoProxyInput"
+                    type="checkbox"
+                    :aria-label="t('autoProxy')"
+                  >
+                  <span class="i8-switch__track">
+                    <span class="i8-switch__thumb" />
+                  </span>
+                </label>
               </div>
 
               <p class="i8-storage-note">
@@ -813,27 +899,53 @@
             class="i8-settings-status"
             :class="settingsMessage ? (settingsOk ? 'is-ok' : 'is-error') : ''"
           >
+            <AssetIcon
+              v-if="settingsMessage && settingsOk"
+              name="check"
+              :size="16"
+            />
             <AppIcon
-              :name="settingsMessage ? (settingsOk ? 'check-circle' : 'alert') : 'bulb'"
+              v-else-if="settingsMessage"
+              name="alert"
+              :size="16"
+            />
+            <AssetIcon
+              v-else
+              name="hint"
               :size="16"
             />
             <span :title="settingsMessage || t('settingsFooterHint')">
               {{ settingsMessage || t('settingsFooterHint') }}
             </span>
           </div>
-          <button
-            class="i8-btn i8-btn--primary"
-            type="button"
-            :disabled="verifying || !settingsReady || syncRunning || autoLoginRunning"
-            @click="saveSettings"
-          >
-            <AppIcon
-              name="verified"
-              :size="16"
-              :spin="verifying"
-            />
-            <span>{{ verifying ? t('verifying') : t('saveAndVerify') }}</span>
-          </button>
+          <div class="i8-settings-actions">
+            <button
+              class="i8-btn i8-btn--soft"
+              type="button"
+              :disabled="testingConnection || verifying || !settingsReady || syncRunning || autoLoginRunning"
+              @click="testConnection"
+            >
+              <AssetIcon
+                name="sync"
+                :size="16"
+                :spin="testingConnection"
+              />
+              <span>{{ testingConnection ? t('testingConnection') : t('testConnection') }}</span>
+            </button>
+            <button
+              class="i8-btn i8-btn--primary"
+              type="button"
+              :disabled="verifying || testingConnection || !settingsReady || syncRunning || autoLoginRunning"
+              @click="saveSettings"
+            >
+              <AssetIcon
+                name="verify"
+                :size="16"
+                :spin="verifying"
+              />
+              <span>{{ verifying ? t('verifying') : t('saveAndVerify') }}</span>
+            </button>
+          </div>
         </footer>
       </section>
     </main>
@@ -857,6 +969,7 @@ import {
   watch,
 } from 'vue'
 import AppIcon from '@/components/icon8/AppIcon.vue'
+import AssetIcon from '@/components/icon8/AssetIcon.vue'
 import {
   autoLoginFromFirefox,
   getAutoLoginSupport,
@@ -873,6 +986,7 @@ import { SyncManager } from '@/icons8/sync'
 import {
   DEFAULT_SETTINGS,
   EMOJI_DIR,
+  IGNORED_COLLECTIONS,
 } from '@/icons8/types'
 import { usePlugin } from '@/main'
 import { copyText } from '@/utils'
@@ -911,7 +1025,11 @@ const showToken = ref(false)
 const formatInput = ref('png')
 const sizeInput = ref('512')
 const concurrencyInput = ref('4')
+const skipSyncedInput = ref(true)
+const autoReloadInput = ref(true)
+const autoProxyInput = ref(false)
 const verifying = ref(false)
+const testingConnection = ref(false)
 const settingsOk = ref(false)
 const settingsMessage = ref('')
 const copiedKey = ref('')
@@ -925,7 +1043,7 @@ const autoLoginHint = computed(() => {
   return ''
 })
 
-watch([tokenInput, formatInput, sizeInput, concurrencyInput], () => {
+watch([tokenInput, formatInput, sizeInput, concurrencyInput, skipSyncedInput, autoReloadInput, autoProxyInput], () => {
   if (settingsMessage.value) {
     settingsOk.value = false
     settingsMessage.value = ''
@@ -1177,6 +1295,9 @@ onMounted(async () => {
     formatInput.value = settings.downloadFormat
     sizeInput.value = String(settings.downloadSize)
     concurrencyInput.value = String(settings.maxConcurrentDownloads)
+    skipSyncedInput.value = settings.skipSynced !== false
+    autoReloadInput.value = settings.autoReloadEmoji !== false
+    autoProxyInput.value = settings.autoProxy === true
     lastSyncAt.value = settings.lastSyncAt
     failedCount.value = settings.lastSyncFailed
     configured.value = ctx.settings.isConfigured()
@@ -1203,6 +1324,49 @@ function stepConcurrency(delta: number) {
   concurrencyInput.value = String(clampConcurrency(String(concurrencyNumber.value + delta)))
 }
 
+function buildSettingsCandidate(token: string): PluginSettings {
+  const current = ctx.settings.get()
+  return {
+    ...current,
+    authorization: token,
+    downloadFormat: formatInput.value === 'svg' ? 'svg' : 'png',
+    downloadSize: Number(sizeInput.value) || 512,
+    maxConcurrentDownloads: clampConcurrency(concurrencyInput.value),
+    skipSynced: skipSyncedInput.value,
+    autoReloadEmoji: autoReloadInput.value,
+    autoProxy: autoProxyInput.value,
+  }
+}
+
+function countSyncCollections(collections: Array<{ name: string }>): number {
+  return collections.filter((collection) => !IGNORED_COLLECTIONS.has(collection.name)).length
+}
+
+async function testConnection() {
+  settingsMessage.value = ''
+  const token = tokenInput.value.trim()
+  if (!token) {
+    settingsOk.value = false
+    settingsMessage.value = t('tokenEmpty')
+    return
+  }
+  testingConnection.value = true
+  try {
+    const candidate = buildSettingsCandidate(token)
+    const probe = new Icons8Client(() => candidate)
+    const collections = await probe.getCollections()
+    settingsOk.value = true
+    settingsMessage.value = t('testOk').replace('{count}', String(countSyncCollections(collections)))
+  } catch (err) {
+    settingsOk.value = false
+    settingsMessage.value = err instanceof UnauthorizedError
+      ? t('testFailUnauthorized')
+      : `${t('testFailNetwork')}${err instanceof Error && err.message ? `: ${err.message}` : ''}`
+  } finally {
+    testingConnection.value = false
+  }
+}
+
 async function saveSettings() {
   settingsMessage.value = ''
   const token = tokenInput.value.trim()
@@ -1212,14 +1376,7 @@ async function saveSettings() {
     return
   }
   verifying.value = true
-  const current = ctx.settings.get()
-  const candidate: PluginSettings = {
-    ...current,
-    authorization: token,
-    downloadFormat: formatInput.value === 'svg' ? 'svg' : 'png',
-    downloadSize: Number(sizeInput.value) || 512,
-    maxConcurrentDownloads: clampConcurrency(concurrencyInput.value),
-  }
+  const candidate = buildSettingsCandidate(token)
   // 用待保存的配置实测一次收藏夹接口，通过后才落盘
   const probe = new Icons8Client(() => candidate)
   try {
@@ -1227,7 +1384,7 @@ async function saveSettings() {
     await ctx.settings.save(candidate)
     configured.value = true
     settingsOk.value = true
-    settingsMessage.value = t('saveOk').replace('{count}', String(collections.length))
+    settingsMessage.value = t('saveOk').replace('{count}', String(countSyncCollections(collections)))
     if (!syncRunning.value) {
       overviewRequestId++
       overviewLoading.value = false
@@ -1366,12 +1523,14 @@ function upsertCard(collectionId: string, name: string): CollectionCard {
   return card
 }
 
-async function startSync() {
+type SyncMode = 'incremental' | 'full'
+
+async function startSync(mode: SyncMode = 'incremental') {
   if (!configured.value || !ctx.settings.isConfigured()) {
     activeTab.value = 'settings'
     return
   }
-  if (cards.length > 0) {
+  if (mode === 'full') {
     for (const card of cards) {
       card.downloaded = 0
       card.failed = 0
@@ -1379,8 +1538,6 @@ async function startSync() {
       card.status = 'pending'
       card.message = ''
     }
-  } else {
-    cards.splice(0, cards.length)
   }
   summary.value = ''
   summaryError.value = false
@@ -1399,7 +1556,10 @@ async function startSync() {
         card.name = collection.name
         card.remoteTotal = collection.totalIcons
         card.pendingTotal = Math.max(0, collection.totalIcons - card.localTotal)
+        card.downloaded = 0
+        card.failed = 0
         card.progressTotal = 0
+        card.message = ''
         card.status = 'syncing'
       },
       onCollectionProgress: (collectionId, downloaded, failed, total) => {
@@ -1414,10 +1574,22 @@ async function startSync() {
       },
     })
     activeSync = sync
-    const results = await sync.syncAll()
+    const results = mode === 'full'
+      ? await sync.syncAll()
+      : await sync.syncIncremental()
+    if (results.length === 0) {
+      summaryError.value = false
+      const retryable = cards.filter((item) => item.status === 'error').length
+      summary.value = mode === 'incremental'
+        ? (retryable > 0
+            ? t('incrementalNoChangesErrors').replace('{count}', String(retryable))
+            : t('incrementalNoChanges'))
+        : t('noCollections')
+      return
+    }
     const totalDownloaded = results.reduce((sum, item) => sum + item.downloaded, 0)
     const totalFailed = results.reduce((sum, item) => sum + item.failed, 0)
-    if (!stopRequested.value) {
+    if (mode === 'full' && !stopRequested.value) {
       const resultIds = new Set(results.map((item) => item.collectionId))
       for (let index = cards.length - 1; index >= 0; index--) {
         if (!resultIds.has(cards[index].collectionId)) {
@@ -1439,13 +1611,18 @@ async function startSync() {
         .replace('{failed}', String(totalFailed))
     }
     const finishedAt = Date.now()
+    const snapshotFailed = cards.reduce((sum, item) => sum + item.failed, 0)
     lastSyncAt.value = finishedAt
-    failedCount.value = totalFailed
-    void ctx.settings.saveLastSync(finishedAt, totalFailed, buildSyncResults(finishedAt)).catch((err) => {
+    failedCount.value = snapshotFailed
+    void ctx.settings.saveLastSync(finishedAt, snapshotFailed, buildSyncResults(finishedAt)).catch((err) => {
       console.error('[Icon8Sync] save last sync failed:', err)
     })
-    const reloaded = await reloadEmoji()
-    summary.value += reloaded ? ` ${t('emojiReloaded')}` : ` ${t('emojiReloadHint')}`
+    if (ctx.settings.get().autoReloadEmoji !== false) {
+      const reloaded = await reloadEmoji()
+      summary.value += reloaded ? ` ${t('emojiReloaded')}` : ` ${t('emojiReloadHint')}`
+    } else {
+      summary.value += ` ${t('autoReloadDisabledHint')}`
+    }
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       configured.value = false
@@ -1574,8 +1751,12 @@ async function retryCollection(card: CollectionCard) {
     void ctx.settings.saveLastSync(finishedAt, totalFailed, buildSyncResults(finishedAt)).catch((err) => {
       console.error('[Icon8Sync] save last sync failed:', err)
     })
-    const reloaded = await reloadEmoji()
-    summary.value += reloaded ? ` ${t('emojiReloaded')}` : ` ${t('emojiReloadHint')}`
+    if (ctx.settings.get().autoReloadEmoji !== false) {
+      const reloaded = await reloadEmoji()
+      summary.value += reloaded ? ` ${t('emojiReloaded')}` : ` ${t('emojiReloadHint')}`
+    } else {
+      summary.value += ` ${t('autoReloadDisabledHint')}`
+    }
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       configured.value = false
@@ -2822,7 +3003,8 @@ function copyCardPath(card: CollectionCard) {
   border-radius: 14px;
   background: var(--i8-inset);
 
-  > svg {
+  > svg,
+  > .i8-asset-icon {
     flex-shrink: 0;
     margin-top: 1px;
     color: var(--i8-accent);
@@ -2859,6 +3041,10 @@ function copyCardPath(card: CollectionCard) {
   border: 1px solid var(--i8-border);
   border-radius: 14px;
   background: var(--i8-inset);
+
+  &--toggle {
+    padding-right: 8px;
+  }
 
   &__main {
     display: flex;
@@ -2935,6 +3121,67 @@ function copyCardPath(card: CollectionCard) {
   font-size: 10px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.i8-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+  }
+
+  &__track {
+    position: relative;
+    display: block;
+    width: 40px;
+    height: 22px;
+    border: 1px solid var(--i8-border);
+    border-radius: 999px;
+    background: var(--i8-hover);
+    transition: background 0.16s ease, border-color 0.16s ease;
+  }
+
+  &__thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--i8-card);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    transition: transform 0.16s ease, background 0.16s ease;
+  }
+
+  input:checked + &__track {
+    border-color: var(--b3-theme-primary);
+    background: var(--b3-theme-primary);
+  }
+
+  input:checked + &__track &__thumb {
+    background: var(--b3-theme-on-primary);
+    transform: translateX(18px);
+  }
+
+  input:focus-visible + &__track {
+    outline: 2px solid var(--i8-accent);
+    outline-offset: 2px;
+  }
+}
+
+.i8-settings-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
 }
 
 .i8-stepper {
@@ -3015,30 +3262,6 @@ function copyCardPath(card: CollectionCard) {
   }
 }
 
-.i8-chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.i8-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border: 1px solid var(--i8-border);
-  border-radius: 999px;
-  background: var(--i8-inset);
-  color: var(--i8-muted);
-  font-size: 9px;
-
-  &--ok {
-    border-color: transparent;
-    background: var(--i8-green-soft);
-    color: var(--i8-green);
-  }
-}
-
 .i8-storage-note {
   margin: 0;
   color: var(--i8-faint);
@@ -3052,6 +3275,7 @@ function copyCardPath(card: CollectionCard) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   padding: 12px 24px;
   border-top: 1px solid var(--i8-border);
   background: var(--i8-card);

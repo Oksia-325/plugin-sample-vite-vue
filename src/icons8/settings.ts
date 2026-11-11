@@ -75,6 +75,9 @@ export class SettingsManager {
     merged.lastSyncAt = normalizeTimestamp(merged.lastSyncAt)
     merged.lastSyncFailed = normalizeCount(merged.lastSyncFailed)
     merged.lastSyncResults = normalizeResults(merged.lastSyncResults)
+    merged.skipSynced = merged.skipSynced !== false
+    merged.autoReloadEmoji = merged.autoReloadEmoji !== false
+    merged.autoProxy = merged.autoProxy === true
     this.cache = merged
     this.loaded = true
     return merged
@@ -97,6 +100,9 @@ export class SettingsManager {
       lastSyncAt: normalizeTimestamp(settings.lastSyncAt),
       lastSyncFailed: normalizeCount(settings.lastSyncFailed),
       lastSyncResults: normalizeResults(settings.lastSyncResults),
+      skipSynced: settings.skipSynced !== false,
+      autoReloadEmoji: settings.autoReloadEmoji !== false,
+      autoProxy: settings.autoProxy === true,
     }
     this.cache = normalized
     this.loaded = true

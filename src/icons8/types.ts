@@ -45,6 +45,9 @@ export interface PluginSettings {
   lastSyncAt: number
   lastSyncFailed: number
   lastSyncResults: LastSyncResults
+  skipSynced: boolean
+  autoReloadEmoji: boolean
+  autoProxy: boolean
 }
 
 export type CollectionStatus = "pending" | "syncing" | "done" | "error"
@@ -96,6 +99,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   lastSyncAt: 0,
   lastSyncFailed: 0,
   lastSyncResults: {},
+  skipSynced: true,
+  autoReloadEmoji: true,
+  autoProxy: false,
 }
 
 export const IGNORED_COLLECTIONS = new Set(["Favorites", "Downloaded"])

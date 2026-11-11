@@ -107,12 +107,22 @@ export class Icons8Client {
   }
 
   private async requestJson(url: string): Promise<any> {
-    const token = this.getSettings().authorization
+    const settings = this.getSettings()
+    if (settings.autoProxy) {
+      const direct = await this.requestJsonDirect(url, settings.authorization)
+      if (direct !== null) {
+        return direct
+      }
+    }
+
+    const token = settings.authorization
     // 思源内核 forwardProxy 的 headers 格式为对象数组: [{ "Header-Name": "value" }]
     const headers = [{ Authorization: `Bearer ${token}` }]
     const res = await forwardProxy(url, "GET", {}, headers, API_TIMEOUT, "text/html").catch(() => null)
     if (!res) {
-      throw new Icons8Error("Icons8 API request failed (forwardProxy)")
+      throw new Icons8Error(settings.autoProxy
+        ? "Icons8 API request failed (system proxy / forwardProxy)"
+        : "Icons8 API request failed (forwardProxy)")
     }
     if (res.status === 401) {
       throw new UnauthorizedError()
@@ -124,6 +134,41 @@ export class Icons8Client {
       return JSON.parse(res.body)
     } catch {
       throw new Icons8Error("Invalid JSON response from Icons8 API")
+    }
+  }
+
+  /**
+   * 直接走 Chromium 网络栈（跟随系统代理）。Icons8 API 已允许跨域，
+   * 失败时返回 null 以便回退到思源内核代理。
+   */
+  private async requestJsonDirect(url: string, token: string): Promise<any | null> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), API_TIMEOUT)
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
+      })
+      if (resp.status === 401) {
+        throw new UnauthorizedError()
+      }
+      if (!resp.ok) {
+        return null
+      }
+      try {
+        return await resp.json()
+      } catch {
+        return null
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        throw err
+      }
+      return null
+    } finally {
+      clearTimeout(timer)
     }
   }
 }
