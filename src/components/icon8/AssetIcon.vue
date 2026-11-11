@@ -24,6 +24,7 @@ import hintAlt from '@/assets/icons/hint-alt.svg?raw'
 import hint from '@/assets/icons/hint.svg?raw'
 import key from '@/assets/icons/key.svg?raw'
 import login from '@/assets/icons/login.svg?raw'
+import refresh from '@/assets/icons/refresh.svg?raw'
 import search from '@/assets/icons/search.svg?raw'
 import settings from '@/assets/icons/settings.svg?raw'
 import size from '@/assets/icons/size.svg?raw'
@@ -53,6 +54,7 @@ const ICONS: Record<string, string> = {
   'hint-alt': hintAlt,
   key,
   login,
+  refresh,
   search,
   settings,
   size,

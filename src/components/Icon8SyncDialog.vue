@@ -71,7 +71,7 @@
             v-if="!settingsReady"
             class="i8-loading"
           >
-            <AppIcon
+            <AssetIcon
               name="refresh"
               :size="18"
               spin
@@ -129,7 +129,7 @@
                     :title="t('refreshStatus')"
                     @click="loadOverview"
                   >
-                    <AppIcon
+                    <AssetIcon
                       name="refresh"
                       :size="16"
                       :spin="overviewLoading"
@@ -191,7 +191,7 @@
                 v-else-if="overviewLoading"
                 class="i8-hero__idle"
               >
-                <AppIcon
+                <AssetIcon
                   name="refresh"
                   :size="16"
                   spin
@@ -693,23 +693,51 @@
                     </div>
                   </div>
                 </div>
-                <div class="i8-select-wrap">
-                  <select
-                    v-model="sizeInput"
+                <div
+                  ref="sizeMenuRef"
+                  class="i8-select-wrap"
+                  @keydown.esc="sizeMenuOpen = false"
+                >
+                  <button
                     class="i8-select"
+                    type="button"
+                    aria-haspopup="listbox"
+                    :aria-expanded="sizeMenuOpen"
+                    :aria-label="t('iconSize')"
+                    @click="sizeMenuOpen = !sizeMenuOpen"
                   >
-                    <option
+                    <span>{{ sizeLabel }}</span>
+                    <AssetIcon
+                      class="i8-select__chevron"
+                      :class="{ 'is-open': sizeMenuOpen }"
+                      name="chevron"
+                      :size="14"
+                    />
+                  </button>
+                  <div
+                    v-if="sizeMenuOpen"
+                    class="i8-select-menu"
+                    role="listbox"
+                    :aria-label="t('iconSize')"
+                  >
+                    <button
                       v-for="option in sizeOptions"
                       :key="option.value"
-                      :value="option.value"
+                      class="i8-select-option"
+                      :class="{ 'is-active': sizeInput === option.value }"
+                      type="button"
+                      role="option"
+                      :aria-selected="sizeInput === option.value"
+                      @click="selectSize(option.value)"
                     >
-                      {{ option.text }}
-                    </option>
-                  </select>
-                  <AppIcon
-                    name="chevron"
-                    :size="14"
-                  />
+                      <span>{{ option.text }}</span>
+                      <AssetIcon
+                        v-if="sizeInput === option.value"
+                        name="check"
+                        :size="12"
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -963,6 +991,7 @@ import type {
 } from '@/icons8/types'
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   reactive,
   ref,
@@ -1024,6 +1053,8 @@ const tokenInput = ref('')
 const showToken = ref(false)
 const formatInput = ref('png')
 const sizeInput = ref('512')
+const sizeMenuOpen = ref(false)
+const sizeMenuRef = ref<HTMLElement | null>(null)
 const concurrencyInput = ref('4')
 const skipSyncedInput = ref(true)
 const autoReloadInput = ref(true)
@@ -1078,6 +1109,10 @@ const sizeOptions = [
     text: '512 px',
   },
 ]
+
+const sizeLabel = computed(() => {
+  return sizeOptions.find((option) => option.value === sizeInput.value)?.text ?? `${sizeInput.value} px`
+})
 
 // sync state
 const cards = reactive<CollectionCard[]>([])
@@ -1288,6 +1323,7 @@ async function loadOverview() {
 }
 
 onMounted(async () => {
+  document.addEventListener('click', handleDocumentClick)
   try {
     await ctx.settings.load()
     const settings = ctx.settings.get()
@@ -1323,6 +1359,21 @@ function clampConcurrency(value: string): number {
 function stepConcurrency(delta: number) {
   concurrencyInput.value = String(clampConcurrency(String(concurrencyNumber.value + delta)))
 }
+
+function selectSize(value: string) {
+  sizeInput.value = value
+  sizeMenuOpen.value = false
+}
+
+function handleDocumentClick(event: MouseEvent) {
+  if (sizeMenuRef.value && !sizeMenuRef.value.contains(event.target as Node)) {
+    sizeMenuOpen.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
 
 function buildSettingsCandidate(token: string): PluginSettings {
   const current = ctx.settings.get()
@@ -3098,21 +3149,17 @@ function copyCardPath(card: CollectionCard) {
 
 .i8-select-wrap {
   position: relative;
+  z-index: 5;
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  color: var(--i8-muted);
-
-  > svg {
-    position: absolute;
-    right: 6px;
-    pointer-events: none;
-  }
 }
 
 .i8-select {
-  appearance: none;
-  padding: 5px 24px 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
   border: 0;
   outline: 0;
   border-radius: 999px;
@@ -3121,6 +3168,78 @@ function copyCardPath(card: CollectionCard) {
   font-size: 10px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.14s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--i8-hover) 65%, var(--i8-card));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--i8-accent);
+    outline-offset: 2px;
+  }
+
+  &__chevron {
+    color: var(--i8-muted);
+    transition: transform 0.16s ease;
+
+    &.is-open {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.i8-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--i8-border);
+  border-radius: 14px;
+  background: var(--i8-card);
+  box-shadow: var(--i8-shadow-lg);
+}
+
+.i8-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 84px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--i8-text);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+
+  &:hover {
+    background: var(--i8-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--i8-accent);
+    outline-offset: -2px;
+  }
+
+  &.is-active {
+    background: var(--b3-theme-primary);
+    color: var(--b3-theme-on-primary);
+
+    svg {
+      color: inherit;
+    }
+  }
 }
 
 .i8-switch {
