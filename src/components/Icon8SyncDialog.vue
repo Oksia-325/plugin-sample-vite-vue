@@ -53,10 +53,10 @@
       <div class="i8-header__aside">
         <span
           class="i8-service-chip"
-          :class="{ 'is-off': !configured }"
+          :class="{ 'is-off': !configured || verifying }"
         >
           <span class="i8-service-chip__dot" />
-          {{ configured ? t('serviceReady') : t('serviceUnconfigured') }}
+          {{ verifying ? t('verifying') : (configured ? t('serviceReady') : t('serviceUnconfigured')) }}
         </span>
       </div>
     </header>
@@ -108,6 +108,19 @@
                       :size="16"
                     />
                     <span>{{ t('stopSync') }}</span>
+                  </button>
+                  <button
+                    class="i8-btn i8-btn--soft i8-btn--icon"
+                    type="button"
+                    :disabled="overviewLoading || syncRunning"
+                    :title="t('refreshStatus')"
+                    @click="loadOverview"
+                  >
+                    <AppIcon
+                      name="refresh"
+                      :size="16"
+                      :spin="overviewLoading"
+                    />
                   </button>
                 </div>
                 <div class="i8-stamp">
@@ -162,6 +175,17 @@
                 </div>
               </div>
               <div
+                v-else-if="overviewLoading"
+                class="i8-hero__idle"
+              >
+                <AppIcon
+                  name="refresh"
+                  :size="16"
+                  spin
+                />
+                <span>{{ t('loadingOverview') }}</span>
+              </div>
+              <div
                 v-else
                 class="i8-hero__idle"
               >
@@ -196,6 +220,33 @@
                   @click="activeTab = 'settings'"
                 >
                   {{ t('goSettings') }}
+                </button>
+              </div>
+              <div
+                v-else-if="overviewError"
+                class="i8-banner i8-banner--error"
+              >
+                <div class="i8-banner__icon">
+                  <AppIcon
+                    name="alert"
+                    :size="14"
+                  />
+                </div>
+                <div class="i8-banner__body">
+                  <div class="i8-banner__title">
+                    {{ t('overviewLoadFailedTitle') }}
+                  </div>
+                  <div class="i8-banner__desc">
+                    {{ overviewError }}
+                  </div>
+                </div>
+                <button
+                  class="i8-btn i8-btn--soft i8-btn--sm"
+                  type="button"
+                  :disabled="overviewLoading"
+                  @click="loadOverview"
+                >
+                  {{ t('retry') }}
                 </button>
               </div>
               <div
@@ -314,12 +365,6 @@
                 >
                   {{ card.message }}
                 </div>
-                <div
-                  v-else-if="card.deletedRemote > 0"
-                  class="i8-card__note"
-                >
-                  {{ t('deletedRemoteNote').replace('{count}', String(card.deletedRemote)) }}
-                </div>
 
                 <div class="i8-card__footer">
                   <div class="i8-card__metrics">
@@ -328,22 +373,38 @@
                     <span>{{ t('colLocal') }} <b>{{ card.localTotal }}</b></span>
                     <span>{{ t('colRemote') }} <b>{{ card.remoteTotal }}</b></span>
                   </div>
-                  <button
-                    class="i8-icon-btn"
-                    type="button"
-                    :title="copiedKey === `card:${card.collectionId}` ? t('copied') : t('copyPath')"
-                    @click="copyCardPath(card)"
-                  >
-                    <AppIcon
-                      :name="copiedKey === `card:${card.collectionId}` ? 'check' : 'copy'"
-                      :size="15"
-                    />
-                  </button>
+                  <div class="i8-card__tools">
+                    <button
+                      v-if="card.status === 'error'"
+                      class="i8-btn i8-btn--danger-soft i8-btn--sm"
+                      type="button"
+                      :disabled="syncRunning"
+                      @click="retryCollection(card)"
+                    >
+                      <AppIcon
+                        name="retry"
+                        :size="13"
+                        :spin="syncRunning"
+                      />
+                      <span>{{ t('retry') }}</span>
+                    </button>
+                    <button
+                      class="i8-icon-btn"
+                      type="button"
+                      :title="copiedKey === `card:${card.collectionId}` ? t('copied') : t('copyPath')"
+                      @click="copyCardPath(card)"
+                    >
+                      <AppIcon
+                        :name="copiedKey === `card:${card.collectionId}` ? 'check' : 'copy'"
+                        :size="15"
+                      />
+                    </button>
+                  </div>
                 </div>
               </article>
 
               <div
-                v-if="!hasOverview && !syncRunning"
+                v-if="!hasOverview && !syncRunning && !overviewLoading && !overviewError"
                 class="i8-empty"
               >
                 <div class="i8-empty__icon">
@@ -352,8 +413,8 @@
                     :size="22"
                   />
                 </div>
-                <strong>{{ t('emptyTitle') }}</strong>
-                <p>{{ t('syncIdleHint') }}</p>
+                <strong>{{ overviewLoaded ? t('noCollections') : t('emptyTitle') }}</strong>
+                <p>{{ overviewLoaded ? t('noCollectionsHint') : t('syncIdleHint') }}</p>
               </div>
               <div
                 v-else-if="hasOverview && filteredCards.length === 0"
@@ -416,13 +477,14 @@
                 <span class="i8-service__title">{{ t('serviceTitle') }}</span>
                 <span
                   class="i8-pill"
-                  :class="configured ? 'i8-pill--ok' : 'i8-pill--warn'"
+                  :class="configured && !verifying ? 'i8-pill--ok' : 'i8-pill--warn'"
                 >
                   <AppIcon
-                    :name="configured ? 'check-circle' : 'alert'"
+                    :name="configured && !verifying ? 'check-circle' : (verifying ? 'refresh' : 'alert')"
                     :size="12"
+                    :spin="verifying"
                   />
-                  {{ configured ? t('authorized') : t('notAuthorized') }}
+                  {{ authorizedLabel }}
                 </span>
               </div>
               <p class="i8-service__desc">
@@ -431,10 +493,10 @@
             </div>
             <span
               class="i8-service__state"
-              :class="{ 'is-off': !configured }"
+              :class="{ 'is-off': !configured || verifying }"
             >
               <span class="i8-service__dot" />
-              {{ configured ? t('serviceRunning') : t('serviceStopped') }}
+              {{ serviceStateLabel }}
             </span>
           </div>
 
@@ -503,6 +565,33 @@
                   :size="16"
                 />
               </button>
+            </div>
+
+            <div
+              v-if="autoLoginSupported || autoLoginHint"
+              class="i8-auto-login"
+            >
+              <button
+                v-if="autoLoginSupported"
+                class="i8-btn i8-btn--soft i8-btn--sm"
+                type="button"
+                :disabled="autoLoginRunning || verifying || syncRunning"
+                @click="runAutoLogin"
+              >
+                <AppIcon
+                  name="sparkles"
+                  :size="14"
+                  :spin="autoLoginRunning"
+                />
+                <span>{{ autoLoginRunning ? t('autoLoginRunning') : t('autoLogin') }}</span>
+              </button>
+              <span class="i8-auto-login__hint">
+                <AppIcon
+                  :name="autoLoginSupported ? 'bulb' : 'alert'"
+                  :size="13"
+                />
+                {{ autoLoginSupported ? t('autoLoginHint') : autoLoginHint }}
+              </span>
             </div>
 
             <div class="i8-help">
@@ -735,7 +824,7 @@
           <button
             class="i8-btn i8-btn--primary"
             type="button"
-            :disabled="verifying || !settingsReady"
+            :disabled="verifying || !settingsReady || syncRunning || autoLoginRunning"
             @click="saveSettings"
           >
             <AppIcon
@@ -752,8 +841,11 @@
 </template>
 
 <script setup lang="ts">
+import type { AutoLoginErrorCode } from '@/icons8/auto-login'
 import type {
+  CollectionStatus,
   PluginSettings,
+  SyncOverview,
   SyncResult,
 } from '@/icons8/types'
 import {
@@ -765,12 +857,17 @@ import {
 } from 'vue'
 import AppIcon from '@/components/icon8/AppIcon.vue'
 import {
+  autoLoginFromFirefox,
+  getAutoLoginSupport,
+} from '@/icons8/auto-login'
+import {
   Icons8Client,
   UnauthorizedError,
 } from '@/icons8/client'
 import { getContext } from '@/icons8/context'
 import { reloadEmoji } from '@/icons8/emoji'
 import { emojiDirPath } from '@/icons8/naming'
+import { buildOverview } from '@/icons8/overview'
 import { SyncManager } from '@/icons8/sync'
 import {
   DEFAULT_SETTINGS,
@@ -784,10 +881,10 @@ interface CollectionCard {
   name: string
   remoteTotal: number
   localTotal: number
+  pendingTotal: number
   downloaded: number
   failed: number
-  deletedRemote: number
-  status: 'pending' | 'syncing' | 'done' | 'error'
+  status: CollectionStatus
   message: string
 }
 
@@ -816,6 +913,15 @@ const verifying = ref(false)
 const settingsOk = ref(false)
 const settingsMessage = ref('')
 const copiedKey = ref('')
+const autoLoginSupport = getAutoLoginSupport()
+const autoLoginSupported = autoLoginSupport.supported
+const autoLoginRunning = ref(false)
+const autoLoginHint = computed(() => {
+  if (autoLoginSupport.reason === 'windows' || autoLoginSupport.reason === 'other') {
+    return t('autoLoginLinuxOnlyHint')
+  }
+  return ''
+})
 
 watch([tokenInput, formatInput, sizeInput, concurrencyInput], () => {
   if (settingsMessage.value) {
@@ -859,10 +965,16 @@ const syncRunning = ref(false)
 const summary = ref('')
 const summaryError = ref(false)
 const summaryDismissed = ref(false)
-const lastSyncText = ref('')
+const lastSyncAt = ref(0)
+const lastSyncText = computed(() => (lastSyncAt.value ? new Date(lastSyncAt.value).toLocaleTimeString() : ''))
 const filter = ref<FilterKey>('all')
 const search = ref('')
 const stopRequested = ref(false)
+const overviewLoading = ref(false)
+const overviewLoaded = ref(false)
+const overviewError = ref('')
+const authorizedCount = ref(0)
+const failedCount = ref(0)
 
 const concurrencyNumber = computed(() => {
   const value = Math.floor(Number(concurrencyInput.value))
@@ -871,15 +983,33 @@ const concurrencyNumber = computed(() => {
 
 const hasOverview = computed(() => cards.length > 0)
 
+const authorizedLabel = computed(() => {
+  if (verifying.value) {
+    return t('verifying')
+  }
+  if (!configured.value) {
+    return t('notAuthorized')
+  }
+  return authorizedCount.value > 0
+    ? t('authorizedCount').replace('{count}', String(authorizedCount.value))
+    : t('authorized')
+})
+
+const serviceStateLabel = computed(() => {
+  if (verifying.value) {
+    return t('verifying')
+  }
+  return configured.value ? t('serviceRunning') : t('serviceStopped')
+})
+
 const stats = computed(() => {
   const local = cards.reduce((sum, card) => sum + card.localTotal, 0)
   const pending = cards.reduce((sum, card) => sum + Math.max(0, card.remoteTotal - card.localTotal), 0)
-  const failed = cards.reduce((sum, card) => sum + card.failed, 0)
   return {
     collections: cards.length,
     local,
     pending,
-    failed,
+    failed: failedCount.value,
   }
 })
 
@@ -939,11 +1069,85 @@ const filteredCards = computed(() => {
 })
 
 let client: Icons8Client | null = null
+let overviewRequestId = 0
+
 function currentClient(): Icons8Client {
   if (!client) {
     client = new Icons8Client(() => ctx.settings.get())
   }
   return client
+}
+
+function applyOverview(data: SyncOverview) {
+  const previous = new Map(cards.map((card) => [card.collectionId, card]))
+  cards.splice(0, cards.length)
+  for (const item of data.collections) {
+    const old = previous.get(item.id)
+    const keepError = old?.status === 'error'
+    cards.push(reactive({
+      collectionId: item.id,
+      name: item.name,
+      remoteTotal: item.remoteTotal,
+      localTotal: item.localTotal,
+      pendingTotal: item.pendingTotal,
+      downloaded: old?.downloaded ?? 0,
+      failed: old?.failed ?? 0,
+      status: keepError ? 'error' : item.status,
+      message: keepError ? old.message : '',
+    }))
+  }
+  authorizedCount.value = data.totals.collections
+  failedCount.value = data.totals.failed
+  if (data.lastSyncAt > 0) {
+    lastSyncAt.value = data.lastSyncAt
+  }
+}
+
+async function loadOverview() {
+  if (!settingsReady.value || overviewLoading.value || syncRunning.value) {
+    return
+  }
+  if (!ctx.settings.isConfigured()) {
+    cards.splice(0, cards.length)
+    authorizedCount.value = 0
+    overviewLoaded.value = true
+    return
+  }
+  const requestId = ++overviewRequestId
+  overviewLoading.value = true
+  overviewError.value = ''
+  try {
+    await ctx.manifest.load()
+    const settings = ctx.settings.get()
+    const data = await buildOverview({
+      client: currentClient(),
+      manifest: ctx.manifest,
+      lastSyncAt: settings.lastSyncAt,
+      lastSyncFailed: settings.lastSyncFailed,
+    })
+    if (requestId !== overviewRequestId || syncRunning.value) {
+      return
+    }
+    applyOverview(data)
+  } catch (err) {
+    if (requestId !== overviewRequestId || syncRunning.value) {
+      return
+    }
+    if (err instanceof UnauthorizedError) {
+      configured.value = false
+      cards.splice(0, cards.length)
+      authorizedCount.value = 0
+      settingsOk.value = false
+      settingsMessage.value = t('saveFailUnauthorized')
+    } else {
+      overviewError.value = `${t('overviewLoadFailed')}${err instanceof Error && err.message ? `: ${err.message}` : ''}`
+    }
+  } finally {
+    if (requestId === overviewRequestId) {
+      overviewLoading.value = false
+      overviewLoaded.value = true
+    }
+  }
 }
 
 onMounted(async () => {
@@ -954,12 +1158,17 @@ onMounted(async () => {
     formatInput.value = settings.downloadFormat
     sizeInput.value = String(settings.downloadSize)
     concurrencyInput.value = String(settings.maxConcurrentDownloads)
+    lastSyncAt.value = settings.lastSyncAt
+    failedCount.value = settings.lastSyncFailed
     configured.value = ctx.settings.isConfigured()
   } catch (err) {
     settingsOk.value = false
     settingsMessage.value = `${t('summaryFailed')}: ${err instanceof Error ? err.message : String(err)}`
   } finally {
     settingsReady.value = true
+  }
+  if (configured.value) {
+    await loadOverview()
   }
 })
 
@@ -984,7 +1193,9 @@ async function saveSettings() {
     return
   }
   verifying.value = true
+  const current = ctx.settings.get()
   const candidate: PluginSettings = {
+    ...current,
     authorization: token,
     downloadFormat: formatInput.value === 'svg' ? 'svg' : 'png',
     downloadSize: Number(sizeInput.value) || 512,
@@ -998,14 +1209,65 @@ async function saveSettings() {
     configured.value = true
     settingsOk.value = true
     settingsMessage.value = t('saveOk').replace('{count}', String(collections.length))
+    if (!syncRunning.value) {
+      overviewRequestId++
+      overviewLoading.value = false
+      void loadOverview()
+    }
   } catch (err) {
-    configured.value = ctx.settings.isConfigured()
     settingsOk.value = false
-    settingsMessage.value = err instanceof UnauthorizedError
-      ? t('saveFailUnauthorized')
-      : `${t('saveFailNetwork')}${err instanceof Error && err.message ? `: ${err.message}` : ''}`
+    if (err instanceof UnauthorizedError) {
+      configured.value = false
+      authorizedCount.value = 0
+      settingsMessage.value = t('saveFailUnauthorized')
+    } else {
+      configured.value = ctx.settings.isConfigured()
+      settingsMessage.value = `${t('saveFailNetwork')}${err instanceof Error && err.message ? `: ${err.message}` : ''}`
+    }
   } finally {
     verifying.value = false
+  }
+}
+
+function autoLoginErrorMessage(code: AutoLoginErrorCode): string {
+  switch (code) {
+    case 'no-firefox':
+      return t('autoLoginNoFirefox')
+    case 'no-session':
+      return t('autoLoginNoSession')
+    case 'timeout':
+      return t('autoLoginTimeout')
+    case 'unsupported':
+      return t('autoLoginLinuxOnlyHint')
+    default:
+      return t('autoLoginFailed')
+  }
+}
+
+async function runAutoLogin() {
+  if (!autoLoginSupported || autoLoginRunning.value || verifying.value || syncRunning.value) {
+    return
+  }
+  autoLoginRunning.value = true
+  settingsOk.value = false
+  settingsMessage.value = t('autoLoginRunningHint')
+  try {
+    const result = await autoLoginFromFirefox()
+    if (!result.ok) {
+      settingsOk.value = false
+      settingsMessage.value = autoLoginErrorMessage(result.code)
+      return
+    }
+    tokenInput.value = result.token
+    await saveSettings()
+    if (settingsOk.value) {
+      settingsMessage.value = t('autoLoginSaveOk')
+    }
+  } catch (err) {
+    settingsOk.value = false
+    settingsMessage.value = `${t('autoLoginFailed')}${err instanceof Error && err.message ? `: ${err.message}` : ''}`
+  } finally {
+    autoLoginRunning.value = false
   }
 }
 
@@ -1071,9 +1333,9 @@ function upsertCard(collectionId: string, name: string): CollectionCard {
       name,
       remoteTotal: 0,
       localTotal: 0,
+      pendingTotal: 0,
       downloaded: 0,
       failed: 0,
-      deletedRemote: 0,
       status: 'pending',
       message: '',
     })
@@ -1083,23 +1345,37 @@ function upsertCard(collectionId: string, name: string): CollectionCard {
 }
 
 async function startSync() {
-  if (!ctx.settings.isConfigured()) {
+  if (!configured.value || !ctx.settings.isConfigured()) {
     activeTab.value = 'settings'
     return
   }
-  cards.splice(0, cards.length)
+  if (cards.length > 0) {
+    for (const card of cards) {
+      card.downloaded = 0
+      card.failed = 0
+      card.status = 'pending'
+      card.message = ''
+    }
+  } else {
+    cards.splice(0, cards.length)
+  }
   summary.value = ''
   summaryError.value = false
   summaryDismissed.value = false
   filter.value = 'all'
   search.value = ''
   stopRequested.value = false
+  overviewError.value = ''
+  overviewRequestId++
+  overviewLoading.value = false
   syncRunning.value = true
   try {
     const sync = new SyncManager(currentClient(), ctx.manifest, () => ctx.settings.get(), {
       onCollectionStart: (collection) => {
         const card = upsertCard(collection.id, collection.name)
+        card.name = collection.name
         card.remoteTotal = collection.totalIcons
+        card.pendingTotal = Math.max(0, collection.totalIcons - card.localTotal)
         card.status = 'syncing'
       },
       onCollectionProgress: (collectionId, downloaded, failed) => {
@@ -1116,6 +1392,15 @@ async function startSync() {
     const results = await sync.syncAll()
     const totalDownloaded = results.reduce((sum, item) => sum + item.downloaded, 0)
     const totalFailed = results.reduce((sum, item) => sum + item.failed, 0)
+    if (!stopRequested.value) {
+      const resultIds = new Set(results.map((item) => item.collectionId))
+      for (let index = cards.length - 1; index >= 0; index--) {
+        if (!resultIds.has(cards[index].collectionId)) {
+          cards.splice(index, 1)
+        }
+      }
+      authorizedCount.value = cards.length
+    }
     summaryError.value = totalFailed > 0
     summary.value = t('summaryDone')
       .replace('{collections}', String(results.length))
@@ -1128,11 +1413,20 @@ async function startSync() {
         .replace('{downloaded}', String(totalDownloaded))
         .replace('{failed}', String(totalFailed))
     }
+    const finishedAt = Date.now()
+    lastSyncAt.value = finishedAt
+    failedCount.value = totalFailed
+    void ctx.settings.saveLastSync(finishedAt, totalFailed).catch((err) => {
+      console.error('[Icon8Sync] save last sync failed:', err)
+    })
     const reloaded = await reloadEmoji()
     summary.value += reloaded ? ` ${t('emojiReloaded')}` : ` ${t('emojiReloadHint')}`
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       configured.value = false
+      authorizedCount.value = 0
+      cards.splice(0, cards.length)
+      overviewLoaded.value = false
       settingsOk.value = false
       settingsMessage.value = t('saveFailUnauthorized')
       activeTab.value = 'settings'
@@ -1143,7 +1437,6 @@ async function startSync() {
   } finally {
     syncRunning.value = false
     activeSync = null
-    lastSyncText.value = new Date().toLocaleTimeString()
   }
 }
 
@@ -1152,9 +1445,9 @@ function applyResult(result: SyncResult) {
   card.name = result.collectionName
   card.remoteTotal = result.remoteTotal
   card.localTotal = result.localTotal
+  card.pendingTotal = Math.max(0, result.remoteTotal - result.localTotal)
   card.downloaded = result.downloaded
   card.failed = result.failed
-  card.deletedRemote = result.deletedRemote
   card.status = result.error ? 'error' : 'done'
   card.message = result.error ?? ''
 }
@@ -1162,6 +1455,99 @@ function applyResult(result: SyncResult) {
 function stopSync() {
   stopRequested.value = true
   activeSync?.cancel()
+}
+
+async function retryCollection(card: CollectionCard) {
+  if (syncRunning.value || !configured.value || !ctx.settings.isConfigured()) {
+    return
+  }
+  filter.value = 'all'
+  summary.value = ''
+  summaryError.value = false
+  summaryDismissed.value = false
+  stopRequested.value = false
+  overviewError.value = ''
+  overviewRequestId++
+  overviewLoading.value = false
+  card.downloaded = 0
+  card.failed = 0
+  card.message = ''
+  card.status = 'syncing'
+  syncRunning.value = true
+  try {
+    const sync = new SyncManager(currentClient(), ctx.manifest, () => ctx.settings.get(), {
+      onCollectionStart: (collection) => {
+        const target = upsertCard(collection.id, collection.name)
+        target.name = collection.name
+        target.remoteTotal = collection.totalIcons
+        target.pendingTotal = Math.max(0, collection.totalIcons - target.localTotal)
+        target.status = 'syncing'
+      },
+      onCollectionProgress: (collectionId, downloaded, failed) => {
+        const target = cards.find((item) => item.collectionId === collectionId)
+        if (target) {
+          target.downloaded = downloaded
+          target.failed = failed
+          target.status = 'syncing'
+        }
+      },
+      onCollectionDone: (result) => {
+        applyResult(result)
+      },
+    })
+    activeSync = sync
+    const results = await sync.syncCollections([card.collectionId])
+    if (results.length === 0) {
+      const message = t('retryNotFound').replace('{name}', card.name)
+      summaryError.value = true
+      summary.value = message
+      card.status = 'error'
+      card.message = message
+      return
+    }
+    const result = results[0]
+    const hasError = !!result.error || result.failed > 0
+    summaryError.value = hasError
+    summary.value = t(hasError ? 'retryFailed' : 'retryDone')
+      .replace('{name}', card.name)
+      .replace('{downloaded}', String(result.downloaded))
+      .replace('{failed}', String(result.failed))
+    if (stopRequested.value) {
+      summaryError.value = true
+      summary.value = t('summaryStopped')
+        .replace('{collections}', '1')
+        .replace('{downloaded}', String(result.downloaded))
+        .replace('{failed}', String(result.failed))
+    }
+    const totalFailed = cards.reduce((sum, item) => sum + item.failed, 0)
+    failedCount.value = totalFailed
+    const finishedAt = Date.now()
+    lastSyncAt.value = finishedAt
+    void ctx.settings.saveLastSync(finishedAt, totalFailed).catch((err) => {
+      console.error('[Icon8Sync] save last sync failed:', err)
+    })
+    const reloaded = await reloadEmoji()
+    summary.value += reloaded ? ` ${t('emojiReloaded')}` : ` ${t('emojiReloadHint')}`
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      configured.value = false
+      authorizedCount.value = 0
+      settingsOk.value = false
+      settingsMessage.value = t('saveFailUnauthorized')
+      card.status = 'error'
+      card.message = t('saveFailUnauthorized')
+      activeTab.value = 'settings'
+      return
+    }
+    const message = `${t('summaryFailed')}${err instanceof Error && err.message ? `: ${err.message}` : ''}`
+    summaryError.value = true
+    summary.value = message
+    card.status = 'error'
+    card.message = err instanceof Error ? err.message : String(err)
+  } finally {
+    syncRunning.value = false
+    activeSync = null
+  }
 }
 
 function dismissSummary() {
@@ -1228,6 +1614,8 @@ function copyCardPath(card: CollectionCard) {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  border-bottom-right-radius: var(--b3-border-radius-b);
+  border-bottom-left-radius: var(--b3-border-radius-b);
   background: var(--b3-theme-background);
   color: var(--i8-text);
   font-family: var(--b3-font-family);
@@ -1571,9 +1959,25 @@ function copyCardPath(card: CollectionCard) {
     }
   }
 
+  &--danger-soft {
+    background: var(--i8-red-soft);
+    color: var(--i8-red);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--i8-red) 18%, transparent);
+    }
+  }
+
   &--sm {
     padding: 5px 11px;
     font-size: 11px;
+  }
+
+  &--icon {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
   }
 }
 
@@ -1692,6 +2096,7 @@ function copyCardPath(card: CollectionCard) {
     color: var(--i8-muted);
     font-size: 11px;
     line-height: 1.5;
+    word-break: break-word;
   }
 
   &--success {
@@ -1946,15 +2351,6 @@ function copyCardPath(card: CollectionCard) {
     white-space: nowrap;
   }
 
-  &__note {
-    padding: 4px 8px;
-    border-radius: 999px;
-    background: var(--i8-green-soft);
-    color: var(--i8-green);
-    font-size: 10px;
-    font-weight: 500;
-  }
-
   &__footer {
     display: flex;
     align-items: center;
@@ -1962,6 +2358,13 @@ function copyCardPath(card: CollectionCard) {
     gap: 8px;
     padding-top: 8px;
     border-top: 1px solid var(--i8-border);
+  }
+
+  &__tools {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
   }
 
   &__metrics {
@@ -2344,6 +2747,22 @@ function copyCardPath(card: CollectionCard) {
       font-family: var(--b3-font-family);
       letter-spacing: 0;
     }
+  }
+}
+
+.i8-auto-login {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  &__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--i8-faint);
+    font-size: 10px;
+    line-height: 1.5;
   }
 }
 

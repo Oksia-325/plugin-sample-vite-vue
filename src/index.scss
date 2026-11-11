@@ -3,6 +3,9 @@
   flex: 1;
   height: 100%;
   min-height: 0;
+  border-bottom-right-radius: var(--b3-border-radius-b);
+  border-bottom-left-radius: var(--b3-border-radius-b);
+  overflow: hidden;
 }
 
 /* The plugin renders a full-bleed app shell inside SiYuan's native dialog. */
@@ -10,6 +13,8 @@
   .b3-dialog__body {
     padding: 0 !important;
     overflow: hidden !important;
+    border-bottom-right-radius: var(--b3-border-radius-b) !important;
+    border-bottom-left-radius: var(--b3-border-radius-b) !important;
   }
 
   .b3-dialog__content {
@@ -19,5 +24,7 @@
     height: 100%;
     padding: 0 !important;
     overflow: hidden !important;
+    border-bottom-right-radius: var(--b3-border-radius-b);
+    border-bottom-left-radius: var(--b3-border-radius-b);
   }
 }

@@ -30,6 +30,35 @@ export interface PluginSettings {
   downloadSize: number
   downloadFormat: DownloadFormat
   maxConcurrentDownloads: number
+  lastSyncAt: number
+  lastSyncFailed: number
+}
+
+export type CollectionStatus = "pending" | "syncing" | "done" | "error"
+
+export interface CollectionOverview {
+  id: string
+  apiCode: string
+  name: string
+  remoteTotal: number
+  localTotal: number
+  pendingTotal: number
+  status: CollectionStatus
+}
+
+export interface SyncOverviewTotals {
+  collections: number
+  local: number
+  remote: number
+  pending: number
+  failed: number
+}
+
+export interface SyncOverview {
+  collections: CollectionOverview[]
+  totals: SyncOverviewTotals
+  lastSyncAt: number
+  loadedAt: number
 }
 
 export interface SyncResult {
@@ -40,7 +69,6 @@ export interface SyncResult {
   downloaded: number
   skipped: number
   failed: number
-  deletedRemote: number
   error?: string
 }
 
@@ -49,6 +77,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   downloadSize: 512,
   downloadFormat: "png",
   maxConcurrentDownloads: 4,
+  lastSyncAt: 0,
+  lastSyncFailed: 0,
 }
 
 export const IGNORED_COLLECTIONS = new Set(["Favorites", "Downloaded"])

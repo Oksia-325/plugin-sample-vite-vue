@@ -14,6 +14,7 @@ import {
   emojiFilePath,
   sanitizeName,
 } from "./naming"
+import { IGNORED_COLLECTIONS } from "./types"
 
 export interface SyncCallbacks {
   onCollectionStart?: (collection: CollectionInfo, index: number, total: number) => void
@@ -40,16 +41,24 @@ export class SyncManager {
   }
 
   async syncAll(): Promise<SyncResult[]> {
+    return this.syncCollections()
+  }
+
+  async syncCollections(collectionIds?: string[]): Promise<SyncResult[]> {
     this.cancelRequested = false
     const collections = (await this.client.getCollections())
-      .filter((collection) => collection.name && collection.name !== "Favorites" && collection.name !== "Downloaded")
+      .filter((collection) => collection.name && !IGNORED_COLLECTIONS.has(collection.name))
+    const targetIds = collectionIds && collectionIds.length > 0 ? new Set(collectionIds) : null
+    const selected = targetIds
+      ? collections.filter((collection) => targetIds.has(collection.id))
+      : collections
 
     const results: SyncResult[] = []
-    for (let index = 0; index < collections.length; index++) {
+    for (let index = 0; index < selected.length; index++) {
       if (this.cancelRequested) {
         break
       }
-      const result = await this.syncCollection(collections[index], index, collections.length)
+      const result = await this.syncCollection(selected[index], index, selected.length)
       results.push(result)
       this.callbacks.onCollectionDone?.(result)
       if (result.downloaded > 0 || result.failed > 0) {
@@ -70,7 +79,6 @@ export class SyncManager {
       downloaded: 0,
       skipped: 0,
       failed: 0,
-      deletedRemote: 0,
     }
 
     let remoteIcons: IconInfo[]
@@ -90,8 +98,6 @@ export class SyncManager {
     const localEntries = this.manifest.getCollectionEntries(collection.id)
     result.localTotal = localEntries.length
     const localIds = new Set(localEntries.map((entry) => entry.iconId))
-    const remoteIds = new Set(remoteIcons.map((icon) => icon.id))
-    result.deletedRemote = [...localIds].filter((id) => !remoteIds.has(id)).length
     const newIcons = remoteIcons.filter((icon) => !localIds.has(icon.id))
     if (newIcons.length === 0) {
       result.skipped = remoteIcons.length

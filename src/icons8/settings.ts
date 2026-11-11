@@ -20,6 +20,16 @@ function clampConcurrency(value: unknown): number {
   return Math.min(MAX_CONCURRENCY, Math.max(MIN_CONCURRENCY, num))
 }
 
+function normalizeTimestamp(value: unknown): number {
+  const num = Math.floor(Number(value))
+  return Number.isFinite(num) && num > 0 ? num : 0
+}
+
+function normalizeCount(value: unknown): number {
+  const num = Math.floor(Number(value))
+  return Number.isFinite(num) && num > 0 ? num : 0
+}
+
 export class SettingsManager {
   private cache: PluginSettings | null = null
   private loaded = false
@@ -39,6 +49,8 @@ export class SettingsManager {
     merged.downloadFormat = (merged.downloadFormat === "svg" ? "svg" : "png") as DownloadFormat
     merged.downloadSize = Number(merged.downloadSize) || DEFAULT_SETTINGS.downloadSize
     merged.maxConcurrentDownloads = clampConcurrency(merged.maxConcurrentDownloads)
+    merged.lastSyncAt = normalizeTimestamp(merged.lastSyncAt)
+    merged.lastSyncFailed = normalizeCount(merged.lastSyncFailed)
     this.cache = merged
     this.loaded = true
     return merged
@@ -58,9 +70,23 @@ export class SettingsManager {
       downloadFormat: settings.downloadFormat === "svg" ? "svg" : "png",
       downloadSize: Number(settings.downloadSize) || DEFAULT_SETTINGS.downloadSize,
       maxConcurrentDownloads: clampConcurrency(settings.maxConcurrentDownloads),
+      lastSyncAt: normalizeTimestamp(settings.lastSyncAt),
+      lastSyncFailed: normalizeCount(settings.lastSyncFailed),
     }
     this.cache = normalized
     this.loaded = true
     await this.plugin.saveData(SETTINGS_FILE, normalized)
+  }
+
+  async saveLastSync(at: number, failed: number): Promise<void> {
+    const current = this.cache ?? { ...DEFAULT_SETTINGS }
+    const next: PluginSettings = {
+      ...current,
+      lastSyncAt: normalizeTimestamp(at),
+      lastSyncFailed: normalizeCount(failed),
+    }
+    this.cache = next
+    this.loaded = true
+    await this.plugin.saveData(SETTINGS_FILE, next)
   }
 }

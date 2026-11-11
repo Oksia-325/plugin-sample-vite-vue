@@ -74,6 +74,18 @@ export class ManifestManager {
     return Object.values(this.entries).filter((entry) => entry.collectionId === collectionId)
   }
 
+  getCollectionCount(collectionId: string): number {
+    return this.getCollectionEntries(collectionId).length
+  }
+
+  getCollectionCounts(): Record<string, number> {
+    const counts: Record<string, number> = {}
+    for (const entry of Object.values(this.entries)) {
+      counts[entry.collectionId] = (counts[entry.collectionId] ?? 0) + 1
+    }
+    return counts
+  }
+
   getCollectionFilenames(collectionId: string): Set<string> {
     return new Set(this.getCollectionEntries(collectionId).map((entry) => entry.localFilename))
   }
