@@ -13,8 +13,8 @@ export function openSyncDialog(plugin: Plugin, initialTab: "sync" | "settings" =
   activeDialog = new Dialog({
     title,
     content: '<div id="icon8-sync-dialog-root"></div>',
-    width: "720px",
-    height: "600px",
+    width: "860px",
+    height: "min(860px, calc(100vh - 80px))",
     destroyCallback: () => {
       activeApp?.unmount()
       activeApp = null

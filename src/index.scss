@@ -1,3 +1,23 @@
 #icon8-sync-dialog-root {
+  display: flex;
+  flex: 1;
   height: 100%;
+  min-height: 0;
+}
+
+/* The plugin renders a full-bleed app shell inside SiYuan's native dialog. */
+.icon8-sync-plugin-dialog {
+  .b3-dialog__body {
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .b3-dialog__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    height: 100%;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
 }
