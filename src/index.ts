@@ -1,15 +1,16 @@
 import {
-  Menu,
   Plugin,
   getAllEditor,
   getFrontend,
   showMessage,
 } from 'siyuan'
 import '@/index.scss'
+import '@/styles/design.scss'
 import PluginInfoString from '@/../plugin.json'
 import PluginTopBarIcon from '@/assets/fy1.svg?raw'
 import { destroy, init, openSettingDialog, openTranslateDialog, usePlugin } from '@/main'
 import { loadConfig } from '@/trans/config'
+import { closeWorkbench, workbenchOpen } from '@/store/workbench'
 
 let PluginInfo = {
   version: '',
@@ -79,11 +80,18 @@ export default class SiYuanTransPlugin extends Plugin {
     // 预热配置
     void loadConfig(this)
 
-    // 顶栏图标:点击弹菜单
+    // 顶栏图标:直接打开翻译工作台(再次点击则关闭)
     this.addTopBar({
       icon: PluginTopBarIcon,
       title: this.i18n.translate || '翻译',
-      callback: () => this.showMenu(),
+      callback: () => {
+        if (workbenchOpen.value) {
+          closeWorkbench()
+          return
+        }
+        const id = getCurrentDocId()
+        void openTranslateDialog(id ? { docId: id } : {})
+      },
     })
 
     // 快捷键:翻译当前页面(焦点在编辑器时)
@@ -149,41 +157,9 @@ export default class SiYuanTransPlugin extends Plugin {
     destroy()
   }
 
-  /** 顶栏点击菜单 */
-  private showMenu() {
-    const menu = new Menu()
-    menu.addItem({
-      icon: 'iconFile',
-      label: '翻译当前页面',
-      click: () => {
-        const id = getCurrentDocId()
-        if (id) {
-          openTranslateDialog({ docId: id })
-        } else {
-          showMessage('未找到当前文档,请先打开一篇文档', 3000, 'error')
-        }
-      },
-    })
-    menu.addItem({
-      icon: 'iconLink',
-      label: '翻译指定页面',
-      click: () => {
-        openTranslateDialog({ allowInput: true })
-      },
-    })
-    menu.addItem({
-      icon: 'iconSettings',
-      label: '设置',
-      click: () => {
-        this.openSetting()
-      },
-    })
-    menu.open({ x: window.innerWidth - 200, y: 50 })
-  }
-
   openSetting() {
     usePlugin(this)
-    // 用独立 Dialog + 全宽 Vue 面板,避免 SiYuan Setting 的双列布局
+    // 打开工作台的「插件设置」页签
     openSettingDialog()
   }
 }

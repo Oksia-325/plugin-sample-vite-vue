@@ -1,10 +1,15 @@
 import type { Plugin } from 'siyuan'
-import { Dialog, showMessage } from 'siyuan'
-import { createApp, type Component } from 'vue'
-import TranslateDialog from '@/components/TranslateDialog.vue'
-import SettingPanel from '@/components/SettingPanel.vue'
+import { showMessage } from 'siyuan'
+import { createApp, watch, type Component } from 'vue'
+import WorkbenchApp from '@/components/WorkbenchApp.vue'
 import type { TransConfig } from '@/trans/types'
 import { loadConfig } from '@/trans/config'
+import {
+  closeWorkbench,
+  openWorkbench,
+  workbenchOpen,
+  workbenchStatus,
+} from '@/store/workbench'
 
 let plugin: Plugin | null = null
 
@@ -39,134 +44,6 @@ export function destroy() {
   plugin = null
 }
 
-/** 把 Vue 组件挂载到指定容器,返回清理函数(卸载应用) */
-function mountInto(
-  container: HTMLElement,
-  component: Component,
-  props: Record<string, unknown> = {},
-): () => void {
-  const app = createApp(component, props)
-  container.innerHTML = ''
-  app.mount(container)
-  const record = { app, div: null as HTMLElement | null }
-  mountedApps.push(record)
-  return () => {
-    const idx = mountedApps.indexOf(record)
-    if (idx >= 0) {
-      mountedApps.splice(idx, 1)
-    }
-    try {
-      app.unmount()
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-/** 在一个独立的思源 Dialog 内挂载 Vue 组件
- *  思源 Dialog 的 content 经全局 getElementById 解析(不依赖 dialog.element
- *  的内部结构,避免查询不到挂载点导致弹窗一闪而过)。 */
-function openMountedDialog(options: {
-  title: string
-  width?: string
-  component: Component
-  props: Record<string, unknown>
-}): Dialog {
-  const { title, width = '520px', component, props } = options
-  const mountId = `trans-mount-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-  let cleanup: (() => void) | null = null
-  let destroyed = false
-  const dialog = new Dialog({
-    title,
-    content: `<div id="${mountId}" class="trans-dialog-mount"></div>`,
-    width,
-    destroyCallback: () => {
-      destroyed = true
-      cleanup?.()
-    },
-  })
-  const findMount = (): HTMLElement | null => {
-    return (
-      document.getElementById(mountId)
-      || (dialog.element?.querySelector(`#${mountId}`) as HTMLElement | null)
-    )
-  }
-  const tryMount = (): boolean => {
-    if (destroyed) {
-      return true
-    }
-    const mount = findMount()
-    if (!mount) {
-      return false
-    }
-    cleanup = mountInto(mount, component, { ...props, dialog })
-    return true
-  }
-  // 先同步尝试;思源可能异步插入 content,失败则按帧重试
-  if (!tryMount()) {
-    let tries = 0
-    const retry = () => {
-      if (destroyed) {
-        return
-      }
-      if (tryMount()) {
-        return
-      }
-      if (++tries < 30) {
-        requestAnimationFrame(retry)
-      } else {
-        console.warn('[siyuan-trans] mount point not found after retries')
-      }
-    }
-    requestAnimationFrame(retry)
-  }
-  return dialog
-}
-
-/** 打开翻译对话框
- *  - docId 非空:直接翻译该文档(翻译当前页面)
- *  - allowInput:展示输入框(翻译指定页面) */
-export async function openTranslateDialog(options: {
-  docId?: string | null
-  allowInput?: boolean
-} = {}): Promise<void> {
-  // 预校验配置(按引擎检查对应的 API Key)
-  const cfg = await loadConfig(usePlugin())
-  const key = cfg.engine === 'llm' ? cfg.llm_api_key : cfg.api_key
-  if (!key) {
-    showMessage('请先在设置中配置 API Key', 4000, 'error')
-    return
-  }
-  openMountedDialog({
-    title: '翻译文档',
-    width: '520px',
-    component: TranslateDialog as unknown as Component,
-    props: {
-      docId: options.docId ?? null,
-      allowInput: options.allowInput ?? false,
-    },
-  })
-}
-
-/** 打开设置面板(单列全宽布局) */
-export function openSettingDialog(): void {
-  openMountedDialog({
-    title: '翻译配置 · DashScope qwen-mt',
-    width: '720px',
-    component: SettingPanel as unknown as Component,
-    props: {},
-  })
-}
-
-/** 取当前配置(供 index.ts 做前置校验) */
-export async function getCurrentConfig(): Promise<TransConfig | null> {
-  try {
-    return await loadConfig(usePlugin())
-  } catch {
-    return null
-  }
-}
-
 /** 把 Vue 组件挂载到一个游离 div 并加入 body,返回清理函数 */
 export function mountComponent(
   component: Component,
@@ -189,5 +66,69 @@ export function mountComponent(
       /* ignore */
     }
     div.remove()
+  }
+}
+
+/* ---------------------------------------------------------------- 工作台 */
+
+/** 工作台挂载清理函数(关闭时卸载,在途翻译随组件卸载取消) */
+let unmountWorkbench: (() => void) | null = null
+
+function mountWorkbench(): void {
+  if (unmountWorkbench) {
+    return
+  }
+  workbenchStatus.value = '就绪'
+  unmountWorkbench = mountComponent(WorkbenchApp as unknown as Component)
+}
+
+function unmountWorkbenchApp(): void {
+  unmountWorkbench?.()
+  unmountWorkbench = null
+}
+
+// 单一入口:workbenchOpen 变化即挂载/卸载,各调用方只改状态
+watch(workbenchOpen, (open) => {
+  if (open) {
+    mountWorkbench()
+  } else {
+    unmountWorkbenchApp()
+  }
+})
+
+/** 打开翻译工作台
+ *  - docId 非空:预填并解析该文档(仍需手动点「开始翻译」)
+ *  - docId 为空:展示输入框等待指定页面 */
+export async function openTranslateDialog(options: {
+  docId?: string | null
+  allowInput?: boolean
+} = {}): Promise<void> {
+  // 预校验配置(按引擎检查对应的 API Key)
+  const cfg = await loadConfig(usePlugin())
+  const key = cfg.engine === 'llm' ? cfg.llm_api_key : cfg.api_key
+  if (!key) {
+    showMessage('请先在设置中配置 API Key', 4000, 'error')
+    openWorkbench('settings')
+    return
+  }
+  openWorkbench('translate', options.docId ?? null)
+}
+
+/** 打开设置页(同一浮动窗口的「插件设置」页签) */
+export function openSettingDialog(): void {
+  openWorkbench('settings')
+}
+
+/** 关闭工作台(供外部调用) */
+export function closeWorkbenchDialog(): void {
+  closeWorkbench()
+}
+
+/** 取当前配置(供 index.ts 做前置校验) */
+export async function getCurrentConfig(): Promise<TransConfig | null> {
+  try {
+    return await loadConfig(usePlugin())
+  } catch {
+    return null
   }
 }

@@ -274,6 +274,7 @@ import { TranslationEngine } from '@/trans/engine'
 import { accumulateLlmStats, formatHitRate, formatM } from '@/trans/llm_stats'
 import { SiYuanClient } from '@/trans/siyuan'
 import { emptyStats, type EngineType, type TranslationStats } from '@/trans/types'
+import { workbenchBusy } from '@/store/workbench'
 
 const props = defineProps<{
   docId?: string | null
@@ -311,14 +312,23 @@ const progressPct = computed(() => {
 })
 
 onMounted(async () => {
-  if (!props.allowInput && props.docId) {
-    resolvedDocId.value = props.docId
-    await start()
+  if (!props.docId) {
+    return
   }
+  if (props.allowInput) {
+    // 工作台内已锁定目标文档:预填并解析,由用户手动点「开始翻译」
+    resolvedDocId.value = props.docId
+    inputStr.value = props.docId
+    await resolve()
+    return
+  }
+  resolvedDocId.value = props.docId
+  await start()
 })
 
 onBeforeUnmount(() => {
   engine?.cancel()
+  workbenchBusy.value = false
 })
 
 async function resolve() {
@@ -352,6 +362,7 @@ async function start() {
     return
   }
   phase.value = 'running'
+  workbenchBusy.value = true
   stats.value = emptyStats()
   total.value = 0
   cancelled.value = false
@@ -392,10 +403,12 @@ async function start() {
             cache_reported: s.cache_reported,
           })
         }
+        workbenchBusy.value = false
         phase.value = 'done'
       },
     })
   } catch (e) {
+    workbenchBusy.value = false
     statusText.value = `错误:${(e as Error).message}`
     fatalError.value = true
     phase.value = 'done'

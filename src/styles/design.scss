@@ -1,0 +1,500 @@
+/**
+ * 设计令牌 + 浮动窗口外壳 + 基础组件样式
+ *
+ * 命名空间 .tr2,与旧版 index.scss 的 .trans-* 完全隔离(S4/S5 迁移完成后再清理旧样式)。
+ * 暗色:思源在 <html data-theme-mode="dark"> 上切换,这里直接覆盖令牌即可实时跟随,
+ * 不依赖 host 主题变量,设计稿的浅色观感得以完整保留。
+ */
+
+/* ==========================================================================
+   1. 令牌
+   ========================================================================== */
+.tr2 {
+  /* 品牌色 */
+  --tr2-primary: #0ea5e9;
+  --tr2-primary-deep: #0284c7;
+  --tr2-primary-soft: rgba(14, 165, 233, 0.12);
+  --tr2-on-primary: #ffffff;
+  --tr2-ok: #10b981;
+  --tr2-ok-soft: rgba(16, 185, 129, 0.14);
+  --tr2-warn: #d97706;
+  --tr2-err: #ef4444;
+  --tr2-err-soft: rgba(239, 68, 68, 0.1);
+
+  /* 表面 */
+  --tr2-canvas: #f8fafc;
+  --tr2-card: #ffffff;
+  --tr2-inset: #f1f5f9;
+  --tr2-line: #e2e8f0;
+  --tr2-line-strong: #cbd5e1;
+
+  /* 文字 */
+  --tr2-text: #0f172a;
+  --tr2-text-2: #475569;
+  --tr2-muted: #64748b;
+  --tr2-placeholder: #94a3b8;
+
+  /* 几何 */
+  --tr2-r-sm: 6px;
+  --tr2-r: 8px;
+  --tr2-r-lg: 12px;
+  --tr2-r-xl: 14px;
+  --tr2-gap: 12px;
+
+  /* 阴影 */
+  --tr2-shadow-1: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  --tr2-shadow-2: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+  --tr2-shadow-win: 0 24px 60px -12px rgba(15, 23, 42, 0.28), 0 8px 24px -8px rgba(15, 23, 42, 0.16);
+
+  /* 置顶描边 */
+  --tr2-pin-ring: rgba(14, 165, 233, 0.42);
+
+  /* 字体 */
+  --tr2-font: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --tr2-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  box-sizing: border-box;
+  font-family: var(--tr2-font);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--tr2-text);
+  -webkit-font-smoothing: antialiased;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  :is(input, select, textarea, button) {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+}
+
+html[data-theme-mode="dark"] .tr2,
+html.tr2-dark .tr2 {
+  --tr2-primary: #38bdf8;
+  --tr2-primary-deep: #0ea5e9;
+  --tr2-primary-soft: rgba(56, 189, 248, 0.16);
+  --tr2-on-primary: #062133;
+  --tr2-ok: #34d399;
+  --tr2-ok-soft: rgba(52, 211, 153, 0.16);
+  --tr2-warn: #fbbf24;
+  --tr2-err: #f87171;
+  --tr2-err-soft: rgba(248, 113, 113, 0.14);
+
+  --tr2-canvas: #0b1220;
+  --tr2-card: #121b28;
+  --tr2-inset: #17202e;
+  --tr2-line: #253243;
+  --tr2-line-strong: #334155;
+
+  --tr2-text: #e6edf7;
+  --tr2-text-2: #cbd5e1;
+  --tr2-muted: #94a3b8;
+  --tr2-placeholder: #64748b;
+
+  --tr2-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+  --tr2-shadow-2: 0 10px 15px -3px rgba(0, 0, 0, 0.45), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --tr2-shadow-win: 0 24px 60px -12px rgba(0, 0, 0, 0.7), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  --tr2-pin-ring: rgba(56, 189, 248, 0.5);
+}
+
+/* ==========================================================================
+   2. 浮动窗口外壳
+   ========================================================================== */
+.fw-root {
+  position: fixed;
+  inset: 0;
+  /* 具体层级由组件内联控制(未置顶 9999 / 置顶 10001) */
+  z-index: 9999;
+  pointer-events: none; /* 空白处不拦截文档交互 */
+}
+
+.fw-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  overflow: hidden;
+  background: var(--tr2-canvas);
+  border: 1px solid var(--tr2-line);
+  border-radius: 16px;
+  box-shadow: var(--tr2-shadow-win);
+}
+
+/* 入场动画:只在首次挂载时挂 .is-entering,播放完即摘除,
+   否则结束拖动时 class 变化会让动画重播(表现为松手闪一下)。 */
+.fw-panel.is-entering {
+  animation: tr2-pop 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* 置顶:主色描边 + 更高层级(层级由 root 内联控制) */
+.fw-panel.is-pinned {
+  border-color: var(--tr2-pin-ring);
+  box-shadow: var(--tr2-shadow-win), 0 0 0 1px var(--tr2-pin-ring);
+}
+
+.fw-panel.is-dragging {
+  animation: none;
+  transition: none;
+  user-select: none;
+}
+
+/* 头部 */
+.fw-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  height: 48px;
+  padding: 0 10px 0 12px;
+  background: var(--tr2-card);
+  border-bottom: 1px solid var(--tr2-line);
+  cursor: grab;
+}
+
+.fw-head:active {
+  cursor: grabbing;
+}
+
+.fw-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.fw-brand__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--tr2-r);
+  background: linear-gradient(135deg, var(--tr2-primary), var(--tr2-primary-deep));
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(14, 165, 233, 0.32);
+}
+
+.fw-brand__name {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.fw-brand__sub {
+  font-size: 11.5px;
+  color: var(--tr2-muted);
+  white-space: nowrap;
+}
+
+/* 状态胶囊 */
+.fw-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--tr2-ok-soft);
+  color: var(--tr2-ok);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}
+
+/* 导航 */
+.fw-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto;
+  padding: 3px;
+  border-radius: var(--tr2-r);
+  background: var(--tr2-inset);
+}
+
+.fw-nav__item {
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--tr2-r-sm);
+  background: none;
+  color: var(--tr2-text-2);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    color: var(--tr2-text);
+  }
+
+  &.is-active {
+    background: var(--tr2-card);
+    color: var(--tr2-primary-deep);
+    box-shadow: var(--tr2-shadow-1);
+  }
+}
+
+html[data-theme-mode="dark"] .fw-nav__item.is-active,
+html.tr2-dark .fw-nav__item.is-active {
+  color: var(--tr2-primary);
+}
+
+/* 工具按钮 */
+.fw-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.fw-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--tr2-r-sm);
+  background: none;
+  color: var(--tr2-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--tr2-inset);
+    color: var(--tr2-text);
+  }
+
+  &.is-on {
+    background: var(--tr2-primary-soft);
+    color: var(--tr2-primary-deep);
+  }
+
+  &.is-danger:hover {
+    background: var(--tr2-err-soft);
+    color: var(--tr2-err);
+  }
+}
+
+html[data-theme-mode="dark"] .fw-iconbtn.is-on,
+html.tr2-dark .fw-iconbtn.is-on {
+  color: var(--tr2-primary);
+}
+
+/* 窄屏:隐藏次要文案,保证导航与按钮不溢出 */
+@media (max-width: 700px) {
+  .fw-brand__sub,
+  .fw-status {
+    display: none;
+  }
+
+  .fw-nav__item {
+    padding: 0 8px;
+  }
+}
+
+/* 内容区 */
+.fw-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.fw-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.fw-body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+  background-color: var(--tr2-line-strong);
+}
+
+/* 底部工具条(S2 起使用) */
+.fw-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: var(--tr2-card);
+  border-top: 1px solid var(--tr2-line);
+}
+
+/* ==========================================================================
+   3. 基础组件(S2 起复用)
+   ========================================================================== */
+.tr2-card {
+  padding: 14px;
+  border: 1px solid var(--tr2-line);
+  border-radius: var(--tr2-r-lg);
+  background: var(--tr2-card);
+  box-shadow: var(--tr2-shadow-1);
+}
+
+.tr2-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tr2-card__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.tr2-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--tr2-text-2);
+}
+
+.tr2-hint {
+  font-size: 11px;
+  color: var(--tr2-muted);
+  line-height: 1.5;
+}
+
+.tr2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--tr2-r-sm);
+  background: var(--tr2-inset);
+  color: var(--tr2-text-2);
+  font-size: 11px;
+  white-space: nowrap;
+
+  &.is-primary {
+    background: var(--tr2-primary-soft);
+    color: var(--tr2-primary-deep);
+  }
+
+  &.is-ok {
+    background: var(--tr2-ok-soft);
+    color: var(--tr2-ok);
+  }
+}
+
+html[data-theme-mode="dark"] .tr2-chip.is-primary,
+html.tr2-dark .tr2-chip.is-primary {
+  color: var(--tr2-primary);
+}
+
+.tr2-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--tr2-r);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &.is-primary {
+    background: var(--tr2-primary);
+    color: var(--tr2-on-primary);
+
+    &:hover:not(:disabled) {
+      background: var(--tr2-primary-deep);
+    }
+  }
+
+  &.is-ghost {
+    background: var(--tr2-card);
+    border-color: var(--tr2-line-strong);
+    color: var(--tr2-text-2);
+
+    &:hover:not(:disabled) {
+      background: var(--tr2-inset);
+      color: var(--tr2-text);
+    }
+  }
+
+  &.is-sm {
+    height: 26px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+}
+
+/* ==========================================================================
+   4. 动效
+   ========================================================================== */
+@keyframes tr2-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tr2-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tr2-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tr2-spin {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: tr2-spin 0.7s linear infinite;
+}
