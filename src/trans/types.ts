@@ -169,13 +169,38 @@ export interface LlmCumulativeStats {
   cache_reported: boolean;
 }
 
+/** 单块翻译的流水日志(供工作台实时展示) */
+export interface TranslationLogEntry {
+  blockId: string;
+  /** 展示用块类型名,如 段落 / 标题 2 / 列表项 */
+  blockType: string;
+  /** start=发起请求 ok=译完 err=失败 write=写回失败 skip=跳过 */
+  kind: "start" | "ok" | "err" | "write" | "skip";
+  /** 该块的 token 消耗(LLM 引擎可用时) */
+  tokens?: number;
+  message: string;
+  /** 时间戳(ms) */
+  ts: number;
+}
+
 /** 引擎回调类型 */
 export type ProgressCallback = (done: number, total: number, stats: TranslationStats) => void;
+export type BlockStartCallback = (
+  block: Block,
+  index: number,
+  total: number,
+  stats: TranslationStats,
+) => void;
+export type LogCallback = (entry: TranslationLogEntry) => void;
 export type StatusCallback = (status: string) => void;
 export type CompleteCallback = (stats: TranslationStats, cancelled: boolean) => void;
 
 export interface EngineCallbacks {
   onProgress?: ProgressCallback;
+  /** 开始处理某个块(用于「Block i of N」与当前块提示) */
+  onBlockStart?: BlockStartCallback;
+  /** 逐块流水日志 */
+  onLog?: LogCallback;
   onStatus?: StatusCallback;
   onComplete?: CompleteCallback;
 }

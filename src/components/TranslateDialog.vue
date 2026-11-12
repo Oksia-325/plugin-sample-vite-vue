@@ -295,218 +295,262 @@
     <!-- ======================================================= 翻译中页 -->
     <section
       v-else-if="phase === 'running'"
-      class="trans-view"
+      class="trans-view tw"
     >
-      <div class="trans-hero">
-        <span class="trans-hero__icon"><span class="trans-spin" /></span>
-        <div>
-          <div class="trans-hero__title">
-            正在翻译
+      <div class="tr2-card tw-run">
+        <div class="tw-run__head">
+          <span class="tw-run__pulse" />
+          <span class="tr2-card__title">正在进行异步翻译</span>
+          <span class="tr2-chip is-primary">任务进行中</span>
+        </div>
+
+        <!-- 当前块 -->
+        <div class="tw-run__block">
+          <div class="tw-run__block-top">
+            <span>正在请求块节点</span>
+            <span class="tw-mono">Block {{ currentIndex || '—' }} of {{ total || '—' }}</span>
           </div>
-          <div class="trans-hero__sub">
-            {{ docTitle || resolvedId }}
+          <div class="tw-run__block-id">
+            <Icon
+              name="sync"
+              :size="14"
+              class="tw-run__sync"
+            />
+            <span class="tw-mono">{{ currentBlockId || '准备中…' }}</span>
           </div>
         </div>
-      </div>
 
-      <div class="trans-card">
-        <div class="trans-progress trans-progress--active">
+        <!-- 进度 -->
+        <div class="tw-run__progress">
+          <div class="tw-run__progress-top">
+            <span class="tw-run__count">{{ stats.translated }} / {{ total || '—' }} 块 ({{ progressPct }})</span>
+            <span class="tr2-hint">已耗时 {{ elapsedText }}</span>
+          </div>
+          <div class="tw-bar">
+            <div
+              class="tw-bar__fill"
+              :style="{ width: progressPct }"
+            />
+          </div>
+          <div class="tw-run__progress-foot">
+            <span>共需翻译 {{ total || '—' }} 个块 (跳过 {{ stats.skipped_non_text }} 非文本, {{ stats.skipped_already_translated }} 已翻译)</span>
+            <span class="tw-ok-text">速率: {{ speedText }} 块/秒</span>
+          </div>
+        </div>
+
+        <!-- 实时日志 -->
+        <div class="tw-log">
+          <div class="tw-log__head">
+            <span>实时内核流水线日志</span>
+            <span class="tw-log__dot" />
+          </div>
           <div
-            class="trans-progress__bar"
-            :style="{ width: progressPct }"
-          />
-        </div>
-        <div class="trans-progress__meta">
-          <span>{{ stats.translated }} / {{ total || '—' }} 块</span>
-          <span class="trans-progress__pct">{{ progressPct }}</span>
+            v-if="!visibleLogs.length"
+            class="tw-log__empty"
+          >
+            等待首个块返回…
+          </div>
+          <div
+            v-for="(line, i) in visibleLogs"
+            :key="`${line.blockId}-${line.kind}-${i}`"
+            class="tw-log__line"
+            :class="`is-${line.kind}`"
+          >
+            <span class="tw-log__mark">{{ logMark(line.kind) }}</span>
+            <span class="tw-mono tw-log__id">[{{ line.blockId }}]</span>
+            <span class="tw-log__msg">{{ line.message }}<template v-if="line.tokens"> ({{ line.tokens }} tokens)</template></span>
+          </div>
         </div>
 
-        <div class="trans-status" style="margin-top: 14px">
-          {{ statusText }}
+        <div class="tw-run__actions">
+          <button
+            class="tr2-btn is-ghost is-sm"
+            type="button"
+            @click="cancel"
+          >
+            <Icon
+              name="close"
+              :size="13"
+            />
+            取消翻译任务
+          </button>
+          <span class="tr2-hint tw-ellipsis">{{ statusText }}</span>
         </div>
-      </div>
-
-      <div class="trans-actions">
-        <button
-          class="trans-btn trans-btn--danger"
-          @click="cancel"
-        >
-          取消翻译
-        </button>
       </div>
     </section>
 
     <!-- ======================================================= 完成页 -->
     <section
       v-else
-      class="trans-view"
+      class="trans-view tw"
     >
-      <div class="trans-hero">
-        <span
-          class="trans-hero__icon"
-          :class="{ 'trans-hero__icon--ok': !cancelled && !fatalError }"
-        >{{ cancelled ? '⏹' : fatalError ? '❌' : '✅' }}</span>
-        <div>
-          <div class="trans-hero__title">
-            {{ cancelled ? '翻译已取消' : fatalError ? '翻译出错' : '翻译完成' }}
+      <div class="tr2-card tw-done">
+        <div class="tw-run__head">
+          <span
+            class="tw-done__badge"
+            :class="doneTone"
+          ><Icon
+            :name="doneIcon"
+            :size="17"
+          /></span>
+          <div class="tw-done__text">
+            <div class="tr2-card__title">{{ doneTitle }}</div>
+            <div class="tr2-hint">{{ doneSub }}</div>
           </div>
-          <div class="trans-hero__sub">
-            {{ docTitle || resolvedId }}
-          </div>
+          <span
+            class="tr2-chip"
+            :class="doneChipClass"
+          >{{ doneRateText }}</span>
         </div>
-      </div>
 
-      <div
-        v-if="statusText && (cancelled || fatalError)"
-        class="trans-banner"
-        :class="fatalError ? 'trans-banner--err' : 'trans-banner--info'"
-        style="margin-bottom: 14px"
-      >
-        <span>{{ statusText }}</span>
-      </div>
-
-      <div class="trans-stats">
-        <div class="trans-stat">
-          <div class="trans-stat__num">
-            {{ stats.elapsed.toFixed(1) }}s
-          </div>
-          <div class="trans-stat__label">
-            总耗时
-          </div>
-        </div>
-        <div class="trans-stat">
-          <div class="trans-stat__num">
-            {{ stats.translated }}
-          </div>
-          <div class="trans-stat__label">
-            已翻译块
-          </div>
-        </div>
-        <div
-          class="trans-stat"
-          :class="{ 'trans-stat--err': stats.api_failed > 0 }"
-        >
-          <div class="trans-stat__num">
-            {{ stats.api_success }}<span v-if="stats.api_failed">/{{ stats.api_failed }}</span>
-          </div>
-          <div class="trans-stat__label">
-            API 成功 / 失败
-          </div>
-        </div>
-        <div
-          class="trans-stat"
-          :class="{ 'trans-stat--err': stats.write_failed > 0 }"
-        >
-          <div class="trans-stat__num">
-            {{ stats.write_success }}<span v-if="stats.write_failed">/{{ stats.write_failed }}</span>
-          </div>
-          <div class="trans-stat__label">
-            写入成功 / 失败
-          </div>
-        </div>
-      </div>
-
-      <div
-        v-if="engineType === 'llm'"
-        class="trans-card"
-        style="margin-top: 14px"
-      >
-        <div class="trans-card__head">
-          <span class="trans-badge">📊</span>
-          <span class="trans-card__title">本次 Token 统计</span>
-        </div>
-        <div class="trans-stats">
-          <div class="trans-stat">
-            <div class="trans-stat__num">
-              {{ stats.api_success }}
+        <div class="tw-metrics tw-metrics--4">
+          <div class="tw-metric">
+            <div class="tw-metric__k">
+              <span>总耗时</span>
+              <Icon
+                name="clock"
+                :size="13"
+              />
             </div>
-            <div class="trans-stat__label">
-              翻译次数
+            <div class="tw-metric__v">
+              {{ stats.elapsed.toFixed(1) }}<span>s</span>
+            </div>
+            <div class="tw-metric__note">
+              {{ engineType === 'llm' ? 'LLM 引擎' : 'Qwen-MT 引擎' }}
             </div>
           </div>
-          <div class="trans-stat">
-            <div class="trans-stat__num">
-              {{ formatHitRate(stats.cached_tokens, stats.prompt_tokens, stats.cache_reported) }}
+          <div class="tw-metric">
+            <div class="tw-metric__k">
+              <span>已翻译块数</span>
+              <Icon
+                name="checkCircle"
+                :size="13"
+              />
             </div>
-            <div class="trans-stat__label">
-              缓存命中率
+            <div class="tw-metric__v">
+              {{ stats.translated }}<span>块</span>
             </div>
-          </div>
-          <div class="trans-stat">
-            <div class="trans-stat__num">
-              {{ formatM(stats.prompt_tokens) }}
-            </div>
-            <div class="trans-stat__label">
-              输入 Token
-            </div>
-          </div>
-          <div class="trans-stat">
-            <div class="trans-stat__num">
-              {{ formatM(stats.completion_tokens) }}
-            </div>
-            <div class="trans-stat__label">
-              输出 Token
+            <div class="tw-metric__note">
+              跳过非文本 {{ stats.skipped_non_text }}
             </div>
           </div>
-        </div>
-      </div>
-
-      <div
-        v-if="stats.skipped_non_text || stats.skipped_already_translated"
-        class="trans-hint"
-        style="margin-top: 12px; text-align: center"
-      >
-        跳过:非文本 {{ stats.skipped_non_text }} · 已翻译 {{ stats.skipped_already_translated }}
-      </div>
-
-      <div
-        v-if="stats.api_errors.length"
-        class="trans-errors"
-        style="margin-top: 12px"
-      >
-        <div class="trans-errors__title">
-          ⚠️ 翻译失败明细 ({{ stats.api_errors.length }})
-        </div>
-        <div class="trans-errors__list">
           <div
-            v-for="(e, i) in stats.api_errors"
-            :key="i"
-            class="trans-errors__item"
+            class="tw-metric"
+            :class="{ 'is-err': stats.api_failed > 0 }"
           >
-            <span class="trans-errors__code">{{ e.status != null ? `HTTP ${e.status}` : '网络错误' }}</span>
-            <span class="trans-errors__msg">{{ e.message }}</span>
+            <div class="tw-metric__k">
+              <span>API 成功 / 失败</span>
+              <Icon
+                name="cloud"
+                :size="13"
+              />
+            </div>
+            <div class="tw-metric__v">
+              {{ stats.api_success }}<span>/ {{ stats.api_failed }}</span>
+            </div>
+            <div class="tw-metric__note">
+              请求 {{ stats.api_total }} 次
+            </div>
+          </div>
+          <div
+            class="tw-metric"
+            :class="{ 'is-err': stats.write_failed > 0 }"
+          >
+            <div class="tw-metric__k">
+              <span>写入成功 / 失败</span>
+              <Icon
+                name="save"
+                :size="13"
+              />
+            </div>
+            <div class="tw-metric__v">
+              {{ stats.write_success }}<span>/ {{ stats.write_failed }}</span>
+            </div>
+            <div class="tw-metric__note">
+              写回本地笔记本
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="trans-actions trans-actions--split">
-        <button
-          class="trans-btn trans-btn--ghost"
-          @click="retranslate"
+        <div
+          v-if="authFailed"
+          class="tw-msg is-err"
         >
-          ↻ 重新翻译
-        </button>
-        <button
-          class="trans-btn trans-btn--primary"
-          @click="close"
+          <Icon
+            name="alert"
+            :size="14"
+          />
+          <span>当前引擎({{ engineLabel }})的 API Key 无效或尚未保存:请到「插件设置」核对 Key 与端点,保存后点「重新翻译」。</span>
+        </div>
+
+        <div
+          v-if="engineType === 'llm'"
+          class="tw-token"
         >
-          关闭
-        </button>
+          <span>Token 消耗量</span>
+          <span class="tw-mono">输入 {{ formatM(stats.prompt_tokens) }} · 输出 {{ formatM(stats.completion_tokens) }} · 缓存命中 {{ formatHitRate(stats.cached_tokens, stats.prompt_tokens, stats.cache_reported) }}</span>
+        </div>
+
+        <div
+          v-if="stats.skipped_non_text || stats.skipped_already_translated"
+          class="tr2-hint"
+        >
+          跳过:非文本 {{ stats.skipped_non_text }} · 已翻译 {{ stats.skipped_already_translated }}
+        </div>
+
+        <div
+          v-if="stats.api_errors.length"
+          class="tw-log tw-log--err"
+        >
+          <div class="tw-log__head">
+            <span>翻译失败明细 ({{ stats.api_errors.length }})</span>
+          </div>
+          <div
+            v-for="(e, i) in stats.api_errors.slice(0, 8)"
+            :key="i"
+            class="tw-log__line is-err"
+          >
+            <span class="tw-log__mark">✕</span>
+            <span class="tw-mono tw-log__id">{{ e.status != null ? `HTTP ${e.status}` : '网络错误' }}</span>
+            <span class="tw-log__msg tw-ellipsis">{{ e.message }}</span>
+          </div>
+        </div>
+
+        <div class="tw-done__actions">
+          <button
+            class="tr2-btn is-ghost"
+            type="button"
+            @click="retranslate"
+          >
+            <Icon
+              name="replay"
+              :size="14"
+            />
+            重新翻译
+          </button>
+          <button
+            class="tr2-btn is-primary"
+            type="button"
+            @click="close"
+          >
+            完成
+          </button>
+        </div>
       </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Dialog } from 'siyuan'
 import Icon from '@/components/ui/Icon.vue'
 import { usePlugin } from '@/main'
 import { loadConfig } from '@/trans/config'
 import { TranslationEngine } from '@/trans/engine'
 import { accumulateLlmStats, formatHitRate, formatM } from '@/trans/llm_stats'
-import { emptyStats, type EngineType, type ScanResult, type TransConfig, type TranslationStats } from '@/trans/types'
-import { workbenchBusy } from '@/store/workbench'
+import { emptyStats, type EngineType, type ScanResult, type TransConfig, type TranslationLogEntry, type TranslationStats } from '@/trans/types'
+import { workbenchBusy, workbenchTab } from '@/store/workbench'
 
 const props = defineProps<{
   docId?: string | null
@@ -619,6 +663,16 @@ const fatalError = ref(false)
 /** 当前使用的翻译引擎(决定是否展示/累计 LLM token 统计) */
 const engineType = ref<EngineType>('qwen_mt')
 
+/** 当前正在处理的块(逐块事件驱动) */
+const currentBlockId = ref('')
+const currentIndex = ref(0)
+/** 逐块流水日志(只保留最近 60 条) */
+const logs = ref<TranslationLogEntry[]>([])
+/** 运行计时(秒) */
+const elapsed = ref(0)
+let timerId = 0
+let startedAt = 0
+
 let engine: TranslationEngine | null = null
 
 const progressPct = computed(() => {
@@ -628,15 +682,107 @@ const progressPct = computed(() => {
   return `${Math.min(100, Math.round((stats.value.translated / total.value) * 100))}%`
 })
 
+/** 实时日志只展示最近 6 条,避免面板跳动 */
+const visibleLogs = computed(() => logs.value.slice(-6))
+const elapsedText = computed(() => `${elapsed.value.toFixed(1)}s`)
+const speedText = computed(() => {
+  if (elapsed.value < 0.2) {
+    return '—'
+  }
+  return (stats.value.translated / elapsed.value).toFixed(1)
+})
+
+/** 完成态文案 */
+const doneTitle = computed(() =>
+  fatalError.value ? '翻译出错' : cancelled.value ? '翻译已取消' : '翻译执行完毕',
+)
+const doneSub = computed(() => {
+  if (fatalError.value) {
+    return statusText.value || '执行过程中出现错误'
+  }
+  if (cancelled.value) {
+    return '任务被手动取消,已写入的块会保留'
+  }
+  return '全部内容块已写回本地思源笔记'
+})
+const doneIcon = computed(() =>
+  fatalError.value ? 'alert' : cancelled.value ? 'close' : 'checkCircle',
+)
+const doneTone = computed(() =>
+  fatalError.value ? 'is-err' : cancelled.value ? 'is-warn' : 'is-ok',
+)
+const doneChipClass = computed(() => (!fatalError.value && !cancelled.value ? 'is-ok' : ''))
+/** 鉴权失败(401/403):多半是 Key 未保存、填错或切错了引擎 */
+const authFailed = computed(() =>
+  stats.value.api_errors.some(e => e.status === 401 || e.status === 403),
+)
+const engineLabel = computed(() => (engineType.value === 'llm' ? 'LLM' : 'Qwen-MT'))
+const doneRateText = computed(() => {
+  const ok = stats.value.api_success
+  const fail = stats.value.api_failed
+  const all = ok + fail
+  if (!all) {
+    return cancelled.value ? '已取消' : '—'
+  }
+  return `${Math.round((ok / all) * 100)}% 成功`
+})
+
+/** 日志行首符号 */
+function logMark(kind: TranslationLogEntry['kind']): string {
+  switch (kind) {
+    case 'start':
+      return '…'
+    case 'ok':
+      return '✓'
+    case 'err':
+      return '✕'
+    case 'write':
+      return '!'
+    default:
+      return '·'
+  }
+}
+
+function startTimer(): void {
+  stopTimer()
+  startedAt = Date.now()
+  elapsed.value = 0
+  timerId = window.setInterval(() => {
+    elapsed.value = (Date.now() - startedAt) / 1000
+  }, 200)
+}
+
+function stopTimer(): void {
+  if (timerId) {
+    window.clearInterval(timerId)
+    timerId = 0
+  }
+}
+
 onMounted(async () => {
-  config.value = await loadConfig(plugin)
+  await loadFreshConfig()
   if (currentDocId.value) {
     await scanCurrent()
   }
 })
 
+// 从「插件设置」切回工作台时重新读配置(可能刚保存了 Key / 写入模式 / 语言对)
+watch(
+  () => workbenchTab.value,
+  async (tab) => {
+    if (tab !== 'translate') {
+      return
+    }
+    await loadFreshConfig()
+    if (phase.value === 'input' && currentDocId.value) {
+      await scanCurrent()
+    }
+  },
+)
+
 onBeforeUnmount(() => {
   engine?.cancel()
+  stopTimer()
   workbenchBusy.value = false
 })
 
@@ -687,10 +833,18 @@ async function parseCustom(): Promise<void> {
   }
 }
 
+/** 重新读取插件存储中的配置
+ *  设置页与工作台在同一个窗口里,若只在挂载时读一次,保存后翻译页会继续用旧配置
+ *  (典型表现:设置里检查 Key 通过,真正翻译却 401)。 */
+async function loadFreshConfig(): Promise<TransConfig> {
+  const cfg = await loadConfig(plugin)
+  config.value = cfg
+  return cfg
+}
+
 /** 复用翻译引擎的块分类逻辑做只读扫描 */
 async function scanDoc(id: string): Promise<ScanResult> {
-  const cfg = config.value ?? (await loadConfig(plugin))
-  config.value = cfg
+  const cfg = await loadFreshConfig()
   return await new TranslationEngine(cfg).scan(id)
 }
 
@@ -699,8 +853,7 @@ async function start() {
   if (!docId) {
     return
   }
-  const cfg = config.value ?? (await loadConfig(plugin))
-  config.value = cfg
+  const cfg = await loadFreshConfig()
 
   phase.value = 'running'
   workbenchBusy.value = true
@@ -709,6 +862,10 @@ async function start() {
   cancelled.value = false
   fatalError.value = false
   statusText.value = '准备中…'
+  currentBlockId.value = ''
+  currentIndex.value = 0
+  logs.value = []
+  startTimer()
 
   const key = cfg.engine === 'llm' ? cfg.llm_api_key : cfg.api_key
   if (!key) {
@@ -726,12 +883,25 @@ async function start() {
         total.value = t
         stats.value.translated = done
       },
+      onBlockStart: (block, index, t) => {
+        total.value = t
+        currentIndex.value = index
+        currentBlockId.value = block.id
+      },
+      onLog: (entry) => {
+        logs.value.push(entry)
+        if (logs.value.length > 60) {
+          logs.value.splice(0, logs.value.length - 60)
+        }
+      },
       onStatus: (s) => {
         statusText.value = s
       },
       onComplete: async (s, c) => {
+        stopTimer()
         stats.value = s
         cancelled.value = c
+        elapsed.value = s.elapsed
         if (s.total_blocks) {
           total.value = s.total_blocks
         }
@@ -750,6 +920,7 @@ async function start() {
       },
     })
   } catch (e) {
+    stopTimer()
     workbenchBusy.value = false
     statusText.value = `错误:${(e as Error).message}`
     fatalError.value = true
@@ -1222,4 +1393,315 @@ function extractDocId(input: string): string | null {
   font-size: 10.5px;
   white-space: nowrap;
 }
+/* ==========================================================================
+   运行中 / 完成态
+   ========================================================================== */
+.tw-mono {
+  font-family: var(--tr2-mono);
+  font-size: 10.5px;
+  color: var(--tr2-muted);
+}
+
+.tw-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tw-ok-text {
+  color: var(--tr2-ok);
+}
+
+.tw-run__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+
+  > .tr2-chip {
+    margin-left: auto;
+  }
+}
+
+.tw-run__pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tr2-primary);
+  box-shadow: 0 0 0 0 var(--tr2-primary-soft);
+  animation: tw-ping 1.6s ease-out infinite;
+}
+
+@keyframes tw-ping {
+  0% {
+    box-shadow: 0 0 0 0 var(--tr2-primary-soft);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* 当前块 */
+.tw-run__block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--tr2-inset);
+}
+
+.tw-run__block-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--tr2-muted);
+}
+
+.tw-run__block-id {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--tr2-text);
+  white-space: nowrap;
+}
+
+.tw-run__sync {
+  flex: 0 0 auto;
+  color: var(--tr2-primary);
+  animation: tr2-spin 1.8s linear infinite;
+}
+
+/* 进度 */
+.tw-run__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tw-run__progress-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tw-run__count {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tr2-primary-deep);
+}
+
+.tw-bar {
+  height: 8px;
+  padding: 1px;
+  border-radius: 999px;
+  background: var(--tr2-inset);
+  overflow: hidden;
+}
+
+.tw-bar__fill {
+  position: relative;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--tr2-primary), #38bdf8);
+  transition: width 0.3s ease;
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.55),
+      transparent
+    );
+    animation: tw-shimmer 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes tw-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.tw-run__progress-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--tr2-muted);
+}
+
+/* 流水日志 */
+.tw-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--tr2-inset);
+}
+
+.tw-log__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  font-size: 10px;
+  color: var(--tr2-muted);
+}
+
+.tw-log__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tr2-ok);
+}
+
+.tw-log__line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  font-size: 10.5px;
+  color: var(--tr2-text-2);
+  white-space: nowrap;
+
+  &.is-ok .tw-log__mark {
+    color: var(--tr2-ok);
+  }
+
+  &.is-err {
+    color: var(--tr2-err);
+
+    .tw-log__mark {
+      color: var(--tr2-err);
+    }
+  }
+
+  &.is-start {
+    color: var(--tr2-primary-deep);
+  }
+}
+
+.tw-log__mark {
+  width: 10px;
+  flex: 0 0 10px;
+  text-align: center;
+  color: var(--tr2-muted);
+}
+
+.tw-log__id {
+  flex: 0 0 auto;
+}
+
+.tw-log__msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tw-log__empty {
+  font-size: 10.5px;
+  color: var(--tr2-muted);
+}
+
+.tw-run__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+
+  .tr2-hint {
+    min-width: 0;
+  }
+}
+
+/* 完成态 */
+.tw-done__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+
+  &.is-ok {
+    background: var(--tr2-ok-soft);
+    color: var(--tr2-ok);
+  }
+
+  &.is-err {
+    background: var(--tr2-err-soft);
+    color: var(--tr2-err);
+  }
+
+  &.is-warn {
+    background: rgba(217, 119, 6, 0.14);
+    color: var(--tr2-warn);
+  }
+}
+
+.tw-done__text {
+  min-width: 0;
+  flex: 1;
+}
+
+.tw-done__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+
+  .tr2-btn {
+    flex: 1;
+  }
+}
+
+.tw-token {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--tr2-inset);
+  font-size: 10.5px;
+  color: var(--tr2-muted);
+
+  .tw-mono {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.tw-metrics--4 {
+  margin-top: 2px;
+
+  .tw-metric.is-err .tw-metric__v {
+    color: var(--tr2-err);
+  }
+}
+
 </style>

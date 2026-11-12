@@ -19,6 +19,7 @@ import type {
   EngineCallbacks,
   ProgressCallback,
   ScanResult,
+  TranslationLogEntry,
   StatusCallback,
   TransConfig,
   TranslationStats,
@@ -115,7 +116,19 @@ export class TranslationEngine {
     });
     const stats = emptyStats();
     const start = Date.now();
-    const { onProgress, onStatus, onComplete } = callbacks ?? {};
+    const { onProgress, onStatus, onComplete, onBlockStart, onLog } = callbacks ?? {};
+    /** 日志序号:「Block i of N」用处理顺序,不受并发完成顺序影响 */
+    let started = 0;
+    const emitLog = (entry: Omit<TranslationLogEntry, "ts">) => {
+      if (!onLog) {
+        return;
+      }
+      try {
+        onLog({ ...entry, ts: Date.now() });
+      } catch {
+        /* ignore */
+      }
+    };
     const notify = (cb?: StatusCallback, msg?: string) => {
       if (cb && msg) {
         try {
@@ -193,8 +206,24 @@ export class TranslationEngine {
           if (this.cancelled) {
             return;
           }
+          started++;
+          const seq = started;
+          const typeName = describeBlock(block);
+          try {
+            onBlockStart?.(block, seq, total, stats);
+          } catch {
+            /* ignore */
+          }
+          emitLog({
+            blockId: block.id,
+            blockType: typeName,
+            kind: "start",
+            message: "正在请求块节点",
+          });
+
           const text = this.extractText(block);
           const { protected: protectedText, formulaMap } = this.protectFormulas(text);
+          const tokensBefore = (apiStats.prompt_tokens ?? 0) + (apiStats.completion_tokens ?? 0);
           let translation: string | null = null;
           try {
             translation = await this.withCancellation(
@@ -208,6 +237,23 @@ export class TranslationEngine {
             const err = e instanceof Error ? e : new Error(String(e));
             const status = (e as { status?: number | null }).status ?? null;
             stats.api_errors.push({ blockId: block.id, status, message: err.message });
+            emitLog({
+              blockId: block.id,
+              blockType: typeName,
+              kind: "err",
+              message: status != null ? `HTTP ${status}: ${err.message}` : err.message,
+            });
+          }
+          const tokensAfter = (apiStats.prompt_tokens ?? 0) + (apiStats.completion_tokens ?? 0);
+          if (translation) {
+            const used = tokensAfter - tokensBefore;
+            emitLog({
+              blockId: block.id,
+              blockType: typeName,
+              kind: "ok",
+              tokens: used > 0 ? used : undefined,
+              message: `${typeName} 翻译完成`,
+            });
           }
           if (translation) {
             translation = this.restoreFormulas(translation, formulaMap);
@@ -247,8 +293,14 @@ export class TranslationEngine {
               const newMd = this.buildMarkdown(block, translation);
               await siyuan.updateBlock(block.id, newMd);
               stats.write_success++;
-            } catch {
+            } catch (e) {
               stats.write_failed++;
+              emitLog({
+                blockId: block.id,
+                blockType: describeBlock(block),
+                kind: "write",
+                message: `写回失败: ${(e as Error).message}`,
+              });
             }
           }
         }
@@ -487,4 +539,19 @@ function detectSourceLang(blocks: Block[]): ScanResult["sourceLangHint"] {
     return "cjk";
   }
   return "mixed";
+}
+
+/** 块类型展示名(供流水日志使用) */
+function describeBlock(block: Block): string {
+  if (isHeadingBlock(block)) {
+    const level = block.subType?.replace(/^h/, "") ?? "";
+    return level ? `标题 ${level}` : "标题";
+  }
+  if (isListItem(block)) {
+    return "列表项";
+  }
+  if (isParagraphBlock(block)) {
+    return "段落";
+  }
+  return block.type || "块";
 }
