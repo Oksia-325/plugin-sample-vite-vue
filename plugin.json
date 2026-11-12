@@ -2,7 +2,7 @@
   "name": "siyuan-trans",
   "author": "Oksia-325",
   "url": "https://github.com/Oksia-325/siyuan-trans",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "minAppVersion": "3.7.1",
   "disabledInPublish": true,
   "backends": [

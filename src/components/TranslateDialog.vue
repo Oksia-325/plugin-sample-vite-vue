@@ -1,9 +1,9 @@
 <template>
-  <div class="trans-ui">
+  <div class="tr2">
     <!-- ============================================================ 工作台(待翻译) -->
     <section
       v-if="phase === 'input'"
-      class="trans-view tw"
+      class="tw"
     >
       <!-- 全局状态条 -->
       <div class="tw-status">
@@ -210,7 +210,7 @@
                 class="tr2-spin"
               /><Icon
                 v-else
-                name="check"
+                name="verified"
                 :size="14"
               />
               {{ parsing ? '解析中' : '解析验证' }}
@@ -295,7 +295,7 @@
     <!-- ======================================================= 翻译中页 -->
     <section
       v-else-if="phase === 'running'"
-      class="trans-view tw"
+      class="tw"
     >
       <div class="tr2-card tw-run">
         <div class="tw-run__head">
@@ -382,7 +382,7 @@
     <!-- ======================================================= 完成页 -->
     <section
       v-else
-      class="trans-view tw"
+      class="tw"
     >
       <div class="tr2-card tw-done">
         <div class="tw-run__head">
@@ -1683,6 +1683,139 @@ function extractDocId(input: string): string | null {
   .tw-metric.is-err .tw-metric__v {
     color: var(--tr2-err);
   }
+}
+
+/* ==========================================================================
+   动效(对齐设计稿:入场错落、光晕、高光扫过、扩散环)
+   ========================================================================== */
+.tw > * {
+  animation: tr2-rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.tw > :nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.tw > :nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.tw > :nth-child(4) {
+  animation-delay: 0.12s;
+}
+
+/* 状态点呼吸 */
+.tw-status__dot,
+.tw-log__dot {
+  animation: tr2-pulse 2.4s ease-in-out infinite;
+}
+
+/* 指标卡悬浮 */
+.tw-metric {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tr2-shadow-1);
+  }
+}
+
+.tw-metric__v {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 主行动卡:呼吸光晕 + 图标扩散环 */
+.tw-action {
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -46px;
+    right: -34px;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, var(--tr2-primary-soft), transparent 70%);
+    pointer-events: none;
+    animation: tr2-halo 4.2s ease-in-out infinite;
+  }
+}
+
+.tw-action__icon {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 13px;
+    box-shadow: 0 0 0 2px var(--tr2-primary-soft);
+    pointer-events: none;
+    animation: tr2-ring 2.6s ease-out infinite;
+  }
+}
+
+/* 主按钮:渐变 + 高光扫过 + 悬浮抬升 */
+.tw-go {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0284c7, var(--tr2-primary) 55%, #0369a1);
+  box-shadow: 0 6px 16px -4px rgba(14, 165, 233, 0.5), 0 2px 4px rgba(14, 165, 233, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: -40%;
+    bottom: -40%;
+    width: 38%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    pointer-events: none;
+    animation: tr2-shimmer 3.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px -6px rgba(14, 165, 233, 0.55);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+  }
+}
+
+/* 完成态指标卡错落弹入 */
+.tw-metrics--4 .tw-metric {
+  animation: tr2-rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  &:nth-child(2) {
+    animation-delay: 0.05s;
+  }
+
+  &:nth-child(3) {
+    animation-delay: 0.1s;
+  }
+
+  &:nth-child(4) {
+    animation-delay: 0.15s;
+  }
+}
+
+/* 完成态徽标弹入 / 新日志行淡入 */
+.tw-done__badge {
+  animation: tr2-pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.tw-log__line {
+  animation: tr2-rise 0.2s ease both;
+}
+
+/* 进度条数字不抖动 */
+.tw-run__count,
+.tw-run__progress-foot {
+  font-variant-numeric: tabular-nums;
 }
 
 </style>

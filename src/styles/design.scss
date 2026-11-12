@@ -246,10 +246,13 @@ html.tr2-dark .tr2 {
     color: var(--tr2-text);
   }
 
+  transition: background 0.15s ease, color 0.15s ease;
+
   &.is-active {
     background: var(--tr2-card);
     color: var(--tr2-primary-deep);
     box-shadow: var(--tr2-shadow-1);
+    animation: tr2-pop-in 0.2s ease both;
   }
 }
 
@@ -279,9 +282,15 @@ html.tr2-dark .fw-nav__item.is-active {
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+
   &:hover {
     background: var(--tr2-inset);
     color: var(--tr2-text);
+  }
+
+  &:active {
+    transform: scale(0.92);
   }
 
   &.is-on {
@@ -343,6 +352,12 @@ html.tr2-dark .fw-iconbtn.is-on {
   border-top: 1px solid var(--tr2-line);
 }
 
+/* 图标基线:避免行内 svg 撑高行距 */
+.tr2-icon {
+  display: block;
+  flex: 0 0 auto;
+}
+
 /* ==========================================================================
    3. 基础组件(S2 起复用)
    ========================================================================== */
@@ -352,6 +367,11 @@ html.tr2-dark .fw-iconbtn.is-on {
   border-radius: var(--tr2-r-lg);
   background: var(--tr2-card);
   box-shadow: var(--tr2-shadow-1);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    box-shadow: var(--tr2-shadow-2);
+  }
 }
 
 .tr2-card__head {
@@ -486,6 +506,102 @@ html.tr2-dark .tr2-chip.is-primary {
 @keyframes tr2-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* 卡片入场:轻微上浮淡入 */
+@keyframes tr2-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 高光扫过(主按钮) */
+@keyframes tr2-shimmer {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+
+  60%,
+  100% {
+    transform: translateX(240%) skewX(-18deg);
+  }
+}
+
+/* 呼吸光晕(主行动卡背景) */
+@keyframes tr2-halo {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.08);
+  }
+}
+
+/* 扩散圆环(激活态徽标) */
+@keyframes tr2-ring {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.65;
+  }
+
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+/* 呼吸小圆点 */
+@keyframes tr2-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* 到达新数据时的轻微弹入 */
+@keyframes tr2-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 无障碍:尊重系统的"减少动态效果" */
+@media (prefers-reduced-motion: reduce) {
+  .tr2 *,
+  .tr2 *::before,
+  .tr2 *::after,
+  .fw-panel *,
+  .fw-panel *::before,
+  .fw-panel *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }
 

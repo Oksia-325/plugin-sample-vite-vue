@@ -1,11 +1,29 @@
 <!--
-  内联描边图标组件
+  图标组件
 
-  设计稿使用 Material Symbols 字体图标,但字体需外网加载,在思源桌面端不可靠,
-  这里用 24×24 描边 SVG 自绘同名图标,零新增依赖、随文字颜色自适应。
+  图标来源优先级:
+  1. OVERRIDES:指定语义名使用 asset/ 里用户自备的图标(1024 viewBox)
+  2. Material Symbols Outlined(与 Stitch 设计稿完全同款,scdn 内联打包)
+  3. 旧版用户图标(src/assets/icons/*.svg)
+  4. 内置 24×24 描边兜底
+
+  Material Symbols 即设计稿所用图标字体,这里取官方 SVG 版本内联,
+  因此能直接跟随 currentColor,不依赖外网字体。
 -->
 <template>
   <svg
+    v-if="spec"
+    class="tr2-icon"
+    :width="size"
+    :height="size"
+    :viewBox="spec.viewBox"
+    fill="currentColor"
+    aria-hidden="true"
+    focusable="false"
+    v-html="spec.inner"
+  />
+  <svg
+    v-else
     class="tr2-icon"
     :width="size"
     :height="size"
@@ -19,7 +37,7 @@
     focusable="false"
   >
     <path
-      v-for="(d, i) in paths"
+      v-for="(d, i) in strokePaths"
       :key="i"
       :d="d"
     />
@@ -41,57 +59,171 @@ const props = withDefaults(
   },
 )
 
-/** 图标库:每个图标可含多条子路径 */
-const ICONS: Record<string, string[]> = {
-  translate: [
-    'M4 6h9M8.5 4v2M11 6c0 3.6-3.2 6.4-7 6.6',
-    'M13.5 19l3.8-9 3.8 9M15 16.4h4.6',
-  ],
-  close: ['M6.5 6.5l11 11M17.5 6.5l-11 11'],
-  pin: ['M9 4h6M12 4v5.5M12 9.5L9.6 12.6V15h4.8v-2.4L12 9.5M12 15v5'],
-  doc: ['M7 3h6.5L18 7.5V21H7z', 'M13.5 3v4.5H18', 'M9.8 12.5h5.4M9.8 16h5.4'],
-  refresh: ['M20 12a8 8 0 1 1-2.4-5.7', 'M20 4v4h-4'],
-  replay: ['M4 12a8 8 0 1 0 2.4-5.7', 'M4 4v4h4'],
-  layers: ['M12 3.5l8 4-8 4-8-4 8-4z', 'M4 12l8 4 8-4', 'M4 16.2l8 4 8-4'],
-  arrowRight: ['M4 12h15', 'M13.5 6.5L20 12l-6.5 5.5'],
-  split: ['M12 3v18', 'M4.5 7h4.5v10H4.5z', 'M15 7h4.5v10H15z'],
-  check: ['M4.5 12.5l5 5L20 6.8'],
-  checkCircle: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M8 12.4l2.7 2.7L16 9.4'],
-  alert: ['M12 3.6l8.4 16.8H3.6z', 'M12 9.8v4.2M12 16.8v.6'],
-  clock: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 7.6V12l3.4 2'],
-  key: ['M14.6 9.4a3.6 3.6 0 1 1-7.2 0 3.6 3.6 0 0 1 7.2 0z', 'M6.6 20L12 14.6', 'M9.4 17.2l1.6 1.6'],
-  bolt: ['M13.4 3L5.6 13.6h5.2l-1 7.4 7.6-10.6h-5.2l1.2-7.4z'],
-  sparkle: [
-    'M11.5 4l1.7 3.6 3.6 1.7-3.6 1.7L11.5 14.6 9.8 11 6.2 9.3l3.6-1.7L11.5 4z',
-    'M18.2 14.6l.9 1.9 1.9.9-1.9.9-.9 1.9-.9-1.9-1.9-.9 1.9-.9.9-1.9z',
-  ],
-  tune: ['M4 7h9M17.5 7H20M4 17h4M12 17h8', 'M15.6 4.6v4.8M9.4 14.6v4.8'],
-  chart: ['M4 4v16h16', 'M8 17v-4.4M12.6 17V8.6M17 17V9.4'],
-  terminal: ['M4 5.5h16v13H4z', 'M7.6 10l2.6 2.4-2.6 2.4', 'M12.4 14.8h4'],
-  eye: ['M2.6 12S6.2 6 12 6s9.4 6 9.4 6-3.6 6-9.4 6-9.4-6-9.4-6z', 'M12 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z'],
-  eyeOff: [
-    'M3.4 3.4l17.2 17.2',
-    'M10.3 6.3A9.8 9.8 0 0 1 12 6c5.8 0 9.4 6 9.4 6a17.6 17.6 0 0 1-2.9 3.5',
-    'M6.5 7.6A16.4 16.4 0 0 0 2.6 12S6.2 18 12 18c1.1 0 2.1-.2 3-.6',
-    'M9.9 9.9a3 3 0 0 0 4.2 4.2',
-  ],
-  chevronDown: ['M6.5 9.5l5.5 5.5 5.5-5.5'],
-  plus: ['M12 5.2v13.6M5.2 12h13.6'],
-  trash: ['M4.8 7h14.4', 'M9.6 7V4.2h4.8V7', 'M6.8 7l.9 13h8.6l.9-13', 'M10.4 10.6v6M13.6 10.6v6'],
-  search: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M16.2 16.2L21 21'],
-  link: ['M9.6 14.4l4.8-4.8', 'M8.4 11.2l-2 2a3.6 3.6 0 0 0 5.1 5.1l2-2', 'M15.6 12.8l2-2a3.6 3.6 0 0 0-5.1-5.1l-2 2'],
-  cloud: ['M7.6 19h9.2a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.4A3.5 3.5 0 0 0 7.6 19z'],
-  dataset: ['M12 3.4c3.9 0 7 1.2 7 2.8s-3.1 2.8-7 2.8-7-1.2-7-2.8 3.1-2.8 7-2.8z', 'M5 6.2v5.6c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8V6.2', 'M5 11.8v5.6c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8v-5.6'],
-  gauge: ['M4 18a8 8 0 1 1 16 0', 'M12 18l4.4-6.4'],
-  hub: ['M12 3.4v3.4M12 17.2v3.4M3.4 12h3.4M17.2 12h3.4', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
-  book: ['M5 4h9.6A2.4 2.4 0 0 1 17 6.4V21H7.4A2.4 2.4 0 0 1 5 18.6V4z', 'M17 20.4V6.4'],
-  plug: ['M9 3.4v5.2M15 3.4v5.2', 'M6.4 8.6h11.2v3a5.6 5.6 0 0 1-11.2 0v-3z', 'M12 17.2v3.4'],
-  info: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 11v5.6M12 7.6v.6'],
-  hourglass: ['M7 3.4h10M7 20.6h10', 'M8 3.4v2.8c0 2 4 3.6 4 5.8s-4 3.8-4 5.8v2.8', 'M16 3.4v2.8c0 2-4 3.6-4 5.8s4 3.8 4 5.8v2.8'],
-  language: ['M4 6.4h9M8.6 4v2.4M10.8 6.4c0 3.8-3.2 6.8-7 7', 'M6.6 16.4h9M11.1 14v2.4M13.3 16.4c0 2.4-2.4 3.8-4.2 4.2'],
-  save: ['M5 4h11l3 3v13H5z', 'M8.4 4v5.6h6.2V4', 'M8.4 20v-6.4h7.2V20'],
-  taskAlt: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M7.8 12.2l2.8 2.8 5.6-5.8'],
+/* ---------------------------- Material Symbols ---------------------------- */
+
+/** 语义名 → Material Symbols 图标名(与设计稿取用一致) */
+const MS_MAP: Record<string, string> = {
+  translate: 'translate',
+  bolt: 'bolt',
+  doc: 'article',
+  description: 'description',
+  dataset: 'dataset',
+  link: 'link',
+  plug: 'api',
+  api: 'api',
+  engine: 'smart_toy',
+  key: 'key',
+  terminal: 'terminal',
+  chart: 'bar_chart',
+  stats: 'analytics',
+  usage: 'analytics',
+  split: 'vertical_split',
+  tune: 'tune',
+  layers: 'layers',
+  block: 'layers',
+  clock: 'schedule',
+  hourglass: 'hourglass_empty',
+  wait: 'pending_actions',
+  pending: 'pending_actions',
+  cloud: 'cloud_done',
+  hub: 'hub',
+  proxy: 'public',
+  connect: 'wifi_tethering',
+  kernel: 'dns',
+  plus: 'add',
+  create: 'post_add',
+  checkCircle: 'check_circle',
+  success: 'check_circle',
+  taskAlt: 'task_alt',
+  check: 'check',
+  close: 'close',
+  trash: 'delete',
+  search: 'search',
+  alert: 'warning',
+  error: 'error',
+  info: 'info',
+  save: 'save',
+  sync: 'sync',
+  sparkle: 'auto_awesome',
+  language: 'language',
+  book: 'book_2',
+  arrowRight: 'arrow_forward',
+  chevronDown: 'expand_more',
+  eye: 'visibility',
+  eyeOff: 'visibility_off',
+  replay: 'replay',
+  refresh: 'refresh',
+  pin: 'push_pin',
+  gauge: 'speed',
+  write: 'edit_note',
+  replace: 'find_replace',
+  clear: 'backspace',
+  verified: 'verified',
 }
 
-const paths = computed(() => ICONS[props.name] ?? ICONS.info)
+/**
+ * 用户自备图标覆盖(放在 src/assets/icons/*.svg,1024 viewBox)
+ * 例:verified 用的是 asset/验证.svg
+ */
+const OVERRIDES: Record<string, string> = {
+  verified: 'verify',
+}
+
+/* ------------------------------- 资源装载 ------------------------------- */
+
+const MS_RAW = import.meta.glob('../../assets/icons/ms/*.svg', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+const ASSET_RAW = import.meta.glob('../../assets/icons/*.svg', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>
+
+/** 去掉外层 svg 与写死颜色,只留图形,让图标跟随 currentColor */
+function stripSvg(raw: string): string {
+  const m = raw.match(/<svg[^>]*>([\s\S]*)<\/svg>/i)
+  if (!m) {
+    return ''
+  }
+  return m[1]
+    .replace(/\sfill="[^"]*"/g, '')
+    .replace(/\sstroke="[^"]*"/g, '')
+    .replace(/\sp-id="[^"]*"/g, '')
+    .replace(/\sclass="[^"]*"/g, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+}
+
+interface IconSpec {
+  inner: string
+  viewBox: string
+}
+
+const spec = computed<IconSpec | null>(() => {
+  // 1) 用户覆盖
+  const override = OVERRIDES[props.name]
+  if (override) {
+    const raw = ASSET_RAW[`../../assets/icons/${override}.svg`]
+    if (raw) {
+      return { inner: stripSvg(raw), viewBox: '0 0 1024 1024' }
+    }
+  }
+  // 2) 设计稿同款 Material Symbols
+  const ms = MS_MAP[props.name]
+  if (ms) {
+    const raw = MS_RAW[`../../assets/icons/ms/${ms}.svg`]
+    if (raw) {
+      return { inner: stripSvg(raw), viewBox: '0 -960 960 960' }
+    }
+  }
+  // 3) 用户提供的旧图标
+  const legacy = LEGACY_ASSETS[props.name]
+  if (legacy) {
+    const raw = ASSET_RAW[`../../assets/icons/${legacy}.svg`]
+    if (raw) {
+      return { inner: stripSvg(raw), viewBox: '0 0 1024 1024' }
+    }
+  }
+  return null
+})
+
+/** 旧版资源映射(未指定覆盖时仍可用) */
+const LEGACY_ASSETS: Record<string, string> = {
+  pin2: 'pin',
+  refresh2: 'refresh',
+  translate2: 'translate',
+  engine2: 'engine',
+  key2: 'key',
+  terminal2: 'prompt',
+  chart2: 'stats',
+  usage2: 'usage',
+  split2: 'append',
+  tune2: 'config',
+  block2: 'block',
+  clock2: 'time',
+  hourglass2: 'wait',
+  cloud2: 'connect',
+  hub2: 'proxy',
+  plus2: 'create',
+  checkCircle2: 'success',
+  kernel2: 'kernel',
+  write2: 'write',
+  replace2: 'replace',
+  clear2: 'clear',
+  doc2: 'doc',
+  link2: 'docTarget',
+  plugin2: 'plugin',
+}
+
+/* ------------------------------ 描边兜底 ------------------------------ */
+
+const ICONS: Record<string, string[]> = {
+  info: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 11v5.6M12 7.6v.6'],
+  alert: ['M12 3.6l8.4 16.8H3.6z', 'M12 9.8v4.2M12 16.8v.6'],
+}
+
+const strokePaths = computed(() => ICONS[props.name] ?? ICONS.info)
 </script>

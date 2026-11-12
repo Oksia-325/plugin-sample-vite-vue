@@ -4,7 +4,6 @@ import {
   getFrontend,
   showMessage,
 } from 'siyuan'
-import '@/index.scss'
 import '@/styles/design.scss'
 import PluginInfoString from '@/../plugin.json'
 import PluginTopBarIcon from '@/assets/fy1.svg?raw'

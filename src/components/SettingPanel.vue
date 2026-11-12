@@ -298,14 +298,25 @@
                 </div>
               </div>
             </div>
-            <div class="st-field">
-              <span class="tr2-label">领域提示(可空)</span>
-              <input
-                v-model="cfg.domains"
-                class="st-input"
-                placeholder="如:计算机科学论文,保持术语与句式严谨"
-              >
+          </div>
+
+          <!-- 领域提示 -->
+          <div class="st-group">
+            <div class="st-group__head">
+              <Icon
+                name="prompt"
+                :size="13"
+              />
+              <span>领域提示</span>
+              <span class="tr2-hint">可空,用于约束译文的领域与语气</span>
             </div>
+            <PromptEditor
+              v-model="cfg.domains"
+              title="领域提示"
+              placeholder="如:计算机科学论文,保持术语与句式严谨"
+              hint="非空时会作为 translation_options.domains 发送给 Qwen-MT"
+              :rows="3"
+            />
           </div>
 
           <!-- 术语干预 -->
@@ -523,37 +534,13 @@
               <span>系统提示词</span>
               <span class="tr2-hint">注入 System 角色,控制输出格式</span>
             </div>
-            <div class="st-prompt">
-              <div class="st-prompt__bar">
-                <span class="st-prompt__label">
-                  <Icon
-                    name="doc"
-                    :size="13"
-                  />Prompt 编辑
-                </span>
-                <button
-                  class="st-prompt__clear"
-                  type="button"
-                  title="清空内容"
-                  @click="cfg.llm_prompt = ''"
-                >
-                  <Icon
-                    name="refresh"
-                    :size="12"
-                  />清空
-                </button>
-              </div>
-              <textarea
-                v-model="cfg.llm_prompt"
-                class="st-prompt__input"
-                rows="4"
-                placeholder="You are a professional translator…"
-              />
-              <div class="st-prompt__foot">
-                <span class="tr2-hint">保持“只输出译文”的指令可获得最干净的写回结果</span>
-                <span class="st-prompt__count">{{ cfg.llm_prompt.length }} 字符</span>
-              </div>
-            </div>
+            <PromptEditor
+              v-model="cfg.llm_prompt"
+              title="Prompt 编辑"
+              placeholder="You are a professional translator…"
+              hint="保持“只输出译文”的指令可获得最干净的写回结果"
+              :rows="5"
+            />
           </div>
 
           <!-- 用量看板 -->
@@ -670,6 +657,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { showMessage } from 'siyuan'
 import Icon from '@/components/ui/Icon.vue'
+import PromptEditor from '@/components/ui/PromptEditor.vue'
 import { usePlugin } from '@/main'
 import { version as kernelVersion } from '@/api'
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from '@/trans/config'
@@ -1465,84 +1453,6 @@ async function save() {
   }
 }
 
-/* Prompt 编辑器 */
-.st-prompt {
-  border: 1px solid var(--tr2-line-strong);
-  border-radius: var(--tr2-r);
-  background: var(--tr2-card);
-  overflow: hidden;
-
-  &:focus-within {
-    border-color: var(--tr2-primary);
-    box-shadow: 0 0 0 3px var(--tr2-primary-soft);
-  }
-}
-
-.st-prompt__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 9px;
-  border-bottom: 1px solid var(--tr2-line);
-  background: var(--tr2-inset);
-}
-
-.st-prompt__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--tr2-text-2);
-}
-
-.st-prompt__clear {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  background: none;
-  color: var(--tr2-muted);
-  font-size: 10.5px;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--tr2-err);
-  }
-}
-
-.st-prompt__input {
-  width: 100%;
-  min-height: 88px;
-  padding: 9px;
-  border: 0;
-  outline: 0;
-  resize: vertical;
-  background: transparent;
-  color: var(--tr2-text);
-  font-family: var(--tr2-mono);
-  font-size: 11.5px;
-  line-height: 1.6;
-}
-
-.st-prompt__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 9px;
-  border-top: 1px solid var(--tr2-line);
-  background: var(--tr2-inset);
-}
-
-.st-prompt__count {
-  font-family: var(--tr2-mono);
-  font-size: 10.5px;
-  color: var(--tr2-muted);
-  white-space: nowrap;
-}
-
 /* 用量看板 */
 .st-tiles {
   display: grid;
@@ -1673,4 +1583,96 @@ async function save() {
     grid-template-columns: 1fr;
   }
 }
+/* ==========================================================================
+   动效
+   ========================================================================== */
+.st > * {
+  animation: tr2-rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.st > :nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.st > :nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.st > :nth-child(4) {
+  animation-delay: 0.12s;
+}
+
+.st-mode,
+.st-proxy {
+  transition: transform 0.16s ease, border-color 0.15s ease, background 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tr2-shadow-1);
+  }
+}
+
+.st-mode.is-active .st-mode__icon {
+  animation: tr2-pop-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.st-seg__item {
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+
+  &.is-active {
+    transform: scale(1.01);
+  }
+}
+
+.st-tile {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--tr2-shadow-1);
+  }
+}
+
+.st-tile__v,
+.st-tile__k,
+.st-prompt__count,
+.st-check__ms {
+  font-variant-numeric: tabular-nums;
+}
+
+.st-group {
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--tr2-line-strong);
+  }
+}
+
+.st-group__action {
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.st-status__dot {
+  animation: tr2-pulse 2.6s ease-in-out infinite;
+}
+
+.st-pair {
+  animation: tr2-rise 0.2s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st *,
+  .st *::before,
+  .st *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 </style>
