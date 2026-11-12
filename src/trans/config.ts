@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG: TransConfig = {
   max_retries: 3,
   backoff_base: 1,
   source_lang: "English",
-  target_lang: "Chinese",
+  target_lang: "Simplified Chinese",
   terms: [],
   tm_list: [],
   domains: "",

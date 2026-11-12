@@ -100,9 +100,10 @@ export default class SiYuanTransPlugin extends Plugin {
       langText: '翻译当前页面',
       hotkey: '⌥⇧⌘T',
       editorCallback: (protyle) => {
-        const id = protyle?.block?.rootID
+        // 命令面板/热键触发时 protyle 偶发为空,回退到已跟踪的当前文档
+        const id = protyle?.block?.rootID ?? getCurrentDocId()
         if (id) {
-          openTranslateDialog({ docId: id })
+          void openTranslateDialog({ docId: id })
         } else {
           showMessage('未找到当前文档', 3000, 'error')
         }

@@ -1,5 +1,5 @@
 <template>
-  <div class="tr2 st trans-ui">
+  <div class="tr2 st">
     <!-- 顶部:标题 + 锚点导航 -->
     <header class="st-head">
       <div class="st-head__main">
@@ -151,7 +151,7 @@
       </div>
     </section>
 
-    <!-- 翻译引擎(样式 S5 重做,功能保持) -->
+    <!-- 翻译引擎 -->
     <section
       id="st-engine"
       class="st-engine"
@@ -166,394 +166,439 @@
             翻译引擎
           </div>
           <div class="tr2-hint">
-            两套引擎配置相互独立,切换后互不影响
+            两套引擎独立配置,切换后即刻生效,无需重启
           </div>
         </div>
+        <span
+          class="st-status"
+          :class="engineReady ? 'is-ok' : 'is-warn'"
+        >
+          <span class="st-status__dot" />{{ engineReady ? '引擎配置就绪' : '缺少 API Key' }}
+        </span>
       </div>
 
-    <!-- 翻译引擎 -->
-    <div class="trans-card">
-      <div class="trans-card__head">
-        <span class="trans-badge">⚙️</span>
-        <span class="trans-card__title">翻译引擎</span>
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">引擎</label>
-        <div class="trans-combo">
+      <div class="tr2-card st-sec">
+        <!-- 分段切换 -->
+        <div class="st-seg">
           <button
+            v-for="e in engines"
+            :key="e.value"
+            class="st-seg__item"
+            :class="{ 'is-active': cfg.engine === e.value }"
             type="button"
-            class="trans-combo__trigger trans-input"
-            @click.stop="toggleEngine"
+            @click="cfg.engine = e.value"
           >
-            <span class="trans-combo__value">{{ engineLabel }}</span>
-            <span class="trans-combo__caret">▾</span>
+            <Icon
+              :name="e.icon"
+              :size="15"
+            />
+            <span>{{ e.label }}</span>
+            <span class="st-seg__badge">{{ e.badge }}</span>
           </button>
-          <div
-            v-if="engineOpen"
-            class="trans-combo__menu"
-            @click.stop
-          >
-            <div
-              v-for="opt in engineOptions"
-              :key="opt.value"
-              class="trans-combo__row"
-            >
-              <button
-                type="button"
-                class="trans-combo__row-name"
-                :class="{ 'is-active': opt.value === cfg.engine }"
-                @click="pickEngine(opt.value)"
-              >{{ opt.label }}</button>
-            </div>
-          </div>
         </div>
-      </div>
-      <div class="trans-hint" style="margin-top: 8px">
-        两套引擎配置相互独立,切换后互不影响。
-      </div>
-    </div>
 
-    <!-- 翻译 API (QWEN-MT) -->
-    <div
-      v-if="cfg.engine === 'qwen_mt'"
-      class="trans-card"
-    >
-      <div class="trans-card__head">
-        <span class="trans-badge">🔑</span>
-        <span class="trans-card__title">翻译 API</span>
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">API Key</label>
-        <div class="trans-input-wrap">
-          <input
-            v-model="cfg.api_key"
-            class="trans-input"
-            :type="showKey ? 'text' : 'password'"
-            placeholder="DashScope API Key"
-            autocomplete="off"
-            spellcheck="false"
-          >
-          <EyeToggle
-            :show="showKey"
-            @toggle="showKey = !showKey"
-          />
-        </div>
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">API URL</label>
-        <input
-          v-model="cfg.api_url"
-          class="trans-input"
-          placeholder="OpenAI 兼容端点"
-        >
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">模型</label>
-        <input
-          v-model="cfg.model_name"
-          class="trans-input"
-          placeholder="qwen-mt-plus"
-        >
-      </div>
-      <div class="trans-grid trans-grid--2" style="margin-top: 12px">
-        <div class="trans-field">
-          <label class="trans-label">源语言</label>
-          <input
-            v-model="cfg.source_lang"
-            class="trans-input"
-            placeholder="English"
-          >
-        </div>
-        <div class="trans-field">
-          <label class="trans-label">目标语言</label>
-          <input
-            v-model="cfg.target_lang"
-            class="trans-input"
-            placeholder="Chinese"
-          >
-        </div>
-      </div>
-    </div>
-
-    <!-- 翻译 API (LLM) -->
-    <div
-      v-else
-      class="trans-card"
-    >
-      <div class="trans-card__head">
-        <span class="trans-badge">🤖</span>
-        <span class="trans-card__title">LLM 翻译</span>
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">API Key</label>
-        <div class="trans-input-wrap">
-          <input
-            v-model="cfg.llm_api_key"
-            class="trans-input"
-            :type="showLlmKey ? 'text' : 'password'"
-            placeholder="OpenAI 兼容 API Key"
-            autocomplete="off"
-            spellcheck="false"
-          >
-          <EyeToggle
-            :show="showLlmKey"
-            @toggle="showLlmKey = !showLlmKey"
-          />
-        </div>
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">Base URL</label>
-        <input
-          v-model="cfg.llm_base_url"
-          class="trans-input"
-          placeholder="https://api.example.com/v1"
-        >
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">模型</label>
-        <div class="trans-combo">
-          <button
-            type="button"
-            class="trans-combo__trigger trans-input"
-            @click.stop="toggleLlmModel"
-          >
-            <span class="trans-combo__value">{{ cfg.llm_model_name || '选择或输入模型名称' }}</span>
-            <span class="trans-combo__caret">▾</span>
-          </button>
-          <div
-            v-if="llmModelOpen"
-            class="trans-combo__menu"
-            @click.stop
-          >
-            <div
-              v-if="!cfg.llm_models_history.length"
-              class="trans-combo__empty"
-            >
-              暂无历史记录
+        <!-- ============================ Qwen-MT ============================ -->
+        <template v-if="cfg.engine === 'qwen_mt'">
+          <div class="st-group">
+            <div class="st-group__head">
+              <Icon
+                name="key"
+                :size="13"
+              />
+              <span>接口连接与语言对</span>
             </div>
-            <div
-              v-for="m in cfg.llm_models_history"
-              :key="m"
-              class="trans-combo__row"
-            >
-              <button
-                type="button"
-                class="trans-combo__row-name"
-                :class="{ 'is-active': m === cfg.llm_model_name }"
-                @click="pickLlmModel(m)"
-              >{{ m }}</button>
-              <button
-                type="button"
-                class="trans-combo__row-del"
-                :title="`删除 ${m}`"
-                @click.stop="removeLlmModel(m)"
-              >✕</button>
+            <div class="st-grid2">
+              <div class="st-field">
+                <span class="tr2-label">DashScope API Key</span>
+                <div class="st-secret">
+                  <input
+                    v-model="cfg.api_key"
+                    class="st-input is-mono"
+                    :type="showKey ? 'text' : 'password'"
+                    placeholder="sk-…"
+                    autocomplete="off"
+                    spellcheck="false"
+                  >
+                  <button
+                    class="st-secret__btn"
+                    type="button"
+                    :title="showKey ? '隐藏' : '显示'"
+                    @click="showKey = !showKey"
+                  >
+                    <Icon
+                      :name="showKey ? 'eyeOff' : 'eye'"
+                      :size="14"
+                    />
+                  </button>
+                </div>
+              </div>
+              <div class="st-field">
+                <span class="tr2-label">接口地址</span>
+                <input
+                  v-model="cfg.api_url"
+                  class="st-input is-mono"
+                  placeholder="https://dashscope.aliyuncs.com/…"
+                  spellcheck="false"
+                >
+              </div>
             </div>
-            <div class="trans-combo__input-row">
+            <div class="st-grid3">
+              <div class="st-field">
+                <span class="tr2-label">源语言</span>
+                <div class="st-select">
+                  <select v-model="cfg.source_lang">
+                    <option
+                      v-for="l in sourceOptions"
+                      :key="l"
+                      :value="l"
+                    >
+                      {{ langLabel(l) }}
+                    </option>
+                  </select>
+                  <Icon
+                    name="chevronDown"
+                    :size="13"
+                  />
+                </div>
+              </div>
+              <div class="st-field">
+                <span class="tr2-label">目标语言</span>
+                <div class="st-select">
+                  <select v-model="cfg.target_lang">
+                    <option
+                      v-for="l in targetOptions"
+                      :key="l"
+                      :value="l"
+                    >
+                      {{ langLabel(l) }}
+                    </option>
+                  </select>
+                  <Icon
+                    name="chevronDown"
+                    :size="13"
+                  />
+                </div>
+              </div>
+              <div class="st-field">
+                <span class="tr2-label">翻译模型</span>
+                <div class="st-select">
+                  <select v-model="cfg.model_name">
+                    <option
+                      v-for="m in qwenModels"
+                      :key="m"
+                      :value="m"
+                    >
+                      {{ m }}
+                    </option>
+                  </select>
+                  <Icon
+                    name="chevronDown"
+                    :size="13"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="st-field">
+              <span class="tr2-label">领域提示(可空)</span>
               <input
-                v-model="llmModelText"
-                class="trans-input"
-                placeholder="输入新模型名称,回车保存"
-                @keydown.enter="commitLlmModel"
+                v-model="cfg.domains"
+                class="st-input"
+                placeholder="如:计算机科学论文,保持术语与句式严谨"
+              >
+            </div>
+          </div>
+
+          <!-- 术语干预 -->
+          <div class="st-group">
+            <div class="st-group__head">
+              <Icon
+                name="book"
+                :size="13"
+              />
+              <span>术语强制映射</span>
+              <button
+                class="tr2-btn is-ghost is-sm st-group__action"
+                type="button"
+                @click="addPair(cfg.terms)"
+              >
+                <Icon
+                  name="plus"
+                  :size="12"
+                />添加术语
+              </button>
+            </div>
+            <div
+              v-if="!cfg.terms.length"
+              class="st-empty"
+            >
+              暂无术语,添加后可强制指定某些词的译法
+            </div>
+            <div
+              v-for="(item, i) in cfg.terms"
+              :key="`term-${i}`"
+              class="st-pair"
+            >
+              <input
+                v-model="item.source"
+                class="st-input is-mono"
+                placeholder="原文术语"
+              >
+              <Icon
+                name="arrowRight"
+                :size="13"
+                class="st-pair__arrow"
+              />
+              <input
+                v-model="item.target"
+                class="st-input"
+                placeholder="指定译法"
               >
               <button
+                class="st-pair__del"
                 type="button"
-                class="trans-btn trans-btn--ghost trans-btn--sm"
-                @click="commitLlmModel"
-              >＋</button>
+                title="删除"
+                @click="removePair(cfg.terms, i)"
+              >
+                <Icon
+                  name="trash"
+                  :size="13"
+                />
+              </button>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="trans-field">
-        <label class="trans-label">翻译 Prompt</label>
-        <textarea
-          v-model="cfg.llm_prompt"
-          class="trans-textarea"
-          rows="4"
-          placeholder="系统提示词,指导模型完成翻译"
-        />
-      </div>
-    </div>
-      <div id="st-stats">
-    <!-- LLM 累计统计 -->
-    <div
-      v-if="cfg.engine === 'llm'"
-      class="trans-card"
-    >
-      <div class="trans-card__head">
-        <span class="trans-badge">📊</span>
-        <span class="trans-card__title">LLM 累计统计</span>
-        <button
-          class="trans-btn trans-btn--ghost trans-btn--sm"
-          style="margin-left: auto"
-          title="清零全部累计统计"
-          @click="clearLlmStats"
-        >
-          清零
-        </button>
-      </div>
-      <div class="trans-hint" style="margin-bottom: 12px">
-        全部对话的累计数据,跨会话持久化。
-      </div>
-      <div class="trans-stats">
-        <div class="trans-stat">
-          <div class="trans-stat__num">
-            {{ llmStats.calls }}
-          </div>
-          <div class="trans-stat__label">
-            累计翻译次数
-          </div>
-        </div>
-        <div class="trans-stat">
-          <div class="trans-stat__num">
-            {{ formatHitRate(llmStats.cached_tokens, llmStats.input_tokens, llmStats.cache_reported) }}
-          </div>
-          <div class="trans-stat__label">
-            累计缓存命中率
-          </div>
-        </div>
-        <div class="trans-stat">
-          <div class="trans-stat__num">
-            {{ formatM(llmStats.input_tokens) }}
-          </div>
-          <div class="trans-stat__label">
-            累计输入 Token
-          </div>
-        </div>
-        <div class="trans-stat">
-          <div class="trans-stat__num">
-            {{ formatM(llmStats.output_tokens) }}
-          </div>
-          <div class="trans-stat__label">
-            累计输出 Token
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- 领域提示 -->
-    <div
-      v-if="cfg.engine === 'qwen_mt'"
-      class="trans-card"
-    >
-      <div class="trans-card__head">
-        <span class="trans-badge">🧭</span>
-        <span class="trans-card__title">领域提示</span>
-      </div>
-      <textarea
-        v-model="cfg.domains"
-        class="trans-textarea"
-        rows="3"
-        placeholder="自由文本,描述文档领域与语气(非空时发送)"
-      />
-    </div>
+          <!-- 翻译记忆 -->
+          <div class="st-group">
+            <div class="st-group__head">
+              <Icon
+                name="replay"
+                :size="13"
+              />
+              <span>翻译记忆</span>
+              <button
+                class="tr2-btn is-ghost is-sm st-group__action"
+                type="button"
+                @click="addPair(cfg.tm_list)"
+              >
+                <Icon
+                  name="plus"
+                  :size="12"
+                />添加范例
+              </button>
+            </div>
+            <div
+              v-if="!cfg.tm_list.length"
+              class="st-empty"
+            >
+              暂无记忆,添加双语例句可让译文风格更稳定
+            </div>
+            <div
+              v-for="(item, i) in cfg.tm_list"
+              :key="`tm-${i}`"
+              class="st-pair st-pair--wide"
+            >
+              <input
+                v-model="item.source"
+                class="st-input"
+                placeholder="原文例句"
+              >
+              <Icon
+                name="arrowRight"
+                :size="13"
+                class="st-pair__arrow"
+              />
+              <input
+                v-model="item.target"
+                class="st-input"
+                placeholder="目标译文"
+              >
+              <button
+                class="st-pair__del"
+                type="button"
+                title="删除"
+                @click="removePair(cfg.tm_list, i)"
+              >
+                <Icon
+                  name="trash"
+                  :size="13"
+                />
+              </button>
+            </div>
+          </div>
+        </template>
 
-    <!-- 术语干预 -->
-    <div
-      v-if="cfg.engine === 'qwen_mt'"
-      class="trans-card"
-    >
-      <div class="trans-card__head">
-        <span class="trans-badge">📔</span>
-        <span class="trans-card__title">术语干预</span>
-      </div>
-      <div
-        v-if="cfg.terms.length"
-        style="margin-bottom: 10px"
-      >
-        <div
-          v-for="(item, i) in cfg.terms"
-          :key="`terms-${i}`"
-          class="trans-pair"
-        >
-          <input
-            v-model="item.source"
-            class="trans-input"
-            placeholder="原文术语"
-          >
-          <span class="trans-pair__arrow">→</span>
-          <input
-            v-model="item.target"
-            class="trans-input"
-            placeholder="译文术语"
-          >
-          <button
-            class="trans-btn trans-btn--ghost trans-btn--icon"
-            title="删除"
-            @click="removePair(cfg.terms, i)"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      <div
-        v-else
-        class="trans-hint"
-        style="margin-bottom: 10px"
-      >
-        暂无术语。添加后可强制指定某些词的译法。
-      </div>
-      <button
-        class="trans-btn trans-btn--ghost trans-btn--sm"
-        @click="addPair(cfg.terms)"
-      >
-        ＋ 添加术语
-      </button>
-    </div>
+        <!-- ============================== LLM ============================== -->
+        <template v-else>
+          <div class="st-group">
+            <div class="st-group__head">
+              <Icon
+                name="plug"
+                :size="13"
+              />
+              <span>OpenAI 兼容端点凭据</span>
+            </div>
+            <div class="st-grid2">
+              <div class="st-field">
+                <span class="tr2-label">API Secret Key</span>
+                <div class="st-secret">
+                  <input
+                    v-model="cfg.llm_api_key"
+                    class="st-input is-mono"
+                    :type="showLlmKey ? 'text' : 'password'"
+                    placeholder="sk-…"
+                    autocomplete="off"
+                    spellcheck="false"
+                  >
+                  <button
+                    class="st-secret__btn"
+                    type="button"
+                    :title="showLlmKey ? '隐藏' : '显示'"
+                    @click="showLlmKey = !showLlmKey"
+                  >
+                    <Icon
+                      :name="showLlmKey ? 'eyeOff' : 'eye'"
+                      :size="14"
+                    />
+                  </button>
+                </div>
+              </div>
+              <div class="st-field">
+                <span class="tr2-label">Base API URL</span>
+                <input
+                  v-model="cfg.llm_base_url"
+                  class="st-input is-mono"
+                  placeholder="https://api.example.com/v1"
+                  spellcheck="false"
+                >
+              </div>
+            </div>
 
-    <!-- 翻译记忆 -->
-    <div
-      v-if="cfg.engine === 'qwen_mt'"
-      class="trans-card"
-    >
-      <div class="trans-card__head">
-        <span class="trans-badge">🧠</span>
-        <span class="trans-card__title">翻译记忆</span>
-      </div>
-      <div
-        v-if="cfg.tm_list.length"
-        style="margin-bottom: 10px"
-      >
-        <div
-          v-for="(item, i) in cfg.tm_list"
-          :key="`tm-${i}`"
-          class="trans-pair"
-        >
-          <input
-            v-model="item.source"
-            class="trans-input"
-            placeholder="原文参考句"
+            <div class="st-grid2">
+              <div class="st-field">
+                <span class="tr2-label">模型</span>
+                <div class="st-select">
+                  <select v-model="cfg.llm_model_name">
+                    <option
+                      v-for="m in llmModels"
+                      :key="m"
+                      :value="m"
+                    >
+                      {{ m }}
+                    </option>
+                  </select>
+                  <Icon
+                    name="chevronDown"
+                    :size="13"
+                  />
+                </div>
+              </div>
+              <div class="st-field">
+                <span class="tr2-label">添加新模型</span>
+                <div class="st-add">
+                  <input
+                    v-model="newModel"
+                    class="st-input"
+                    placeholder="输入模型名后回车"
+                    @keydown.enter="addLlmModel"
+                  >
+                  <button
+                    class="tr2-btn is-ghost is-sm"
+                    type="button"
+                    @click="addLlmModel"
+                  >
+                    ＋
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 系统提示词 -->
+          <div class="st-group">
+            <div class="st-group__head">
+              <Icon
+                name="terminal"
+                :size="13"
+              />
+              <span>系统提示词</span>
+              <span class="tr2-hint">注入 System 角色,控制输出格式</span>
+            </div>
+            <div class="st-prompt">
+              <div class="st-prompt__bar">
+                <span class="st-prompt__label">
+                  <Icon
+                    name="doc"
+                    :size="13"
+                  />Prompt 编辑
+                </span>
+                <button
+                  class="st-prompt__clear"
+                  type="button"
+                  title="清空内容"
+                  @click="cfg.llm_prompt = ''"
+                >
+                  <Icon
+                    name="refresh"
+                    :size="12"
+                  />清空
+                </button>
+              </div>
+              <textarea
+                v-model="cfg.llm_prompt"
+                class="st-prompt__input"
+                rows="4"
+                placeholder="You are a professional translator…"
+              />
+              <div class="st-prompt__foot">
+                <span class="tr2-hint">保持“只输出译文”的指令可获得最干净的写回结果</span>
+                <span class="st-prompt__count">{{ cfg.llm_prompt.length }} 字符</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 用量看板 -->
+          <div
+            id="st-stats"
+            class="st-group"
           >
-          <span class="trans-pair__arrow">→</span>
-          <input
-            v-model="item.target"
-            class="trans-input"
-            placeholder="译文参考句"
-          >
-          <button
-            class="trans-btn trans-btn--ghost trans-btn--icon"
-            title="删除"
-            @click="removePair(cfg.tm_list, i)"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-      <div
-        v-else
-        class="trans-hint"
-        style="margin-bottom: 10px"
-      >
-        暂无记忆。添加参考例句可让译文风格更一致。
-      </div>
-      <button
-        class="trans-btn trans-btn--ghost trans-btn--sm"
-        @click="addPair(cfg.tm_list)"
-      >
-        ＋ 添加记忆
-      </button>
-    </div>
+            <div class="st-group__head">
+              <Icon
+                name="chart"
+                :size="13"
+              />
+              <span>LLM 累计调用</span>
+              <span class="tr2-chip is-ok">缓存加速已启用</span>
+              <button
+                class="tr2-btn is-ghost is-sm st-group__action"
+                type="button"
+                @click="clearLlmStats"
+              >
+                清零
+              </button>
+            </div>
+            <div class="st-tiles">
+              <div class="st-tile">
+                <span class="st-tile__k">累计翻译调用</span>
+                <span class="st-tile__v">{{ llmStats.calls }}<span>次</span></span>
+              </div>
+              <div class="st-tile">
+                <span class="st-tile__k">缓存命中率</span>
+                <span class="st-tile__v is-primary">{{ formatHitRate(llmStats.cached_tokens, llmStats.input_tokens, llmStats.cache_reported) }}</span>
+              </div>
+              <div class="st-tile">
+                <span class="st-tile__k">累计输入 Token</span>
+                <span class="st-tile__v">{{ formatM(llmStats.input_tokens) }}</span>
+              </div>
+              <div class="st-tile">
+                <span class="st-tile__k">累计输出 Token</span>
+                <span class="st-tile__v">{{ formatM(llmStats.output_tokens) }}</span>
+              </div>
+            </div>
+            <div class="tr2-hint">
+              数据跨会话持久化;端点不返回 usage / 缓存字段时命中率显示「—」。
+            </div>
+          </div>
+        </template>
       </div>
     </section>
 
@@ -625,10 +670,10 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { showMessage } from 'siyuan'
 import Icon from '@/components/ui/Icon.vue'
-import EyeToggle from './EyeToggle.vue'
 import { usePlugin } from '@/main'
 import { version as kernelVersion } from '@/api'
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from '@/trans/config'
+import { LANGUAGES, langLabel } from '@/trans/languages'
 import { formatHitRate, formatM, loadLlmStats, resetLlmStats } from '@/trans/llm_stats'
 import { LlmTranslationClient, TranslationClient } from '@/trans/translator'
 import type { LlmCumulativeStats, TermPair, TransConfig } from '@/trans/types'
@@ -637,10 +682,14 @@ import PluginInfo from '@/../plugin.json'
 const plugin = usePlugin()
 const pluginVersion = (PluginInfo as { version?: string }).version ?? ''
 
-const engineOptions = [
-  { value: 'qwen_mt', label: 'QWEN-MT（DashScope）' },
-  { value: 'llm', label: 'LLM（OpenAI 兼容）' },
-]
+/** 引擎分段切换 */
+const engines = [
+  { value: 'qwen_mt', icon: 'bolt', label: 'Qwen-MT', badge: '翻译专精' },
+  { value: 'llm', icon: 'plug', label: 'LLM', badge: '通用大模型' },
+] as const
+
+/** Qwen-MT 可选模型(当前值不在列表时会自动补进去) */
+const QWEN_MODELS = ['qwen-mt-plus', 'qwen-mt-turbo', 'qwen-mt-flash', 'qwen-mt-lite']
 
 /** 写入模式单选卡 */
 const writeModeCards = [
@@ -680,7 +729,6 @@ const proxyModeCards = [
   },
 ] as const
 
-/** 锚点导航 */
 const anchors = [
   { id: 'st-general', label: '通用行为', icon: 'tune' },
   { id: 'st-engine', label: '翻译引擎', icon: 'plug' },
@@ -693,25 +741,12 @@ const cfg = ref<TransConfig>(structuredClone(DEFAULT_CONFIG))
 const checkMsg = ref('')
 const checkOk = ref(false)
 const checking = ref(false)
-/** 连通性检查耗时(ms) */
 const latency = ref<number | null>(null)
-/** API Key 是否以明文显示 */
 const showKey = ref(false)
-/** LLM API Key 是否以明文显示 */
 const showLlmKey = ref(false)
+/** LLM 新模型输入框 */
+const newModel = ref('')
 
-/** 引擎下拉是否展开 */
-const engineOpen = ref(false)
-/** 当前引擎的显示文案 */
-const engineLabel = computed(
-  () => engineOptions.find(o => o.value === cfg.value.engine)?.label ?? cfg.value.engine,
-)
-
-/** 模型下拉是否展开 */
-const llmModelOpen = ref(false)
-/** 下拉内新模型输入框内容 */
-const llmModelText = ref('')
-/** LLM 累计统计(全部对话,跨会话持久化) */
 const llmStats = ref<LlmCumulativeStats>({
   calls: 0,
   input_tokens: 0,
@@ -736,21 +771,61 @@ const activeConcurrency = computed({
   },
 })
 
+/** 当前引擎是否已配置 Key */
+const engineReady = computed(() => {
+  const c = cfg.value
+  return c.engine === 'llm' ? !!c.llm_api_key.trim() : !!c.api_key.trim()
+})
+
+/** 语言下拉候选:内置 + 当前值(兼容历史配置里的写法) */
+const sourceOptions = computed(() => {
+  const list = [...LANGUAGES] as string[]
+  const cur = cfg.value.source_lang
+  if (cur && !list.includes(cur)) {
+    list.unshift(cur)
+  }
+  return list
+})
+
+const targetOptions = computed(() => {
+  const list = [...LANGUAGES] as string[]
+  const cur = cfg.value.target_lang
+  if (cur && !list.includes(cur)) {
+    list.unshift(cur)
+  }
+  return list
+})
+
+/** 模型下拉候选:内置 + 当前值 */
+const qwenModels = computed(() => {
+  const list = [...QWEN_MODELS]
+  const cur = cfg.value.model_name?.trim()
+  if (cur && !list.includes(cur)) {
+    list.unshift(cur)
+  }
+  return list
+})
+
+const llmModels = computed(() => {
+  const list = [...cfg.value.llm_models_history]
+  const cur = cfg.value.llm_model_name?.trim()
+  if (cur && !list.includes(cur)) {
+    list.unshift(cur)
+  }
+  if (!list.length) {
+    list.push('deepseek-chat')
+  }
+  return list
+})
+
 onMounted(async () => {
   cfg.value = await loadConfig(plugin)
   llmStats.value = await loadLlmStats(plugin)
-  document.addEventListener('click', onDocClick)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocClick)
   window.clearTimeout(toastTimer)
 })
-
-function onDocClick() {
-  llmModelOpen.value = false
-  engineOpen.value = false
-}
 
 function toast(msg: string): void {
   toastMsg.value = msg
@@ -775,49 +850,18 @@ function removePair(arr: TermPair[], i: number) {
   arr.splice(i, 1)
 }
 
-function toggleEngine() {
-  engineOpen.value = !engineOpen.value
-}
-
-function pickEngine(v: string) {
-  cfg.value.engine = v as TransConfig['engine']
-  engineOpen.value = false
-}
-
-function toggleLlmModel() {
-  llmModelOpen.value = !llmModelOpen.value
-  if (llmModelOpen.value) {
-    llmModelText.value = cfg.value.llm_model_name
-  }
-}
-
-function pickLlmModel(m: string) {
-  cfg.value.llm_model_name = m
-  ensureLlmModelHistory(m)
-  llmModelOpen.value = false
-}
-
-function commitLlmModel() {
-  const name = llmModelText.value.trim()
+/** 把输入框里的模型名记入历史并选中 */
+function addLlmModel(): void {
+  const name = newModel.value.trim()
   if (!name) {
     return
   }
-  cfg.value.llm_model_name = name
-  ensureLlmModelHistory(name)
-  llmModelOpen.value = false
-}
-
-function ensureLlmModelHistory(name: string) {
   if (!cfg.value.llm_models_history.includes(name)) {
     cfg.value.llm_models_history.push(name)
   }
-}
-
-function removeLlmModel(m: string) {
-  cfg.value.llm_models_history = cfg.value.llm_models_history.filter(x => x !== m)
-  if (cfg.value.llm_model_name === m) {
-    cfg.value.llm_model_name = cfg.value.llm_models_history[0] ?? ''
-  }
+  cfg.value.llm_model_name = name
+  newModel.value = ''
+  toast(`已添加模型 ${name}`)
 }
 
 async function clearLlmStats() {
@@ -866,8 +910,9 @@ function resetDefaults(): void {
 }
 
 async function save() {
-  if (cfg.value.llm_model_name?.trim()) {
-    ensureLlmModelHistory(cfg.value.llm_model_name.trim())
+  const current = cfg.value.llm_model_name?.trim()
+  if (current && !cfg.value.llm_models_history.includes(current)) {
+    cfg.value.llm_models_history.push(current)
   }
   await saveConfig(plugin, cfg.value)
   toast('配置已保存到思源存储')
@@ -875,117 +920,8 @@ async function save() {
 </script>
 
 <style lang="scss" scoped>
-/* 卡片之间统一间距(依赖全局 .trans-card) */
-.trans-setting .trans-card + .trans-card {
-  margin-top: 14px;
-}
-
-/* ============ 下拉框(引擎 / 模型) ============ */
-.trans-combo {
-  position: relative;
-}
-
-.trans-combo__trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  text-align: left;
-}
-
-.trans-combo__value {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.trans-combo__caret {
-  flex-shrink: 0;
-  margin-left: 8px;
-  opacity: 0.6;
-}
-
-.trans-combo__menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 20;
-  max-height: 220px;
-  overflow-y: auto;
-  background: var(--b3-theme-background, #fff);
-  border: 1px solid var(--b3-theme-background-light, rgba(128, 128, 128, 0.25));
-  border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  padding: 6px;
-}
-
-.trans-combo__empty {
-  padding: 8px 10px;
-  font-size: 12px;
-  color: var(--b3-theme-on-surface-variant, rgba(120, 120, 120, 0.85));
-}
-
-.trans-combo__row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-}
-
-.trans-combo__row-name {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
-  font-size: 13px;
-  color: var(--tr-text, #2c2c2c);
-  background: none;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.trans-combo__row-name:hover,
-.trans-combo__row-name.is-active {
-  background: var(--b3-theme-primary-lightest, rgba(74, 124, 255, 0.14));
-  color: var(--b3-theme-primary, #4a7cff);
-}
-
-.trans-combo__row-del {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  line-height: 1;
-  color: var(--b3-theme-on-surface-variant, rgba(120, 120, 120, 0.85));
-  background: none;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.trans-combo__row-del:hover {
-  color: var(--b3-theme-error, #f44336);
-  background: var(--b3-theme-background-light, rgba(128, 128, 128, 0.25));
-}
-
-.trans-combo__input-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--b3-theme-background-light, rgba(128, 128, 128, 0.25));
-}
-
-
-
 /* ==========================================================================
-   S4 新增:设置页外壳 / 通用行为
+   设置页:外壳 / 通用行为 / 引擎 / 底部工具条
    ========================================================================== */
 .st {
   display: flex;
@@ -1086,7 +1022,7 @@ async function save() {
   }
 }
 
-/* 区块标题 */
+/* 区块 */
 .st-sec {
   padding: 14px;
 }
@@ -1099,6 +1035,7 @@ async function save() {
 }
 
 .st-sec__head--plain {
+  margin-bottom: 2px;
   padding: 2px 2px 0;
 }
 
@@ -1114,6 +1051,12 @@ async function save() {
   color: var(--tr2-primary-deep);
 }
 
+.st-engine {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .st-field {
   display: flex;
   flex-direction: column;
@@ -1121,8 +1064,7 @@ async function save() {
   min-width: 0;
 }
 
-/* 只给"直接子级"的相邻块留间距,避免三列网格内部的 .st-field
-   也吃到 margin-top 而被顶下去(三列不对齐) */
+/* 只给卡片直接子级留间距,避免网格内的列被顶下去 */
 .st-sec > .st-field + .st-grid3,
 .st-sec > .st-field + .st-field,
 .st-sec > .st-grid3 + .st-field {
@@ -1137,11 +1079,36 @@ async function save() {
   margin-bottom: 5px;
 }
 
+.st-grid2 {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+
+  & + .st-grid2,
+  & + .st-grid3,
+  & + .st-field {
+    margin-top: 10px;
+  }
+}
+
+.st-grid3 {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .st-modes {
   display: grid;
   align-items: stretch;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.st-modes + .st-field,
+.st-grid3 + .st-field {
+  margin-top: 12px;
 }
 
 .st-mode {
@@ -1175,8 +1142,8 @@ async function save() {
 
 .st-mode__icon {
   flex: 0 0 auto;
-  color: var(--tr2-primary-deep);
   margin-top: 1px;
+  color: var(--tr2-primary-deep);
 }
 
 .st-mode__body {
@@ -1198,13 +1165,6 @@ async function save() {
   color: var(--tr2-muted);
 }
 
-.st-grid3 {
-  display: grid;
-  align-items: start;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .st-input {
   width: 100%;
   height: 32px;
@@ -1215,13 +1175,99 @@ async function save() {
   color: var(--tr2-text);
   font-size: 12.5px;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: var(--tr2-placeholder);
+  }
 
   &:focus {
     border-color: var(--tr2-primary);
     box-shadow: 0 0 0 3px var(--tr2-primary-soft);
   }
+
+  &.is-mono {
+    font-family: var(--tr2-mono);
+    font-size: 11.5px;
+  }
 }
 
+/* 带眼睛按钮的密钥框 */
+.st-secret {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .st-input {
+    padding-right: 32px;
+  }
+}
+
+.st-secret__btn {
+  position: absolute;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--tr2-r-sm);
+  background: none;
+  color: var(--tr2-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--tr2-inset);
+    color: var(--tr2-text);
+  }
+}
+
+/* 下拉选择 */
+.st-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  select {
+    width: 100%;
+    height: 32px;
+    padding: 0 26px 0 9px;
+    border: 1px solid var(--tr2-line-strong);
+    border-radius: var(--tr2-r);
+    background: var(--tr2-card);
+    color: var(--tr2-text);
+    font-size: 12.5px;
+    appearance: none;
+    outline: none;
+    cursor: pointer;
+
+    &:focus {
+      border-color: var(--tr2-primary);
+      box-shadow: 0 0 0 3px var(--tr2-primary-soft);
+    }
+  }
+
+  .tr2-icon {
+    position: absolute;
+    right: 8px;
+    color: var(--tr2-muted);
+    pointer-events: none;
+  }
+}
+
+/* 添加模型的输入 + 按钮 */
+.st-add {
+  display: flex;
+  gap: 6px;
+
+  .st-input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* 代理卡 */
 .st-proxies {
   display: grid;
   align-items: stretch;
@@ -1262,15 +1308,278 @@ async function save() {
   color: var(--tr2-muted);
 }
 
-/* 引擎区(旧卡片,仅统一间距) */
-.st-engine {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* 引擎状态 */
+.st-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &.is-ok {
+    background: var(--tr2-ok-soft);
+    color: var(--tr2-ok);
+  }
+
+  &.is-warn {
+    background: rgba(217, 119, 6, 0.14);
+    color: var(--tr2-warn);
+  }
 }
 
-.st-engine .trans-card + .trans-card {
-  margin-top: 10px;
+.st-status__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 分段切换 */
+.st-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-bottom: 12px;
+  padding: 3px;
+  border-radius: var(--tr2-r);
+  background: var(--tr2-inset);
+}
+
+.st-seg__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--tr2-r-sm);
+  background: none;
+  color: var(--tr2-text-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &.is-active {
+    background: var(--tr2-card);
+    color: var(--tr2-primary-deep);
+    box-shadow: var(--tr2-shadow-1);
+  }
+}
+
+.st-seg__badge {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--tr2-inset);
+  color: var(--tr2-muted);
+  font-family: var(--tr2-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+}
+
+/* 分组 */
+.st-group {
+  padding: 12px;
+  border: 1px solid var(--tr2-line);
+  border-radius: var(--tr2-r-lg);
+  background: var(--tr2-inset);
+
+  & + .st-group {
+    margin-top: 10px;
+  }
+}
+
+.st-group__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--tr2-primary-deep);
+  font-size: 12px;
+  font-weight: 600;
+
+  > .tr2-hint {
+    font-weight: 400;
+  }
+
+  .tr2-chip {
+    margin-left: 2px;
+  }
+
+  .st-group__action {
+    margin-left: auto;
+  }
+}
+
+.st-empty {
+  padding: 10px;
+  border: 1px dashed var(--tr2-line-strong);
+  border-radius: var(--tr2-r);
+  color: var(--tr2-muted);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+/* 术语 / 记忆行 */
+.st-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  & + .st-pair {
+    margin-top: 6px;
+  }
+
+  .st-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--tr2-card);
+  }
+}
+
+.st-pair__arrow {
+  flex: 0 0 auto;
+  color: var(--tr2-placeholder);
+}
+
+.st-pair__del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border: 0;
+  border-radius: var(--tr2-r-sm);
+  background: none;
+  color: var(--tr2-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--tr2-err-soft);
+    color: var(--tr2-err);
+  }
+}
+
+/* Prompt 编辑器 */
+.st-prompt {
+  border: 1px solid var(--tr2-line-strong);
+  border-radius: var(--tr2-r);
+  background: var(--tr2-card);
+  overflow: hidden;
+
+  &:focus-within {
+    border-color: var(--tr2-primary);
+    box-shadow: 0 0 0 3px var(--tr2-primary-soft);
+  }
+}
+
+.st-prompt__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--tr2-line);
+  background: var(--tr2-inset);
+}
+
+.st-prompt__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--tr2-text-2);
+}
+
+.st-prompt__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  color: var(--tr2-muted);
+  font-size: 10.5px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--tr2-err);
+  }
+}
+
+.st-prompt__input {
+  width: 100%;
+  min-height: 88px;
+  padding: 9px;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  background: transparent;
+  color: var(--tr2-text);
+  font-family: var(--tr2-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.st-prompt__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 9px;
+  border-top: 1px solid var(--tr2-line);
+  background: var(--tr2-inset);
+}
+
+.st-prompt__count {
+  font-family: var(--tr2-mono);
+  font-size: 10.5px;
+  color: var(--tr2-muted);
+  white-space: nowrap;
+}
+
+/* 用量看板 */
+.st-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.st-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--tr2-card);
+}
+
+.st-tile__k {
+  font-size: 10.5px;
+  color: var(--tr2-muted);
+}
+
+.st-tile__v {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+
+  > span {
+    margin-left: 2px;
+    font-size: 10.5px;
+    font-weight: 400;
+    color: var(--tr2-muted);
+  }
+
+  &.is-primary {
+    color: var(--tr2-primary-deep);
+  }
 }
 
 /* 底部工具条 */
@@ -1282,7 +1591,6 @@ async function save() {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 2px;
   padding: 10px 12px;
   border: 1px solid var(--tr2-line);
   border-radius: var(--tr2-r-lg);
@@ -1311,7 +1619,7 @@ async function save() {
 }
 
 .st-check__text {
-  max-width: 320px;
+  max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1358,11 +1666,10 @@ async function save() {
 
 @media (max-width: 640px) {
   .st-modes,
-  .st-grid3 {
-    grid-template-columns: 1fr;
-  }
-
-  .st-proxies {
+  .st-grid3,
+  .st-grid2,
+  .st-proxies,
+  .st-tiles {
     grid-template-columns: 1fr;
   }
 }

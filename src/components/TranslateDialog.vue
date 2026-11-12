@@ -547,6 +547,7 @@ import type { Dialog } from 'siyuan'
 import Icon from '@/components/ui/Icon.vue'
 import { usePlugin } from '@/main'
 import { loadConfig } from '@/trans/config'
+import { langLabel } from '@/trans/languages'
 import { TranslationEngine } from '@/trans/engine'
 import { accumulateLlmStats, formatHitRate, formatM } from '@/trans/llm_stats'
 import { emptyStats, type EngineType, type ScanResult, type TransConfig, type TranslationLogEntry, type TranslationStats } from '@/trans/types'
@@ -596,23 +597,7 @@ const canStart = computed(
   () => !!resolvedId.value && !currentLoading.value && !parsing.value,
 )
 
-/** 语言 / 写入模式 / 引擎的展示文案 */
-const LANG_LABELS: Record<string, string> = {
-  English: '英文',
-  Chinese: '中文',
-  'Simplified Chinese': '简体中文',
-  'Traditional Chinese': '繁体中文',
-  Japanese: '日文',
-  Korean: '韩文',
-  French: '法文',
-  German: '德文',
-  Spanish: '西班牙文',
-  Russian: '俄文',
-  Arabic: '阿拉伯文',
-  Portuguese: '葡萄牙文',
-  Italian: '意大利文',
-}
-
+/** 写入模式 / 引擎的展示文案 */
 const WRITE_MODE_LABELS: Record<string, string> = {
   append: '双语对照追加',
   replace: '替换原文',
@@ -647,10 +632,6 @@ function tailPath(hpath?: string | null): string {
     return ''
   }
   return hpath.split('/').filter(Boolean).pop() ?? ''
-}
-
-function langLabel(value: string): string {
-  return LANG_LABELS[value] ?? value
 }
 
 /* ------------------------------ 翻译运行态 ------------------------------ */
