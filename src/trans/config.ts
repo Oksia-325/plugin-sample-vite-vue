@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: TransConfig = {
   tm_list: [],
   domains: "",
   write_mode: "append",
+  proxy_mode: "siyuan_kernel",
   llm_api_key: "",
   llm_base_url: "https://api.vveai.com/v1",
   llm_model_name: "deepseek-v4.1-flash",

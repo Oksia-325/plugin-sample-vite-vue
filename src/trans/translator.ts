@@ -118,6 +118,49 @@ function cancellableSleep(ms: number, isCancelled?: () => boolean): Promise<void
   });
 }
 
+/**
+ * 统一 POST 出口:按 proxy_mode 选择通道
+ *  - siyuan_kernel:经思源 forwardProxy 转发(默认,不受 CORS 限制)
+ *  - system:前端 fetch 直连,跟随操作系统代理(端点需允许跨域)
+ */
+async function postJson(
+  cfg: TransConfig,
+  url: string,
+  body: any,
+  apiKey: string,
+): Promise<{ status: number, body: string }> {
+  const payload = JSON.stringify(body);
+  const auth = (apiKey ?? "").trim();
+  if ((cfg.proxy_mode ?? "siyuan_kernel") === "system") {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(auth ? { Authorization: `Bearer ${auth}` } : {}),
+        },
+        body: payload,
+      });
+      return { status: res.status, body: await res.text() };
+    } catch (e) {
+      throw new ApiError(null, `直连失败(可能被 CORS 或系统代理拦截): ${(e as Error).message}`);
+    }
+  }
+  const headers = [{ Authorization: `Bearer ${auth}` }];
+  const res = await forwardProxy(
+    url,
+    "POST",
+    payload,
+    headers,
+    30000,
+    "application/json",
+  );
+  if (!res) {
+    throw new ApiError(null, "forwardProxy 无响应(请确认思源内核可访问外网)");
+  }
+  return { status: res.status, body: res.body ?? "" };
+}
+
 export class TranslationClient implements TranslationProvider {
   constructor(private cfg: TransConfig) {}
 
@@ -191,21 +234,9 @@ export class TranslationClient implements TranslationProvider {
     return body;
   }
 
-  /** 经 forwardProxy 发送 POST,返回解析后的响应 */
+  /** 经统一出口发送 POST(内核转发 / 系统代理直连) */
   private async post(body: any): Promise<{ status: number, body: string }> {
-    const headers = [{ Authorization: `Bearer ${this.cfg.api_key}` }];
-    const res = await forwardProxy(
-      this.cfg.api_url,
-      "POST",
-      JSON.stringify(body),
-      headers,
-      30000,
-      "application/json",
-    );
-    if (!res) {
-      throw new ApiError(null, "forwardProxy 无响应(请确认思源内核可访问外网)");
-    }
-    return { status: res.status, body: res.body ?? "" };
+    return postJson(this.cfg, this.cfg.api_url, body, this.cfg.api_key);
   }
 }
 
@@ -297,22 +328,10 @@ export class LlmTranslationClient implements TranslationProvider {
     return body;
   }
 
-  /** 经 forwardProxy 发送 POST;base_url 自动补全 /chat/completions 路径 */
+  /** 经统一出口发送 POST;base_url 自动补全 /chat/completions 路径 */
   private async post(body: any): Promise<{ status: number, body: string }> {
     const base = (this.cfg.llm_base_url ?? "").replace(/\/+$/, "");
     const url = /\/chat\/completions$/.test(base) ? base : `${base}/chat/completions`;
-    const headers = [{ Authorization: `Bearer ${this.cfg.llm_api_key}` }];
-    const res = await forwardProxy(
-      url,
-      "POST",
-      JSON.stringify(body),
-      headers,
-      30000,
-      "application/json",
-    );
-    if (!res) {
-      throw new ApiError(null, "forwardProxy 无响应(请确认思源内核可访问外网)");
-    }
-    return { status: res.status, body: res.body ?? "" };
+    return postJson(this.cfg, url, body, this.cfg.llm_api_key);
   }
 }

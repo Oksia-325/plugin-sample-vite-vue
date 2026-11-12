@@ -8,6 +8,9 @@
 /** 翻译结果写入模式 */
 export type WriteMode = "append" | "replace" | "new_doc";
 
+/** 网络出口:内核转发 or 前端直连(走系统代理) */
+export type ProxyMode = "siyuan_kernel" | "system";
+
 /** 翻译引擎类型 */
 export type EngineType = "qwen_mt" | "llm";
 
@@ -45,6 +48,8 @@ export interface TransConfig {
   domains: string;
   /** 写入模式 */
   write_mode: WriteMode;
+  /** 网络出口 */
+  proxy_mode: ProxyMode;
   /** LLM 引擎 API Key */
   llm_api_key: string;
   /** LLM 引擎 OpenAI 兼容端点 URL */
