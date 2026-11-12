@@ -71,6 +71,23 @@ export interface Block {
   [key: string]: unknown;
 }
 
+/** 文档预扫描结果(不发起翻译,只统计待处理块,供工作台展示) */
+export interface ScanResult {
+  docId: string;
+  /** 人类可读路径 /Personal/xxx */
+  hpath: string;
+  /** 顶层块总数 */
+  totalBlocks: number;
+  /** 待翻译块数 */
+  translatable: number;
+  /** 跳过的非文本 / 空块 */
+  skippedNonText: number;
+  /** 跳过的已翻译块 */
+  skippedAlready: number;
+  /** 正文语言推断:latin=英文类,cjk=中文类,mixed=混排,unknown=无内容 */
+  sourceLangHint: "latin" | "cjk" | "mixed" | "unknown";
+}
+
 /** 翻译运行统计(对应 Python TranslationStats) */
 export interface TranslationStats {
   total_blocks: number;

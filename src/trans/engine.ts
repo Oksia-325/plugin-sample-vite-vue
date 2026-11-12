@@ -18,6 +18,7 @@ import type {
   Block,
   EngineCallbacks,
   ProgressCallback,
+  ScanResult,
   StatusCallback,
   TransConfig,
   TranslationStats,
@@ -76,6 +77,32 @@ export class TranslationEngine {
         throw new CancelledError();
       }),
     ]);
+  }
+
+  /**
+   * 预扫描文档:复用块分类逻辑,只统计不翻译
+   * 供工作台展示「文档总块数 / 待处理块数 / 跳过明细」与语言推断
+   */
+  async scan(docId: string): Promise<ScanResult> {
+    const siyuan = new SiYuanClient();
+    const hpath = await siyuan.getHPath(docId);
+    const blocks = await siyuan.getChildBlocks(docId);
+    const stats = emptyStats();
+    stats.total_blocks = blocks.length;
+    const out: Block[] = [];
+    const descendLists = this.cfg.write_mode !== "new_doc";
+    for (const block of blocks) {
+      await this.collectTranslatable(block, siyuan, out, stats, descendLists);
+    }
+    return {
+      docId,
+      hpath,
+      totalBlocks: blocks.length,
+      translatable: out.length,
+      skippedNonText: stats.skipped_non_text,
+      skippedAlready: stats.skipped_already_translated,
+      sourceLangHint: detectSourceLang(blocks),
+    };
   }
 
   async run(
@@ -425,4 +452,39 @@ export class TranslationEngine {
       stats.write_failed++;
     }
   }
+}
+
+/** 从顶层块抽样推断正文语言(仅用于工作台展示提示) */
+function detectSourceLang(blocks: Block[]): ScanResult["sourceLangHint"] {
+  let latin = 0;
+  let cjk = 0;
+  let samples = 0;
+  for (const block of blocks) {
+    const text = block.content ?? "";
+    if (!text.trim()) {
+      continue;
+    }
+    samples++;
+    latin += (text.match(/[A-Za-z]/g) ?? []).length;
+    cjk += (text.match(/[\u4e00-\u9fff]/g) ?? []).length;
+    if (samples >= 20) {
+      break;
+    }
+  }
+  if (!samples || (latin === 0 && cjk === 0)) {
+    return "unknown";
+  }
+  if (cjk === 0) {
+    return "latin";
+  }
+  if (latin === 0) {
+    return "cjk";
+  }
+  if (latin > cjk * 2) {
+    return "latin";
+  }
+  if (cjk > latin * 2) {
+    return "cjk";
+  }
+  return "mixed";
 }
