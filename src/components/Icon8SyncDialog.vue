@@ -2854,9 +2854,12 @@ function copyCardPath(card: CollectionCard) {
   }
 }
 
-.i8-service {
+.i8-panel.i8-service {
   flex-direction: row;
   align-items: center;
+}
+
+.i8-service {
   gap: 12px;
   padding: 14px 16px;
 

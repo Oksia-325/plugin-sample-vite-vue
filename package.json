@@ -2,7 +2,7 @@
   "name": "icon8-sync",
   "version": "0.0.1",
   "type": "module",
-  "description": "Sync Icons8 personal collection icons into SiYuan emoji library (Icon8Sync)",
+  "description": "Sync Icons8 personal collections into the SiYuan emoji library with incremental and full modes (Icon8Sync)",
   "author": "",
   "license": "MIT",
   "homepage": "",

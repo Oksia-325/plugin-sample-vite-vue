@@ -17,9 +17,9 @@
     "zh_CN": "Icon8Sync"
   },
   "description": {
-    "default": "Incrementally sync Icons8 personal collection icons into SiYuan emoji library",
-    "en_US": "Incrementally sync Icons8 personal collection icons into SiYuan emoji library",
-    "zh_CN": "将 Icons8 个人收藏夹图标增量同步到思源笔记表情库"
+    "default": "Sync Icons8 personal collections into the SiYuan emoji library with incremental and full modes",
+    "en_US": "Sync Icons8 personal collections into the SiYuan emoji library with incremental and full modes",
+    "zh_CN": "将 Icons8 个人收藏夹图标增量/全量同步到思源表情库"
   },
   "readme": {
     "default": "README.md",

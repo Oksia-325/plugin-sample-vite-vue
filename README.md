@@ -1,25 +1,57 @@
 # Icon8Sync
 
-Incrementally sync your [Icons8](https://icons8.com/) personal collection icons into the SiYuan emoji library (`data/emojis/`).
+Sync your [Icons8](https://icons8.com/) personal collection icons into the SiYuan emoji library (`data/emojis/`).
 
 ## Features
 
-- One-click incremental sync: only new icons are downloaded (manifest keyed by icon ID)
-- Collections mirrored as emoji folders (lowercased), ready to use in SiYuan emoji picker
-- Authorization token configured in a settings dialog — no config file editing needed
-- Token verification before saving (real API call, 401 aware)
-- Concurrent downloads with throttling, filename sanitization and `(1)`-style dedup
-- Emojis list auto-reload after sync (falls back to restart hint)
+- **Incremental sync** — only collections with new remote icons are processed
+- **Full sync** — process every collection; still respects the “Skip synced icons” option
+- **Collection overview** — totals, local counts, pending updates and failures load when the dialog opens
+- **Per-collection retry** — retry only the failed collection instead of running everything again
+- **Persistent results** — last sync time, failed collections and exact progress survive reopening the dialog
+- **Light / dark theme** — the UI follows SiYuan’s theme automatically
+- **One-click login (Linux desktop)** — reads the current Icons8 session from local Firefox via a temporary headless browser profile
+- **Test connection** — validate the token without saving it
+- **Auto proxy** — prefer the system proxy for Icons8 API requests, with automatic fallback to SiYuan’s kernel proxy
+- **Incremental cache options** — skip already-synced icons and optionally reload the emoji list after syncing
+- Concurrent downloads, filename sanitization and `(1)`-style deduplication
+- Collections are mirrored as lowercase emoji folders, ready for the SiYuan emoji picker
+
+`Favorites` and `Downloaded` collections are ignored. Synchronization is one-way: icons that only exist locally are left untouched.
+
+## Requirements
+
+- SiYuan 3.8.1 or later
+- An Icons8 account
+- One-click login requires **Linux desktop SiYuan** and **Firefox signed in to icons8.com**
+  - Windows and other platforms show a manual-token hint instead
 
 ## Usage
 
-1. Enable the plugin, click the topbar image icon (or `Settings → Markets → Icon8Sync → Settings`).
-2. Open the **Settings** tab, paste your Icons8 `Authorization`:
-   - Sign in at icons8.com → press F12 → Network panel → pick any request → copy the `Authorization` request header value (Bearer prefix optional).
-3. Click **Verify & Save**.
-4. Open the **Sync** tab and click **Start Sync**.
+1. Enable the plugin and click the topbar image icon, or open `Settings → Marketplace → Icon8Sync → Settings`.
+2. In the **Settings** tab, configure the token:
+   - Manual: sign in at icons8.com → press F12 → Network panel → open any request → copy the `Authorization` request header value (`Bearer` prefix optional).
+   - Linux + Firefox: click **One-click login** to read the current Firefox session automatically.
+3. Click **Test connection** if you want to validate without saving, then **Verify & Save**.
+4. In the **Sync** tab:
+   - **Start incremental sync** for daily use.
+   - **Start full sync** to process every collection.
+   - Use **Retry** on a failed card to sync only that collection.
 
-"Favorites" and "Downloaded" collections are ignored. Icons deleted remotely are kept locally.
+## Options
+
+| Option | Description |
+| --- | --- |
+| Skip synced icons | Only download icons that are missing locally. Disable to re-download every icon during a full sync. |
+| Auto refresh icon cache | Reload the emoji picker immediately after sync. Disable if you prefer to restart SiYuan manually. |
+| Auto-select proxy | Prefer the system proxy for Icons8 API requests; fall back to SiYuan’s kernel proxy when direct access fails. |
+
+## Notes
+
+- Incremental sync detects changes by comparing the remote collection’s icon count with the local manifest. If icons were replaced without changing the count, use full sync to refresh them.
+- One-click login copies the latest Firefox cookie/profile files to a temporary directory, launches headless Firefox, reads the Icons8 token, and removes the temporary directory. Tokens are never logged or uploaded elsewhere.
+- Failure to reach `api-icons.icons8.com` through SiYuan’s kernel proxy can usually be fixed by enabling **Auto-select proxy**.
+- Local-only emoji files are never deleted by this plugin.
 
 ## Development
 
