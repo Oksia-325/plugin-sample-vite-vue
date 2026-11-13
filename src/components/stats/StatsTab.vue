@@ -347,8 +347,10 @@ import { extensionOf } from '@/core/stats/assetMeta'
 import { fillRefSizes, formatSizeBadge } from '@/core/stats/refSize'
 import { isUploadedButNotReplaced as hasUploadRecord } from '@/core/stats/aggregate'
 import { buildStatsCsv, downloadTextFile, exportFileName } from '@/core/stats/export'
+import { applyPipelineOutcome } from '@/core/stats/optimistic'
 import {
   buildStatsSnapshot,
+  isSnapshotUploadedButNotReplaced,
   type StatsScope,
   type StatsSnapshot,
 } from '@/core/stats/service'
@@ -359,6 +361,7 @@ import {
   uploadCurrentDoc,
   uploadSingleRef,
   type PipelineProgress,
+  type PipelineResult,
 } from '@/core/upload/pipeline'
 import { uiState } from '@/core/uiStore'
 
@@ -407,6 +410,28 @@ const healthChecking = ref(false)
 
 let cancelRequested = false
 let unsubscribeActiveDoc: (() => void) | null = null
+
+/**
+ * 思源 SQL 索引在 updateBlock / setBlockAttrs 之后有短暂延迟。
+ * 刚完成上传 / 修复时，马上重扫可能读回旧链接，这里记录本次任务的预期结果，
+ * 扫描结果与之不符时自动重试，避免按钮状态和卡片来源闪回旧值。
+ */
+interface StatsStaleGuard {
+  /** 已被替换掉的旧链接：扫描结果里不应再出现为本地/网络图片。 */
+  replacedUrls: Set<string>
+  /** 已上传但未替换的链接：扫描结果里应能通过 fileMap 判断为「已上传未替换」。 */
+  expectedPendingUrls: Set<string>
+  /** 只有这些文档里的引用受本次任务影响，避免同图多文档时误判。 */
+  affectedDocIds: Set<string>
+  createdAt: number
+}
+
+const STALE_GUARD_TTL_MS = 20000
+const STALE_SCAN_ATTEMPTS = 10
+const STALE_RETRY_DELAY_MS = 1500
+
+let staleGuard: StatsStaleGuard | null = null
+let staleRetryTimer: number | undefined
 
 const snapshot = computed<StatsSnapshot | null>(() => {
   if (scope.value === 'all') {
@@ -566,6 +591,7 @@ watch(
     activeFilter.value = 'all'
     searchText.value = ''
     page.value = 1
+    clearStaleGuard()
     void checkHealth(true)
     if (uiState.popupVisible && uiState.activeTab === 'stats') {
       void ensureStatsForCurrentTab()
@@ -636,6 +662,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   unsubscribeActiveDoc?.()
   unsubscribeActiveDoc = null
+  clearStaleGuard()
 })
 
 function refreshActiveDoc(): void {
@@ -649,6 +676,10 @@ async function ensureStatsForCurrentTab(): Promise<void> {
   await ensureConfigLoaded(props.plugin)
   refreshActiveDoc()
   void checkHealth()
+
+  if (staleGuard && !running.value) {
+    await scanStats(scope.value, true)
+  }
 
   if (scope.value === 'all') {
     if (!allSnapshot.value && !running.value) {
@@ -714,19 +745,46 @@ async function scanStats(target: StatsScope, silent = false): Promise<void> {
   }
 
   try {
-    const next = await buildStatsSnapshot(target, store.config, {
-      docId,
-      isCancelled: () => cancelRequested,
-      onProgress: (scanProgress) => {
-        progress.value = {
-          phase: 'scanning',
-          done: scanProgress.processed,
-          total: scanProgress.total,
-          current: scanProgress.docTitle,
-        }
-      },
-    })
+    const attempts = staleGuard ? STALE_SCAN_ATTEMPTS : 1
+    let next: StatsSnapshot | null = null
 
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      next = await buildStatsSnapshot(target, store.config, {
+        docId,
+        isCancelled: () => cancelRequested,
+        onProgress: (scanProgress) => {
+          progress.value = {
+            phase: 'scanning',
+            done: scanProgress.processed,
+            total: scanProgress.total,
+            current: scanProgress.docTitle,
+          }
+        },
+      })
+
+      if (!isScanStale(next)) {
+        break
+      }
+
+      if (attempt < attempts - 1) {
+        progress.value = { phase: 'scanning', done: 0, total: 0, current: '等待思源索引更新…' }
+        await sleep(300)
+        next = null
+        continue
+      }
+
+      // 索引迟迟没更新：保留乐观结果，稍后再试，绝不把旧数据提交到界面。
+      logWarn(`统计结果仍包含刚上传/替换的旧链接，稍后重试（${STALE_GUARD_TTL_MS / 1000}s 内）`)
+      scheduleStaleRetry(target)
+      updateStatusBar('统计完成（等待索引刷新）')
+      return
+    }
+
+    if (!next) {
+      return
+    }
+
+    staleGuard = null
     progress.value = { phase: 'analyzing', done: 1, total: 1 }
 
     if (target === 'all') {
@@ -770,9 +828,12 @@ async function handleUploadUnuploaded(): Promise<void> {
 
   await ensureConfigLoaded(props.plugin)
   const target = scope.value
+  const replaceHint = store.config.behavior.replaceLink
+    ? '上传会修改笔记中的图片链接'
+    : '按当前设置只上传、不替换链接，之后可点击「修复S3链接」'
   const message = target === 'all'
-    ? '将扫描全部笔记并上传所有本地图片（含题头图），可能耗时较长。上传会修改笔记中的图片链接，是否继续？'
-    : '将上传本文档中的所有本地图片（含题头图）并替换文档链接，是否继续？'
+    ? `将扫描全部笔记并上传所有本地图片（含题头图），可能耗时较长。${replaceHint}，是否继续？`
+    : `将上传本文档中的所有本地图片（含题头图）。${replaceHint}，是否继续？`
   if (!window.confirm(message)) {
     return
   }
@@ -787,26 +848,34 @@ async function handleUploadUnuploaded(): Promise<void> {
   updateStatusBar('正在上传图片…')
 
   try {
-    if (target === 'all') {
-      await uploadAllNotes(store.config, {
+    const result = target === 'all'
+      ? await uploadAllNotes(store.config, {
         sourceTypes: ['local'],
         isCancelled: () => cancelRequested,
         onProgress: applyPipelineProgress,
       })
+      : await uploadCurrentDoc(snapshot.value.result as ScanDocResult, store.config, {
+        sourceTypes: ['local'],
+        isCancelled: () => cancelRequested,
+        onProgress: applyPipelineProgress,
+      })
+
+    applyPipelineResult(result)
+    const replaced = result.replace.replacedUrls.length > 0
+
+    if (cancelRequested) {
+      pushToast('info', '已停止上传，已完成的部分已保留。')
+    }
+    else if (replaced) {
+      pushToast('success', '上传完成，正在重新统计…')
     }
     else {
-      await uploadCurrentDoc(snapshot.value.result as ScanDocResult, store.config, {
-        sourceTypes: ['local'],
-        isCancelled: () => cancelRequested,
-        onProgress: applyPipelineProgress,
-      })
+      pushToast('info', '上传完成，可在统计页点击「修复S3链接」。')
     }
-
-    pushToast(cancelRequested ? 'info' : 'success', cancelRequested ? '已停止上传，已完成的部分已保留。' : '上传完成，正在重新统计…')
     updateStatusBar('上传完成')
     running.value = false
     progress.value = null
-    await sleep(600)
+    await sleep(replaced ? 200 : 150)
     await scanStats(target, true)
   }
   catch (error) {
@@ -842,30 +911,40 @@ async function handleRepair(): Promise<void> {
   updateStatusBar('正在修复图片链接…')
 
   try {
-    if (target === 'all') {
-      await uploadAllNotes(store.config, {
+    const result = target === 'all'
+      ? await uploadAllNotes(store.config, {
         repairOnly: true,
+        replaceLink: true,
         includeTitleImage: true,
         includeRemoteImages: true,
         isCancelled: () => cancelRequested,
         onProgress: applyPipelineProgress,
       })
+      : await uploadCurrentDoc(snapshot.value.result as ScanDocResult, store.config, {
+        repairOnly: true,
+        replaceLink: true,
+        includeTitleImage: true,
+        includeRemoteImages: true,
+        isCancelled: () => cancelRequested,
+        onProgress: applyPipelineProgress,
+      })
+
+    applyPipelineResult(result)
+    const replaced = result.replace.replacedUrls.length > 0
+
+    if (cancelRequested) {
+      pushToast('info', '已停止修复，已完成的部分已保留。')
+    }
+    else if (replaced) {
+      pushToast('success', '修复完成，正在重新统计…')
     }
     else {
-      await uploadCurrentDoc(snapshot.value.result as ScanDocResult, store.config, {
-        repairOnly: true,
-        includeTitleImage: true,
-        includeRemoteImages: true,
-        isCancelled: () => cancelRequested,
-        onProgress: applyPipelineProgress,
-      })
+      pushToast('info', '没有找到可修复的链接。')
     }
-
-    pushToast(cancelRequested ? 'info' : 'success', cancelRequested ? '已停止修复，已完成的部分已保留。' : '修复完成，正在重新统计…')
     updateStatusBar('修复完成')
     running.value = false
     progress.value = null
-    await sleep(600)
+    await sleep(replaced ? 200 : 150)
     await scanStats(target, true)
   }
   catch (error) {
@@ -897,6 +976,7 @@ async function uploadOne(ref: ImageRef): Promise<void> {
   updateStatusBar('正在上传图片…')
 
   let failed = false
+  let replaced = false
   try {
     const result = await uploadSingleRef(ref, store.config, {
       force: true,
@@ -905,12 +985,17 @@ async function uploadOne(ref: ImageRef): Promise<void> {
       isCancelled: () => cancelRequested,
       onProgress: applyPipelineProgress,
     })
+    applyPipelineResult(result)
     failed = result.upload.results.some((item) => !item.ok)
+    replaced = result.replace.replacedUrls.length > 0
     if (failed) {
       pushToast('error', ref.sourceType === 'remote' ? '图片加载失败，可能已失效。' : '上传失败，请查看日志。')
     }
-    else {
+    else if (replaced) {
       pushToast('success', '上传完成。')
+    }
+    else {
+      pushToast('info', '已上传到 S3，按设置未替换文档链接；可点击「修复S3链接」。')
     }
     updateStatusBar(failed ? '上传失败' : '上传完成')
   }
@@ -928,7 +1013,7 @@ async function uploadOne(ref: ImageRef): Promise<void> {
   }
 
   if (!failed) {
-    await sleep(600)
+    await sleep(replaced ? 200 : 150)
     await scanStats(scope.value, true)
   }
 }
@@ -967,6 +1052,88 @@ async function ensureStatsReady(): Promise<boolean> {
   pushToast('error', `配置不完整：${message}`)
   uiState.activeTab = 'settings'
   return false
+}
+
+/**
+ * 把任务结果先写回当前快照：SQL 索引未更新前也能立刻看到正确状态。
+ */
+function applyPipelineResult(result: PipelineResult): void {
+  const current = snapshot.value
+  if (current) {
+    applyPipelineOutcome(current, result, store.config, {
+      replacedUrls: result.replace.replacedUrls,
+    })
+  }
+
+  const replacedUrls = new Set(result.replace.replacedUrls)
+  const expectedPendingUrls = new Set<string>()
+  const affectedDocIds = new Set<string>()
+  result.upload.results.forEach((item) => {
+    if (!item.ok || !item.url || item.skipped) {
+      return
+    }
+    affectedDocIds.add(item.ref.docId)
+    if (item.ref.sourceType === 's3') {
+      return
+    }
+    if (!replacedUrls.has(item.ref.url)) {
+      expectedPendingUrls.add(item.ref.url)
+    }
+  })
+
+  if (replacedUrls.size === 0 && expectedPendingUrls.size === 0) {
+    return
+  }
+  staleGuard = { replacedUrls, expectedPendingUrls, affectedDocIds, createdAt: Date.now() }
+}
+
+function isScanStale(next: StatsSnapshot): boolean {
+  const guard = staleGuard
+  if (!guard) {
+    return false
+  }
+  if (Date.now() - guard.createdAt > STALE_GUARD_TTL_MS) {
+    staleGuard = null
+    return false
+  }
+
+  const refs = next.result.uniqueRefs
+  if (refs.some((ref) => (
+    guard.affectedDocIds.has(ref.docId)
+    && ref.sourceType !== 's3'
+    && guard.replacedUrls.has(ref.url)
+  ))) {
+    return true
+  }
+
+  if (guard.expectedPendingUrls.size === 0) {
+    return false
+  }
+  return refs.some((ref) => (
+    guard.affectedDocIds.has(ref.docId)
+    && guard.expectedPendingUrls.has(ref.url)
+    && !isSnapshotUploadedButNotReplaced(next, ref)
+  ))
+}
+
+function scheduleStaleRetry(target: StatsScope): void {
+  if (staleRetryTimer) {
+    return
+  }
+  staleRetryTimer = window.setTimeout(() => {
+    staleRetryTimer = undefined
+    if (!running.value && uiState.popupVisible && uiState.activeTab === 'stats') {
+      void scanStats(target, true)
+    }
+  }, STALE_RETRY_DELAY_MS)
+}
+
+function clearStaleGuard(): void {
+  staleGuard = null
+  if (staleRetryTimer) {
+    window.clearTimeout(staleRetryTimer)
+    staleRetryTimer = undefined
+  }
 }
 
 function applyPipelineProgress(value: PipelineProgress): void {

@@ -176,7 +176,7 @@ async function uploadOne(ref: ImageRef, context: UploadOneContext): Promise<Uplo
     ? findFileMapEntry(fileMap, ref.url)
     : undefined
 
-  if (existing?.isLocal === false && existing.url) {
+  if (existing?.url && /^https?:\/\//i.test(existing.url)) {
     const key = ref.sourceType === 's3' ? ref.s3Key : matchS3Key(existing.url, config.s3)
     return {
       ref,

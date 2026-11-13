@@ -2,6 +2,7 @@ import type { PigoConfig } from '../config'
 import { logInfo, logWarn } from '../log.ts'
 import { scanAll, scanDoc } from '../scan/scanner.ts'
 import type { ImageRef, ImageSourceType, ScanAllResult, ScanDocResult } from '../scan/types'
+import { shouldReplaceLinks } from './policy.ts'
 import { applyUploadResults, type ReplaceResult } from './replacer.ts'
 import { selectRefs } from './select.ts'
 import { uploadRefs } from './uploader.ts'
@@ -141,7 +142,8 @@ async function execute(
   })
 
   const replace = await applyUploadResults(scan.refs, upload.results, {
-    replace: options.replaceLink ?? config.behavior.replaceLink,
+    // 「修复链接」必须真正替换链接，不能沿用「上传后替换」开关。
+    replace: shouldReplaceLinks(config, options),
     isCancelled: options.isCancelled,
     onProgress: (progress) => {
       report({

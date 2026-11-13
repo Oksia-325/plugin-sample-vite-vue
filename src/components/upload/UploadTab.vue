@@ -937,6 +937,7 @@ async function handleRepair(): Promise<void> {
 
   await runPipeline('repair', () => uploadCurrentDoc(currentScan, store.config, {
     repairOnly: true,
+    replaceLink: true,
     includeTitleImage: true,
     includeRemoteImages: true,
     onProgress: (value) => {
@@ -961,13 +962,11 @@ async function runPipeline(kind: string, task: () => Promise<PipelineResult>): P
     await ensureConfigLoaded(props.plugin)
     const result = await task()
     outcome = result
-    replaced = result.replace.replacedBlocks + result.replace.replacedTitleImages
-    replacedUrls = result.upload.results
-      .filter((item) => item.ok && item.url && !item.skipped)
-      .map((item) => item.ref.url)
+    replaced = result.replace.replacedUrls.length
+    replacedUrls = result.replace.replacedUrls
     if (replaced > 0) {
       markPendingRemovals(replacedUrls)
-      applyOptimisticUpload(result)
+      applyOptimisticUpload(result, replacedUrls)
       logInfo(`已乐观更新 ${replacedUrls.length} 张图片为 S3，等待索引确认`)
     }
     const failed = result.upload.failed + result.replace.errors.length
@@ -1008,15 +1007,16 @@ async function runPipeline(kind: string, task: () => Promise<PipelineResult>): P
  * 乐观更新：上传成功且已替换链接时，先把本地 ref 直接改成 S3，
  * 避免思源 SQL 索引延迟导致页面停在 50%。
  */
-function applyOptimisticUpload(result: PipelineResult): void {
+function applyOptimisticUpload(result: PipelineResult, replacedUrls: string[]): void {
   const scan = scanResult.value
   if (!scan) {
     return
   }
 
+  const replaced = new Set(replacedUrls)
   const urlMap = new Map<string, string>()
   result.upload.results.forEach((item) => {
-    if (item.ok && item.url && !item.skipped) {
+    if (item.ok && item.url && !item.skipped && replaced.has(item.ref.url)) {
       urlMap.set(item.ref.normalizedUrl, item.url)
       if (item.ref.sourceType === 'local' && item.ref.assetPath && !localPreviewByUrl.has(item.url)) {
         localPreviewByUrl.set(item.url, encodeURI(`/${item.ref.assetPath}`))

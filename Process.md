@@ -1582,3 +1582,53 @@
 - 版本：`plugin.json` / `package.json` → `0.2.2`；CHANGELOG / README 状态同步更新。
 - 构建：`vite build` 成功，`package.zip` 重新生成；工作区插件目录已覆盖为 0.2.2，配置与 fileMap 不变。
 
+
+---
+
+## 2026-11-13 修复：统计页上传后无法立即修复 / 修复不生效
+
+### 现象
+
+1. 统计页全库扫描后上传单张本地图片，「修复全库S3链接」不能立即点击；
+   手动重新扫描后才变为可点击。
+2. 点击修复后提示完成，但图片仍显示为本地 / 「已上传未替换」；
+   同步页也扫描不出孤立 S3 对象。
+3. 期望：统计页上传单张或全部图片后立即可修复；修复成功后状态变为 S3、
+   待修复数归零、修复按钮重新禁用。
+
+### 根因
+
+1. **修复任务沿用了「上传后替换文档链接」开关**：
+   `pipeline.execute()` 使用 `options.replaceLink ?? config.behavior.replaceLink`，
+   而统计页 / 上传页的「修复S3链接」都没有传 `replaceLink`。
+   当设置里关闭该开关时，修复只复用 fileMap、不替换任何链接，因此必然“修复失败”。
+   同步页通过 IAL 里的 fileMap 保护对象，所以看不到孤立对象，符合该根因。
+2. **思源 SQL 索引有短暂延迟**：`setBlockAttrs` / `updateBlock` 之后立刻重扫，
+   `blocks.ial` / `blocks.markdown` 可能仍是旧值，导致「已上传未替换」暂时为 0，
+   修复按钮禁用；修复后的自动刷新也可能闪回本地状态。上传页已有类似的守卫，
+   统计页没有。
+
+### 修复
+
+- 新增 `src/core/upload/policy.ts`：`shouldReplaceLinks()` 规定 `repairOnly` 必须替换链接；
+  `pipeline.execute()` 统一使用它，统计页与上传页的修复入口也显式传 `replaceLink: true`。
+- `replacer.ts` 的 `ReplaceResult` 新增 `replacedUrls`，精确记录本次真正替换掉的旧 URL。
+- 新增 `src/core/stats/optimistic.ts`：把上传 / 修复结果合并进统计快照：
+  - 已替换：对应引用立即变为 S3；
+  - 未替换：新的 fileMap 记录并入快照，「已上传未替换」立即增加；
+  - 仅在受影响文档内更新，避免同一图片被多个文档引用时误改其它文档。
+- `StatsTab.vue`：
+  - 上传、修复、单图上传完成后先乐观更新快照，按钮状态立即正确；
+  - 新增 SQL 索引守卫：重扫结果仍包含旧链接或缺少 fileMap 记录时自动重试（10 次 × 300ms），
+    仍不一致则保留乐观结果并延迟重试，绝不把旧数据提交到界面；
+  - 切回统计页时若有未确认的守卫会再补一次扫描。
+- `uploader.ts`：修复模式复用 fileMap 记录时只要求 `url` 是 http(s)，
+  与统计页 `isUploadedButNotReplaced` 的判定保持一致。
+- `UploadTab.vue`：乐观更新与待删除守卫改用 `replacedUrls`，避免把替换失败的图片误标为 S3。
+
+### 验证
+
+- `node --experimental-strip-types --test tests/*.test.mjs` —— ✅ **100 passed**
+  （新增 `tests/repair.test.mjs`：修复强制替换、乐观更新、跨文档不误改）
+- `node_modules/.bin/tsc --noEmit -p tsconfig.json` —— ✅ 无类型错误
+- `vite build` —— ✅ 构建成功，`dist` 与 `package.zip` 已重新生成

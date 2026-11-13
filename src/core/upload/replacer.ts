@@ -21,6 +21,8 @@ export interface ReplaceResult {
   replacedTitleImages: number
   fileMapEntries: number
   notReplaced: number
+  /** 本次确实被替换的旧图片 URL（用于界面乐观更新）。 */
+  replacedUrls: string[]
   errors: string[]
   cancelled: boolean
 }
@@ -72,11 +74,13 @@ export async function applyUploadResults(
   })
 
   const docIds = [...refsByDoc.keys()]
+  const replacedUrlSet = new Set<string>()
   const result: ReplaceResult = {
     replacedBlocks: 0,
     replacedTitleImages: 0,
     fileMapEntries: 0,
     notReplaced: 0,
+    replacedUrls: [],
     errors: [],
     cancelled: false,
   }
@@ -130,7 +134,7 @@ export async function applyUploadResults(
       refsByBlock.set(ref.blockId, refs)
     })
 
-    const pendingUpdates: Array<{ id: string; dataType: 'markdown'; data: string; refCount: number }> = []
+    const pendingUpdates: Array<{ id: string; dataType: 'markdown'; data: string; refCount: number; urls: string[] }> = []
     // 一次 SQL 取回所有待替换块的 markdown，避免逐块 getBlockByID。
     let markdownByBlock: Record<string, string> | null = null
     try {
@@ -170,7 +174,15 @@ export async function applyUploadResults(
           continue
         }
 
-        pendingUpdates.push({ id: blockId, dataType: 'markdown', data: newMarkdown, refCount: blockRefs.length })
+        pendingUpdates.push({
+          id: blockId,
+          dataType: 'markdown',
+          data: newMarkdown,
+          refCount: blockRefs.length,
+          urls: blockRefs
+            .map((ref) => ref.url)
+            .filter((url) => replacements.has(url)),
+        })
       }
       catch (error) {
         result.notReplaced += blockRefs.length
@@ -179,7 +191,9 @@ export async function applyUploadResults(
     }
 
     if (pendingUpdates.length > 0 && !result.cancelled) {
-      await applyBlockUpdates(pendingUpdates, result)
+      await applyBlockUpdates(pendingUpdates, result, (urls) => {
+        urls.forEach((url) => replacedUrlSet.add(url))
+      })
     }
 
     const titleRef = docRefs.find((ref) => ref.kind === 'title' && urlByNormalized.has(ref.normalizedUrl))
@@ -200,6 +214,7 @@ export async function applyUploadResults(
           else {
             await setBlockAttrs(docId, { 'title-img': newTitleImg })
             result.replacedTitleImages++
+            replacedUrlSet.add(titleRef.url)
           }
         }
       }
@@ -213,6 +228,7 @@ export async function applyUploadResults(
     report(docId)
   }
 
+  result.replacedUrls = [...replacedUrlSet]
   return result
 }
 
@@ -229,12 +245,14 @@ async function readBlockMarkdown(blockId: string): Promise<string | null> {
  * 优先一次性批量更新（一次事务）；失败时回退为逐块更新，保证部分成功。
  */
 async function applyBlockUpdates(
-  updates: Array<{ id: string; dataType: 'markdown'; data: string; refCount: number }>,
-  result: ReplaceResult
+  updates: Array<{ id: string; dataType: 'markdown'; data: string; refCount: number; urls: string[] }>,
+  result: ReplaceResult,
+  onReplaced: (urls: string[]) => void
 ): Promise<void> {
   try {
     await batchUpdateBlock(updates.map(({ id, dataType, data }) => ({ id, dataType, data })))
     result.replacedBlocks += updates.length
+    updates.forEach((item) => onReplaced(item.urls))
     return
   }
   catch (error) {
@@ -245,6 +263,7 @@ async function applyBlockUpdates(
     try {
       await updateBlock('markdown', item.data, item.id)
       result.replacedBlocks++
+      onReplaced(item.urls)
     }
     catch (error) {
       result.notReplaced += item.refCount
