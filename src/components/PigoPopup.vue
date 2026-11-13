@@ -20,10 +20,7 @@
             :aria-pressed="uiState.pinned"
             @click="togglePigoPinned"
           >
-            <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-              <path d="M829.31 607.6L548.07 234.1c-12.93-19.17-41.01-19.61-54.82-0.89L197.3 606.71c-16.05 22.28-0.45 53.49 27.19 53.49h139.06v173.38c0 26.3 21.39 48.14 48.14 48.14H612.7c26.29 0 48.13-21.39 48.13-48.14V660.2h140.4c27.19 0 43.24-30.31 28.08-52.6z"></path>
-              <path d="M226.72 218.06h570.5c20.95 0 37.89-16.94 37.89-37.88s-16.94-37.88-37.89-37.88h-570.5c-20.95 0-37.88 16.94-37.88 37.88s16.94 37.88 37.88 37.88z"></path>
-            </svg>
+            <PigoIcon name="pin" :size="14" />
           </button>
 
           <button
@@ -33,9 +30,7 @@
             aria-label="关闭"
             @click="hidePigoPopup(true)"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
+            <PigoIcon name="x" :size="14" :stroke-width="2.2" />
           </button>
         </template>
       </pigo-panel>
@@ -47,6 +42,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Plugin } from 'siyuan'
 import PigoPanel from '@/components/PigoPanel.vue'
+import PigoIcon from '@/components/ui/PigoIcon.vue'
 import {
   hidePigoPopup,
   setPigoPinned,

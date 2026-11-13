@@ -3,10 +3,7 @@
     <header class="pigo-panel__header" @pointerdown="onHeaderPointerDown">
       <div class="pigo-panel__brand">
         <span class="pigo-panel__logo" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M7 16a4 4 0 0 1-.88-7.903A5 5 0 1 1 15.9 6L16 6a5 5 0 0 1 1 9.9"></path>
-            <path d="M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-          </svg>
+          <PigoIcon name="cloud-upload" :size="15" :stroke-width="2.2" />
         </span>
         <span class="pigo-panel__title">Pigo 图床</span>
       </div>
@@ -64,6 +61,7 @@ import SettingsTab from '@/components/settings/SettingsTab.vue'
 import StatsTab from '@/components/stats/StatsTab.vue'
 import SyncTab from '@/components/sync/SyncTab.vue'
 import UploadTab from '@/components/upload/UploadTab.vue'
+import PigoIcon from '@/components/ui/PigoIcon.vue'
 import PigoToast from '@/components/ui/PigoToast.vue'
 import { ensureConfigLoaded } from '@/core/configStore'
 import { setPigoMode, uiState, type PigoTabId } from '@/core/uiStore'

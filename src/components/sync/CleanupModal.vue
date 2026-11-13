@@ -3,9 +3,7 @@
     <div class="pigo-cleanup">
       <header class="pigo-cleanup__head">
         <span class="pigo-cleanup__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-          </svg>
+          <PigoIcon name="alert" :size="18" />
         </span>
         <div class="pigo-cleanup__head-text">
           <div class="pigo-cleanup__head-row">
@@ -13,9 +11,7 @@
               确认彻底清除 S3 多余图片？
             </h2>
             <button class="pigo-cleanup__close" type="button" title="关闭" aria-label="关闭" @click="emit('close')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
+              <PigoIcon name="x" :size="14" />
             </button>
           </div>
           <p class="pigo-cleanup__warning">
@@ -68,6 +64,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import PigoButton from '@/components/ui/PigoButton.vue'
+import PigoIcon from '@/components/ui/PigoIcon.vue'
 import PigoModal from '@/components/ui/PigoModal.vue'
 
 withDefaults(defineProps<{

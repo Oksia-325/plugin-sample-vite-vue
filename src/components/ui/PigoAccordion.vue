@@ -15,18 +15,7 @@
       </span>
       <span class="pigo-accordion__spacer"></span>
       <span v-if="summary" class="pigo-accordion__summary">{{ summary }}</span>
-      <svg
-        class="pigo-accordion__chevron"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M19 9l-7 7-7-7"></path>
-      </svg>
+      <PigoIcon class="pigo-accordion__chevron" name="chevron-down" :size="14" />
     </button>
 
     <div v-show="open" class="pigo-accordion__body">
@@ -36,6 +25,8 @@
 </template>
 
 <script setup lang="ts">
+import PigoIcon from './PigoIcon.vue'
+
 withDefaults(defineProps<{
   title: string
   subtitle?: string

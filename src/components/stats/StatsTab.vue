@@ -13,10 +13,7 @@
             :disabled="running"
             @click="switchScope('doc')"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
+            <PigoIcon name="document" :size="13" />
             <span>当前文档</span>
           </button>
           <button
@@ -28,21 +25,13 @@
             :disabled="running"
             @click="switchScope('all')"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2" y="2" width="20" height="8" rx="2"></rect>
-              <rect x="2" y="14" width="20" height="8" rx="2"></rect>
-              <line x1="6" y1="6" x2="6.01" y2="6"></line>
-              <line x1="6" y1="18" x2="6.01" y2="18"></line>
-            </svg>
+            <PigoIcon name="server" :size="13" />
             <span>全库</span>
           </button>
         </div>
 
         <pigo-button variant="secondary" size="sm" :loading="running && progress?.phase === 'scanning'" :disabled="running" @click="scanStats(scope)">
-          <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-            <path d="M518.217143 432.64V73.142857A73.142857 73.142857 0 0 1 603.428571 1.097143 512 512 0 0 1 1022.902857 420.571429 73.142857 73.142857 0 0 1 950.857143 505.782857H591.36a73.142857 73.142857 0 0 1-73.142857-73.142857z"></path>
-            <path d="M493.714286 566.857143h340.297143a73.142857 73.142857 0 0 1 73.142857 85.577143A457.142857 457.142857 0 1 1 371.565714 117.76a73.142857 73.142857 0 0 1 85.577143 73.142857V530.285714a36.571429 36.571429 0 0 0 36.571429 36.571429z"></path>
-          </svg>
+          <PigoIcon name="scan" :size="13" />
           开始统计
         </pigo-button>
         <pigo-button v-if="running" variant="outline" size="sm" @click="cancel">
@@ -59,10 +48,7 @@
           :disabled="running || !snapshot || (stats?.uploadedButNotReplaced ?? 0) === 0"
           @click="handleRepair"
         >
-          <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-            <path d="M262.4 1017.6c-64 0-128-25.6-179.2-76.8-102.4-102.4-102.4-262.4 0-364.8l134.4-134.4 89.6 89.6-134.4 134.4c-51.2 51.2-51.2 128 0 179.2 51.2 51.2 128 51.2 179.2 0l179.2-179.2c25.6-25.6 38.4-57.6 38.4-89.6S556.8 512 537.6 486.4L467.2 422.4l89.6-89.6 70.4 70.4C672 448 697.6 512 697.6 582.4c0 70.4-25.6 134.4-76.8 179.2l-179.2 179.2C396.8 992 326.4 1017.6 262.4 1017.6z"></path>
-            <path d="M467.2 691.2 396.8 627.2c-102.4-102.4-102.4-262.4 0-364.8l179.2-179.2c102.4-102.4 262.4-102.4 364.8 0 102.4 102.4 102.4 262.4 0 364.8l-134.4 134.4-89.6-89.6 134.4-134.4c51.2-51.2 51.2-128 0-179.2-51.2-51.2-134.4-51.2-179.2 0L486.4 352c-51.2 51.2-51.2 128 0 179.2l70.4 70.4L467.2 691.2z"></path>
-          </svg>
+          <PigoIcon name="link" :size="13" />
           {{ scope === 'all' ? '修复全库S3链接' : '修复S3链接' }}
         </pigo-button>
 
@@ -72,11 +58,7 @@
           :disabled="running || !snapshot || (stats?.local ?? 0) === 0"
           @click="handleUploadUnuploaded"
         >
-          <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-            <path d="M469.333333 682.666667V42.666667c0-23.466667 19.2-42.666667 42.666667-42.666667s42.666667 19.2 42.666667 42.666667v640c0 23.466667-19.2 42.666667-42.666667 42.666666s-42.666667-19.2-42.666667-42.666666"></path>
-            <path d="M226.210133 268.0576L481.826133 12.433067a42.7776 42.7776 0 0 1 60.330667 0c16.597333 16.597333 16.597333 43.776 0 60.330666L286.5408 328.388267a42.7776 42.7776 0 0 1-60.330667 0 42.7776 42.7776 0 0 1 0-60.330667"></path>
-            <path d="M542.0544 12.4416l255.616 255.616a42.7776 42.7776 0 0 1 0 60.330667c-16.597333 16.605867-43.776 16.605867-60.330667 0L481.723733 72.789333a42.7776 42.7776 0 0 1 0-60.330666 42.7776 42.7776 0 0 1 60.330667 0M896 1024H128c-70.570667 0-128-57.429333-128-128V640c0-23.594667 19.072-42.666667 42.666667-42.666667s42.666667 19.072 42.666666 42.666667v256c0 23.552 19.114667 42.666667 42.666667 42.666667h768c23.552 0 42.666667-19.114667 42.666667-42.666667V640c0-23.594667 19.072-42.666667 42.666666-42.666667s42.666667 19.072 42.666667 42.666667v256c0 70.570667-57.429333 128-128 128"></path>
-          </svg>
+          <PigoIcon name="upload" :size="13" />
           {{ scope === 'all' ? '上传全库本地图片' : '上传本地图片' }}
         </pigo-button>
 
@@ -89,11 +71,7 @@
           aria-label="导出 CSV 报表"
           @click="exportCsv"
         >
-          <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-            <path d="M738.8751591 953.16515795H148.53109306c-78.24915548 0-141.88583414-63.63667862-141.88583413-141.85950529V220.93525777c0-78.22282671 63.63667862-141.85950533 141.88583413-141.85950532h397.67000147c21.19467369 0 38.38737172 17.19269802 38.38737171 38.38737171s-17.19269802 38.38737172-38.38737171 38.38737171H148.53109306c-35.88613695 0-65.08476193 29.19862498-65.08476195 65.0847619v590.37039489c0 35.88613695 29.19862498 65.08476193 65.08476195 65.08476189h590.34406604c35.88613695 0 65.08476193-29.19862498 65.08476191-65.08476189V504.12769263c0-21.22100244 17.19269802-38.38737172 38.38737169-38.38737169s38.38737172 17.19269802 38.38737172 38.38737169v307.1516312c0.02632879 78.24915548-63.61034981 141.88583414-141.85950532 141.88583412z"></path>
-            <path d="M368.56076748 782.15968523c-21.19467369 0-38.38737172-17.19269802-38.38737173-38.38737173v-49.55077743c0-238.30185277 193.85885998-432.16071271 432.13438396-432.16071275h209.78777623c21.19467369 0 38.38737172 17.19269802 38.38737169 38.38737171s-17.19269802 38.38737172-38.38737169 38.38737169h-209.78777623c-195.93883415 0-355.35964055 159.42080636-355.35964053 355.35964054v49.55077748c0 21.24733122-17.19269802 38.41370053-38.3873717 38.41370049z"></path>
-            <path d="M979.44128756 334.59663196c-9.05710281 0-18.14053437-3.18578325-25.43360843-9.66266485l-207.78678839-184.30151024c-15.87625868-14.05957233-17.32434196-38.33471417-3.23844084-54.184644 14.05957233-15.84992988 38.33471417-17.32434196 54.18464401-3.23844085l207.7867884 184.30151025c15.87625868 14.05957233 17.32434196 38.33471417 3.23844084 54.184644-7.55636192 8.53052707-18.14053437 12.9011057-28.75103559 12.90110569z"></path>
-          </svg>
+          <PigoIcon name="document-download" :size="13" />
         </pigo-button>
       </div>
 
@@ -166,9 +144,7 @@
         </pigo-chip>
       </div>
       <label class="pigo-stats__search">
-        <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-          <path d="M974.848 975.872c-24.064 24.064-60.416 24.064-84.48 0L702.976 788.48c-163.328 120.832-387.072 114.688-538.112-24.064-169.472-157.184-181.248-435.2-17.92-604.16s435.2-175.104 604.672-6.144c151.04 151.04 163.328 386.56 36.352 549.888l187.392 187.392c24.064 24.064 24.064 59.904-0.512 84.48zM690.688 274.944c-120.832-168.96-368.64-168.96-489.984 0-78.848 102.912-78.848 253.952 0 356.352 120.832 168.96 368.64 168.96 489.984 0 78.848-108.544 78.848-253.952 0-356.352z"></path>
-        </svg>
+        <PigoIcon name="search" :size="13" />
         <input
           v-model="searchText"
           class="pigo-input pigo-stats__search-input"
@@ -211,11 +187,7 @@
                 @error="markPreviewError(ref.id)"
               >
               <span v-else class="pigo-stats__thumb-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                  <polyline points="21 15 16 10 5 21"></polyline>
-                </svg>
+                <PigoIcon name="image" :size="20" :stroke-width="1.5" />
               </span>
               <span v-if="extOf(ref) || sizeOf(ref)" class="pigo-stats__badge-strip">
                 <span v-if="sizeOf(ref)" class="pigo-stats__badge-cell">{{ formatSizeBadge(sizeOf(ref)) }}</span>
@@ -333,6 +305,7 @@ import type { Plugin } from 'siyuan'
 import PigoButton from '@/components/ui/PigoButton.vue'
 import PigoChip from '@/components/ui/PigoChip.vue'
 import PigoHealthDot from '@/components/ui/PigoHealthDot.vue'
+import PigoIcon from '@/components/ui/PigoIcon.vue'
 import PigoImagePreview from '@/components/ui/PigoImagePreview.vue'
 import PigoPagination from '@/components/ui/PigoPagination.vue'
 import { getActiveDocId, subscribeActiveDoc } from '@/core/activeDoc'

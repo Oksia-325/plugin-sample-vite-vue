@@ -14,11 +14,7 @@
             @click="toggleBehavior('autoUploadOnPaste', !store.config.behavior.autoUploadOnPaste)"
           >
             <span class="pigo-quick__icon" aria-hidden="true">
-<svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-                <path d="M469.333333 682.666667V42.666667c0-23.466667 19.2-42.666667 42.666667-42.666667s42.666667 19.2 42.666667 42.666667v640c0 23.466667-19.2 42.666667-42.666667 42.666666s-42.666667-19.2-42.666667-42.666666"></path>
-                <path d="M226.210133 268.0576L481.826133 12.433067a42.7776 42.7776 0 0 1 60.330667 0c16.597333 16.597333 16.597333 43.776 0 60.330666L286.5408 328.388267a42.7776 42.7776 0 0 1-60.330667 0 42.7776 42.7776 0 0 1 0-60.330667"></path>
-                <path d="M542.0544 12.4416l255.616 255.616a42.7776 42.7776 0 0 1 0 60.330667c-16.597333 16.605867-43.776 16.605867-60.330667 0L481.723733 72.789333a42.7776 42.7776 0 0 1 0-60.330666 42.7776 42.7776 0 0 1 60.330667 0M896 1024H128c-70.570667 0-128-57.429333-128-128V640c0-23.594667 19.072-42.666667 42.666667-42.666667s42.666667 19.072 42.666666 42.666667v256c0 23.552 19.114667 42.666667 42.666667 42.666667h768c23.552 0 42.666667-19.114667 42.666667-42.666667V640c0-23.594667 19.072-42.666667 42.666666-42.666667s42.666667 19.072 42.666667 42.666667v256c0 70.570667-57.429333 128-128 128"></path>
-              </svg>
+              <PigoIcon name="upload" :size="16" />
             </span>
             <span class="pigo-quick__body">
               <span class="pigo-quick__title">
@@ -43,10 +39,7 @@
             @click="toggleBehavior('replaceLink', !store.config.behavior.replaceLink)"
           >
             <span class="pigo-quick__icon" aria-hidden="true">
-<svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-                <path d="M262.4 1017.6c-64 0-128-25.6-179.2-76.8-102.4-102.4-102.4-262.4 0-364.8l134.4-134.4 89.6 89.6-134.4 134.4c-51.2 51.2-51.2 128 0 179.2 51.2 51.2 128 51.2 179.2 0l179.2-179.2c25.6-25.6 38.4-57.6 38.4-89.6S556.8 512 537.6 486.4L467.2 422.4l89.6-89.6 70.4 70.4C672 448 697.6 512 697.6 582.4c0 70.4-25.6 134.4-76.8 179.2l-179.2 179.2C396.8 992 326.4 1017.6 262.4 1017.6z"></path>
-                <path d="M467.2 691.2 396.8 627.2c-102.4-102.4-102.4-262.4 0-364.8l179.2-179.2c102.4-102.4 262.4-102.4 364.8 0 102.4 102.4 102.4 262.4 0 364.8l-134.4 134.4-89.6-89.6 134.4-134.4c51.2-51.2 51.2-128 0-179.2-51.2-51.2-134.4-51.2-179.2 0L486.4 352c-51.2 51.2-51.2 128 0 179.2l70.4 70.4L467.2 691.2z"></path>
-              </svg>
+              <PigoIcon name="link" :size="16" />
             </span>
             <span class="pigo-quick__body">
               <span class="pigo-quick__title">
@@ -74,10 +67,7 @@
           :summary="storageLabel"
         >
           <template #icon>
-<svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-              <path d="M362.666667 405.333333h298.666666c12.8 0 21.333333-8.533333 21.333334-21.333333V106.666667H341.333333v277.333333c0 12.8 8.533333 21.333333 21.333334 21.333333z m192-202.666666c0-17.066667 14.933333-32 32-32s32 14.933333 32 32v106.666666c0 17.066667-14.933333 32-32 32s-32-14.933333-32-32v-106.666666z"></path>
-              <path d="M832 106.666667h-85.333333v277.333333c0 46.933333-38.4 85.333333-85.333334 85.333333H362.666667c-46.933333 0-85.333333-38.4-85.333334-85.333333V106.666667H192C145.066667 106.666667 106.666667 145.066667 106.666667 192v640c0 46.933333 38.4 85.333333 85.333333 85.333333h640c46.933333 0 85.333333-38.4 85.333333-85.333333V192c0-46.933333-38.4-85.333333-85.333333-85.333333z m-32 682.666666h-576c-17.066667 0-32-14.933333-32-32s14.933333-32 32-32h576c17.066667 0 32 14.933333 32 32s-14.933333 32-32 32z"></path>
-            </svg>
+            <PigoIcon name="database" :size="14" />
           </template>
 
           <div class="pigo-settings__hint-box">
@@ -276,7 +266,9 @@
 
             <ul class="pigo-test-result__steps">
               <li v-for="step in testResult.steps" :key="step.name" class="pigo-test-result__step">
-                <span class="pigo-test-result__icon">{{ step.ok ? '✅' : '❌' }}</span>
+                <span class="pigo-test-result__icon" :class="step.ok ? 'is-ok' : 'is-error'">
+                  <PigoIcon :name="step.ok ? 'check-circle' : 'x-circle'" :size="12" />
+                </span>
                 <span class="pigo-test-result__name">{{ step.name }}</span>
                 <span class="pigo-test-result__message">{{ step.message }}</span>
                 <span v-if="step.durationMs !== undefined" class="pigo-test-result__duration">{{ step.durationMs }}ms</span>
@@ -284,10 +276,12 @@
             </ul>
 
             <div v-for="warning in testResult.warnings" :key="warning" class="pigo-test-result__warning">
-              ⚠️ {{ warning }}
+              <PigoIcon name="alert" :size="12" />
+              <span>{{ warning }}</span>
             </div>
             <div v-for="error in testResult.errors" :key="error" class="pigo-test-result__error">
-              ❌ {{ error }}
+              <PigoIcon name="x-circle" :size="12" />
+              <span>{{ error }}</span>
             </div>
           </div>
         </pigo-accordion>
@@ -299,9 +293,7 @@
           :summary="behaviorSummary"
         >
           <template #icon>
-            <svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-              <path d="M866.88024688 556.59682438c1.98241406-15.27564469 3.26498719-30.55035187 3.26498718-46.87435219 0-16.20782906-1.51585313-31.48347281-3.26498719-46.87435219l100.74523969-78.82344937c9.09512156-7.11364406 11.54409655-20.056485 5.71396219-30.55128844l-95.49783844-165.22616625c-5.71396219-10.49292938-18.65680311-14.34158625-29.15067-10.49292938l-118.93548281 47.80653657c-24.83638969-19.1224275-51.65519344-34.86369562-80.68875469-46.87435219L630.87646062 52.05554844C629.36154313 40.51238937 619.44947281 32 607.43975281 32H416.32696719c-11.89354875 0-21.92272781 8.62856063-23.43764438 20.05554844l-18.19024312 126.6309225c-29.15067001 11.89354875-55.852365 28.21848562-80.68875469 46.87435219l-118.93548281-47.80747312c-11.07659906-4.31428031-23.43670781 0-29.15067 10.49480343L50.42727031 353.47431875c-6.29575781 10.49386688-3.26405062 23.43670781 5.71396219 30.55035187l100.74524063 78.82344938c-1.98241406 15.27470719-3.26498719 31.01597531-3.26498719 46.87435219 0 15.85743937 1.51585313 31.48253625 3.26498719 46.87435218L56.02506125 635.42027375C46.92900313 642.53298031 44.48096469 655.47582219 50.31109906 665.96968813l95.49783844 165.22616625c5.71302562 10.49480345 18.65680311 14.34252281 29.15067 10.49480343l118.93548281-47.80841062c24.83638969 19.12336406 51.65425687 34.86556875 80.68875469 46.87528968l18.18930562 126.6309225c1.51585313 11.42698781 11.42792437 20.05554844 23.43764438 20.05554844h191.11184906c11.89354875 0 21.92179125-8.62856063 23.43764438-20.05554844l18.18930562-126.6309225c29.15067001-11.89354875 55.85330156-28.21848562 80.68969219-46.87435312l118.93548281 47.80747406c11.07659906 4.31428031 23.43670781 0 29.14973344-10.49480344L973.22234 665.96968813c5.71396219-10.49386688 3.26498719-23.43670781-5.71302469-30.54941438l-100.62906843-78.82344937zM511.94191437 677.04722375c-92.23285125 0-167.20858031-74.97572906-167.20858031-167.2085803s74.97572906-167.20858031 167.20858032-167.20857939S679.15049469 417.60579312 679.15049469 509.83864343s-74.97572906 167.20858031-167.20858032 167.20858032z m0 0"></path>
-            </svg>
+            <PigoIcon name="adjustments" :size="14" />
           </template>
 
           <div class="pigo-settings__option">
@@ -379,9 +371,7 @@
           :summary="`共 ${logState.entries.length} 条`"
         >
           <template #icon>
-<svg viewBox="0 0 1024 1024" fill="currentColor" aria-hidden="true">
-              <path d="M853.333333 768a42.666667 42.666667 0 0 1 0 85.333333h-341.333333a42.666667 42.666667 0 0 1 0-85.333333h341.333333zM200.832 183.168L426.666667 409.002667l30.165333 30.165333a42.666667 42.666667 0 0 1 0 60.330667l-14.634667 14.634666-241.365333 241.365334a42.666667 42.666667 0 1 1-60.330667-60.330667l225.792-225.877333-225.792-225.792a42.666667 42.666667 0 0 1 60.330667-60.330667z"></path>
-            </svg>
+            <PigoIcon name="terminal" :size="14" />
           </template>
 
           <div class="pigo-logs__toolbar">
@@ -459,6 +449,7 @@ import PigoAccordion from '@/components/ui/PigoAccordion.vue'
 import PigoButton from '@/components/ui/PigoButton.vue'
 import PigoChip from '@/components/ui/PigoChip.vue'
 import PigoField from '@/components/ui/PigoField.vue'
+import PigoIcon from '@/components/ui/PigoIcon.vue'
 import PigoSwitch from '@/components/ui/PigoSwitch.vue'
 
 const props = defineProps<{
@@ -987,10 +978,25 @@ function formatTime(time: number): string {
 
 .pigo-test-result__step {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 6px;
   padding: 3px 0;
   border-bottom: 1px dashed var(--pigo-border);
+}
+
+.pigo-test-result__icon {
+  display: inline-flex;
+  flex: 0 0 12px;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.pigo-test-result__icon.is-ok {
+  color: var(--pigo-emerald);
+}
+
+.pigo-test-result__icon.is-error {
+  color: var(--pigo-rose);
 }
 
 .pigo-test-result__step:last-child {
@@ -1015,16 +1021,32 @@ function formatTime(time: number): string {
 }
 
 .pigo-test-result__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
   margin-top: 4px;
   color: var(--pigo-amber);
   line-height: 1.6;
 }
 
+.pigo-test-result__warning svg {
+  margin-top: 2px;
+  flex: 0 0 12px;
+}
+
 .pigo-test-result__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
   margin-top: 4px;
   color: var(--pigo-rose);
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+
+.pigo-test-result__error svg {
+  margin-top: 2px;
+  flex: 0 0 12px;
 }
 
 /* ---------- 页脚 ---------- */
